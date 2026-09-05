@@ -1,0 +1,13 @@
+[build]
+  publish = "."
+  command = "npm run check"
+
+[[headers]]
+  for = "/data/*"
+  [headers.values]
+    Cache-Control = "public, max-age=3600"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

@@ -1,0 +1,13 @@
+{
+  "name": "eduskunta-vahti",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node server.mjs",
+    "sync": "node scripts/sync-data.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "validate-data": "node scripts/validate-data.mjs",
+    "check": "node --check app.js && node --check scripts/sync-data.mjs && node --test tests/*.test.mjs && node scripts/validate-data.mjs"
+  }
+}
