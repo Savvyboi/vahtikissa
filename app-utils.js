@@ -16,6 +16,19 @@ export function routeFromHash(hash) {
   return { page: parts[0] || 'overview', id: parts[1] ? decodeURIComponent(parts.slice(1).join('/')) : null };
 }
 
+export function hydrateBallots(ballots, members) {
+  const membersById = new Map(members.map(member => [String(member.id), member]));
+  return ballots.map(ballot => {
+    const record = Array.isArray(ballot)
+      ? { voteId: ballot[0], mpId: ballot[1], party: ballot[2], choice: ballot[3] }
+      : { ...ballot };
+    const member = membersById.get(String(record.mpId));
+    return member
+      ? { ...record, firstName: member.firstName || '', lastName: member.lastName || '' }
+      : { ...record, firstName: record.firstName || '', lastName: record.lastName || '', id: record.id || record.mpId };
+  });
+}
+
 export function formatDate(value, locale = 'fi-FI') {
   if (!value) return '—';
   const date = new Date(String(value).replace(' ', 'T'));
