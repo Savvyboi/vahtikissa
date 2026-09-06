@@ -29,6 +29,24 @@ export function hydrateBallots(ballots, members) {
   });
 }
 
+export function pageSlice(items, page = 1, pageSize = 25) {
+  const safePage = Math.max(1, Number(page) || 1);
+  return items.slice((safePage - 1) * pageSize, safePage * pageSize);
+}
+
+export function localized(value, lang = 'fi') {
+  if (!value || typeof value !== 'object') return value || '';
+  return value[lang] || value.fi || value.sv || '';
+}
+
+export function choiceLabel(choice, lang = 'fi') {
+  const labels = {
+    fi: { yes: 'jaa', no: 'ei', abstain: 'tyhjää', absent: 'poissa', other: 'muu' },
+    sv: { yes: 'ja', no: 'nej', abstain: 'blankt', absent: 'frånvarande', other: 'övrigt' }
+  };
+  return labels[lang]?.[choice] || labels.fi[choice] || String(choice || '');
+}
+
 export function formatDate(value, locale = 'fi-FI') {
   if (!value) return '—';
   const date = new Date(String(value).replace(' ', 'T'));

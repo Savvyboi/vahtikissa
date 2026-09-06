@@ -68,17 +68,20 @@ function normalizeVoteRecord(wrapper) {
     return { voteId: row.id, mpId: clean(event.henkilonumero), firstName: clean(event.etunimi), lastName: clean(event.sukunimi), party: normalizeParty(fi(event.edkryhmalyhenne)), choice };
   });
   const title = clean(fi(row.kohta?.otsikko) || fi(row.aanestysotsikko));
+  const titleSv = clean(row.kohta?.otsikko?.sv || row.aanestysotsikko?.sv);
   const question = clean(fi(row.aanestysotsikko));
+  const questionSv = clean(row.aanestysotsikko?.sv);
   const document = clean(fi(row.kohta?.asiakirjat?.paaasiakirjaEduskuntatunnus));
+  const documentSv = clean(row.kohta?.asiakirjat?.paaasiakirjaEduskuntatunnus?.sv);
   const date = iso(row.aanestysalkuaika || row.istuntopvm);
   return {
     vote: {
       id: clean(row.id), number: clean(row.aanestysnumero), sessionNumber: clean(row.istuntonumero), year: clean(row.istuntovpvuosi),
-      date, startsAt: iso(row.aanestysalkuaika), title, question, detail: clean(fi(row.aanestyslisaotsikko)),
-      stage: clean(fi(row.kohta?.kasittelyvaihenimi) || fi(row.kohta?.kasittelyotsikkonimi)),
+      date, startsAt: iso(row.aanestysalkuaika), title, titleSv, question, questionSv, detail: clean(fi(row.aanestyslisaotsikko)), detailSv: clean(row.aanestyslisaotsikko?.sv),
+      stage: clean(fi(row.kohta?.kasittelyvaihenimi) || fi(row.kohta?.kasittelyotsikkonimi)), stageSv: clean(row.kohta?.kasittelyvaihenimi?.sv || row.kohta?.kasittelyotsikkonimi?.sv),
       yes: Number(totals.jaa ?? counts.yes), no: Number(totals.ei ?? counts.no), abstain: Number(totals.tyhjia ?? counts.abstain), absent: Number(totals.poissa ?? counts.absent), total: events.length,
-      document, documentUrl: document ? `https://www.eduskunta.fi/FI/vaski/KasittelytiedotValtiopaivaasia/Sivut/${encodeURIComponent(document)}.aspx` : '',
-      minutes: clean(fi(row.paivajarjestyksenotsikko)), minutesUrl: '', resultUrl: `https://api.eduskunta.fi/api/v1/taysistunnot/aanestykset/${encodeURIComponent(row.id)}`,
+      document, documentSv, documentUrl: document ? `https://www.eduskunta.fi/FI/vaski/KasittelytiedotValtiopaivaasia/Sivut/${encodeURIComponent(document)}.aspx` : '',
+      minutes: clean(fi(row.paivajarjestyksenotsikko)), minutesSv: clean(row.paivajarjestyksenotsikko?.sv), minutesUrl: '', resultUrl: `https://api.eduskunta.fi/api/v1/taysistunnot/aanestykset/${encodeURIComponent(row.id)}`,
       isAmendment: /ehdotus|vastalause|lausuma/i.test(`${title} ${question}`)
     }, ballots
   };
@@ -90,7 +93,7 @@ function normalizeSpeech(wrapper) {
     id: clean(row.id), mpId: clean(row.puhuja?.henkilonro), firstName: clean(row.puhuja?.etunimi), lastName: clean(row.puhuja?.sukunimi),
     party: normalizeParty(row.puhuja?.lisatieto || clean(row.puhuja?.eduskuntaryhma_tunnus).split('~')[0].replace(/\d+$/, '')),
     date: iso(row.aloitushetki), session: `${row.valtiopaivavuosi}-${row.taysistuntonumero}`,
-    agenda: clean(row.asia?.fi?.nimeketeksti || row.poytakirjanasiankohta?.fi?.nimeketeksti), type: clean(row.puheenvuorotyyppinimi),
+    agenda: clean(row.asia?.fi?.nimeketeksti || row.poytakirjanasiankohta?.fi?.nimeketeksti), agendaSv: clean(row.asia?.sv?.nimeketeksti || row.poytakirjanasiankohta?.sv?.nimeketeksti), type: clean(row.puheenvuorotyyppinimi),
     // The UI displays an excerpt; cap it so one static file stays below GitHub's 100 MB limit.
     text: clean(row.puheenvuoro).slice(0, 1200), documents: (row.asiakirjaviitteet?.fi || []).map(doc => ({ name: clean(doc.asiakirjatyyppi), label: clean(doc.eduskuntatunnus), url: '' }))
   };

@@ -3,10 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="description" content="Eduskunnan äänestykset, puheenvuorot ja lakiasiat kansanedustajittain ja puolueittain.">
+  <meta name="description" content="Vahtikissa näyttää Eduskunnan äänestykset, puheenvuorot ja lakiasiat kansanedustajittain ja puolueittain.">
   <meta name="theme-color" content="#f5f2ea">
-  <title>Eduskunta-vahti</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22><rect width=%2264%22 height=%2264%22 rx=%2212%22 fill=%22%23003873%22/><path d=%22M12 44h40M17 39h30M20 35V22h24v13M17 22l15-9 15 9M25 25v10m14-10v10M32 25v10%22 stroke=%22white%22 stroke-width=%223%22 fill=%22none%22/></svg>">
+  <title>Vahtikissa</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22><rect width=%2264%22 height=%2264%22 rx=%2212%22 fill=%22%23003873%22/><path d=%22M18 17l8 6h12l8-6-2 27H20zM26 33h1m10 0h1m-9 6c2 2 4 2 6 0%22 stroke=%22white%22 stroke-width=%223%22 fill=%22none%22/></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,600;6..72,700&display=swap" rel="stylesheet">
@@ -16,16 +16,17 @@
 <body>
   <a class="skip" href="#content">Siirry sisältöön</a>
   <header class="site-header">
-    <a class="brand" href="#/overview" aria-label="Eduskunta-vahdin etusivu"><span class="brand-mark" aria-hidden="true">EV</span><span>Eduskunta-<em>vahti</em></span></a>
+    <a class="brand" href="#/overview" aria-label="Vahtikissan etusivu"><span class="brand-mark" aria-hidden="true">VK</span><span>Vahti<em>kissa</em></span></a>
     <button class="menu-button" aria-label="Avaa valikko" aria-expanded="false">Valikko</button>
     <nav class="nav" aria-label="Päänavigaatio">
       <a data-page="overview" href="#/overview">Yleiskuva</a><a data-page="sessions" href="#/sessions">Istunnot</a><a data-page="votes" href="#/votes">Äänestykset</a><a data-page="members" href="#/members">Kansanedustajat</a><a data-page="parties" href="#/parties">Puolueet</a><a data-page="speeches" href="#/speeches">Puheet</a><a data-page="legislation" href="#/legislation">Lakiasiat</a>
     </nav>
+    <button class="language-button" type="button">På svenska</button>
     <button class="search-button" aria-label="Avaa haku">Hae <kbd>⌘ K</kbd></button>
   </header>
   <main id="content" tabindex="-1"><section class="loading"><span class="spinner"></span><p>Ladataan eduskunnan avointa dataa…</p></section></main>
-  <footer><div><a class="brand small" href="#/overview"><span class="brand-mark">EV</span><span>Eduskunta-vahti</span></a><p>Riippumaton avoimen datan palvelu. Ei ole Eduskunnan virallinen palvelu.</p></div><div><strong>Data</strong><a href="https://avoindata.eduskunta.fi/" target="_blank" rel="noreferrer">Eduskunnan avoin data ↗</a><a href="#/about">Tietoa palvelusta</a></div></footer>
-  <dialog class="search-dialog"><form method="dialog"><div class="search-head"><label for="global-search">Hae kansanedustajia, äänestyksiä ja lakiasioita</label><button aria-label="Sulje">×</button></div><input id="global-search" autocomplete="off" placeholder="Kirjoita hakusana…"><div class="search-results"></div></form></dialog>
+  <footer><div><a class="brand small" href="#/overview"><span class="brand-mark">VK</span><span>Vahti<em>kissa</em></span></a><p class="site-footer-note">Riippumaton avoimen datan palvelu. Ei ole Eduskunnan virallinen palvelu.</p></div><div><strong class="footer-data">Data</strong><a href="https://api.eduskunta.fi/" target="_blank" rel="noreferrer">Eduskunnan avoin data ↗</a><a class="footer-about" href="#/about">Tietoa palvelusta</a></div></footer>
+  <dialog class="search-dialog"><form method="dialog"><div class="search-head"><label for="global-search">Hae</label><button aria-label="Sulje">×</button></div><input id="global-search" autocomplete="off" placeholder="Kirjoita hakusana…"><div class="search-results"></div></form></dialog>
   <noscript>Palvelu tarvitsee JavaScriptin näyttääkseen eduskunnan avoimen datan.</noscript>
 </body>
 </html>

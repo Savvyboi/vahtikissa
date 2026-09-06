@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { filterItems, percent, routeFromHash, hydrateBallots } from '../app-utils.js';
+import { filterItems, percent, routeFromHash, hydrateBallots, pageSlice, choiceLabel, localized } from '../app-utils.js';
 
 test('filterItems searches Finnish text case-insensitively', () => {
   const items = [{ title: 'Julkisen talouden suunnitelma', party: 'kok' }, { title: 'Kalastuslaki', party: 'kesk' }];
@@ -31,4 +31,21 @@ test('hydrateBallots gives a stable fallback for a missing MP record', () => {
     voteId: 'v1', mpId: '999', party: 'sit', choice: 'absent',
     firstName: '', lastName: '', id: '999'
   }]);
+});
+
+test('pageSlice exposes all items through successive pages', () => {
+  const items = Array.from({ length: 55 }, (_, id) => id);
+  assert.deepEqual(pageSlice(items, 1, 25), items.slice(0, 25));
+  assert.deepEqual(pageSlice(items, 3, 25), items.slice(50));
+});
+
+test('choice labels never expose internal English keys', () => {
+  assert.equal(choiceLabel('yes', 'fi'), 'jaa');
+  assert.equal(choiceLabel('yes', 'sv'), 'ja');
+  assert.equal(choiceLabel('absent', 'sv'), 'frånvarande');
+});
+
+test('localized selects Swedish fields and falls back to Finnish', () => {
+  assert.equal(localized({ fi: 'Laki', sv: 'Lag' }, 'sv'), 'Lag');
+  assert.equal(localized({ fi: 'Laki', sv: '' }, 'sv'), 'Laki');
 });
