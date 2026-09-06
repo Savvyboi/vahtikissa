@@ -1,6 +1,6 @@
 # Eduskunta-vahti
 
-A static, privacy-friendly civic dashboard for Finnish Parliament open data from **2 April 2023 onward**. It groups roll-call votes, individual MP ballots, speeches, plenary sessions, parliamentary matters and amendment-like votes into a searchable Finnish interface.
+A static, privacy-friendly civic dashboard for Finnish Parliament open data from **2 April 2023 onward**. It groups roll-call votes, individual MP ballots, complete speeches, plenary sessions, parliamentary matters and amendment-like votes into a searchable Finnish and Swedish interface.
 
 The visual and information hierarchy is inspired by the public-facing `mijnkamer.be` service, but this repository contains an original implementation and visual system. The separate GitHub repository currently found at `GustaveCurtil/mijn_kamer` has no declared license, so none of its code or assets are included here. The live `mijnkamer.be` service appears to be a different implementation than that repository; this project only borrows its general civic-information structure.
 
@@ -22,7 +22,7 @@ The visual and information hierarchy is inspired by the public-facing `mijnkamer
 
 ## Data source and caveats
 
-The importer uses Parliament's current structured API at `https://api.eduskunta.fi/api/v1`. It creates asynchronous yearly dataset exports for the `aanestys` and `puheenvuoro` categories, downloads the resulting NDJSON, fetches authoritative member records from `/kansanedustajat`, and publishes a reduced static dataset. This avoids thousands of legacy table requests and keeps the scheduled run bounded. The prior low-level table implementation is retained as `scripts/sync-data-legacy.mjs` for reference only.
+The importer uses Parliament's current structured API at `https://api.eduskunta.fi/api/v1`. It creates asynchronous yearly dataset exports for the `aanestys`, `puheenvuoro` and `valtiopaivaasia` categories, downloads the resulting NDJSON, fetches authoritative member records from `/kansanedustajat`, and publishes a static dataset. Finnish and Swedish matter titles, stages, document identifiers and agenda metadata are retained. Speech text is preserved in full and shown in the language in which Parliament publishes the transcript. This avoids thousands of legacy table requests and keeps the scheduled run bounded. The prior low-level table implementation is retained as `scripts/sync-data-legacy.mjs` for reference only.
 
 “Amendment” is a transparent heuristic: a vote is marked as an amendment when its Finnish title includes terms such as `ehdotus`, `vastalause` or `lausuma`. This is useful for discovery, but not a legal classification. Participation and party-line scores are descriptive and should not be interpreted as measures of political quality.
 

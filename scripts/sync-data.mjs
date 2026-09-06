@@ -1,4 +1,5 @@
 import { mkdir, writeFile } from 'node:fs/promises';
+import { pathToFileURL } from 'node:url';
 import { normalizeParty, normalizeVote, buildIndexes, deriveMembers, isInRange, START_DATE } from './lib.mjs';
 
 const API = process.env.EDUSKUNTA_API || 'https://api.eduskunta.fi/api/v1';
@@ -87,31 +88,58 @@ function normalizeVoteRecord(wrapper) {
   };
 }
 
-function normalizeSpeech(wrapper) {
+export function normalizeSpeech(wrapper) {
   const row = wrapper.puheenvuoro;
+  const documents = language => (row.asiakirjaviitteet?.[language] || []).map(doc => ({ name: clean(doc.asiakirjatyyppi), label: clean(doc.eduskuntatunnus), url: '' }));
   return {
     id: clean(row.id), mpId: clean(row.puhuja?.henkilonro), firstName: clean(row.puhuja?.etunimi), lastName: clean(row.puhuja?.sukunimi),
     party: normalizeParty(row.puhuja?.lisatieto || clean(row.puhuja?.eduskuntaryhma_tunnus).split('~')[0].replace(/\d+$/, '')),
     date: iso(row.aloitushetki), session: `${row.valtiopaivavuosi}-${row.taysistuntonumero}`,
     agenda: clean(row.asia?.fi?.nimeketeksti || row.poytakirjanasiankohta?.fi?.nimeketeksti), agendaSv: clean(row.asia?.sv?.nimeketeksti || row.poytakirjanasiankohta?.sv?.nimeketeksti), type: clean(row.puheenvuorotyyppinimi),
-    // The UI displays an excerpt; cap it so one static file stays below GitHub's 100 MB limit.
-    text: clean(row.puheenvuoro).slice(0, 1200), documents: (row.asiakirjaviitteet?.fi || []).map(doc => ({ name: clean(doc.asiakirjatyyppi), label: clean(doc.eduskuntatunnus), url: '' }))
+    text: clean(row.puheenvuoro), documents: documents('fi'), documentsSv: documents('sv')
   };
 }
 
-async function sync() {
+export function splitSpeeches(items) {
+  const speechTexts = {};
+  const speeches = items.map(({ text, ...speech }) => {
+    speechTexts[speech.id] = text || '';
+    return speech;
+  });
+  return { speeches, speechTexts };
+}
+
+export function normalizeMatter(wrapper) {
+  const row = wrapper.valtiopaivaasia;
+  const document = clean(row.eduskuntatunnus?.fi);
+  const firstDate = iso(row.laadintapvm?.fi || row.laadintapvm?.sv || row.viimeisinJulkaisuajankohta?.fi || row.viimeisinJulkaisuajankohta?.sv);
+  const latestDate = iso(row.viimeisinJulkaisuajankohta?.fi || row.viimeisinJulkaisuajankohta?.sv || firstDate);
+  const stage = clean(row.viimeisinKasittelyvaihe?.fi);
+  const stageSv = clean(row.viimeisinKasittelyvaihe?.sv);
+  return {
+    id: document, document, documentSv: clean(row.eduskuntatunnus?.sv), title: clean(row.nimeke?.fi), titleSv: clean(row.nimeke?.sv),
+    firstDate, latestDate, stages: stage ? [stage] : [], stagesSv: stageSv ? [stageSv] : [],
+    decision: clean(row.kokonaispaatosnimi?.fi), decisionSv: clean(row.kokonaispaatosnimi?.sv), voteIds: [], amendmentCount: 0,
+    url: document ? `https://www.eduskunta.fi/FI/vaski/KasittelytiedotValtiopaivaasia/Sivut/${encodeURIComponent(document)}.aspx` : ''
+  };
+}
+
+export async function sync() {
   console.log(`Syncing current Parliament API from ${START_DATE}…`);
   const years = Array.from({ length: END_YEAR - 2023 + 1 }, (_, index) => 2023 + index);
   const voteWrappers = [];
   const speechWrappers = [];
+  const matterWrappers = [];
   for (const year of years) {
     voteWrappers.push(...await search('aanestys', year, 'istuntopvm'));
     speechWrappers.push(...await search('puheenvuoro', year, 'aloitushetki'));
+    matterWrappers.push(...await search('valtiopaivaasia', year, 'laadintapvm'));
   }
   const normalizedVotes = voteWrappers.map(normalizeVoteRecord).filter(item => isInRange(item.vote.date));
   const votes = normalizedVotes.map(item => item.vote).sort((a, b) => b.startsAt.localeCompare(a.startsAt));
   const ballots = normalizedVotes.flatMap(item => item.ballots);
-  const speeches = speechWrappers.map(normalizeSpeech).filter(item => isInRange(item.date)).sort((a, b) => b.date.localeCompare(a.date));
+  const completeSpeeches = speechWrappers.map(normalizeSpeech).filter(item => isInRange(item.date)).sort((a, b) => b.date.localeCompare(a.date));
+  const { speeches, speechTexts } = splitSpeeches(completeSpeeches);
 
   const officialMembers = (await request('/kansanedustajat')).kansanedustajat || [];
   const memberById = new Map(officialMembers.map(member => [clean(member.henkilonro), member]));
@@ -122,8 +150,18 @@ async function sync() {
     return official ? { ...member, firstName: clean(official.kutsumanimi || official.etunimet), lastName: clean(official.sukunimi) } : member;
   });
   const groupBy = (items, key) => items.reduce((result, item) => ((result[key(item)] ||= []).push(item), result), {});
-  const sessions = Object.values(groupBy(votes, vote => `${vote.year}-${vote.sessionNumber}`)).map(group => ({ id: `${group[0].year}-${group[0].sessionNumber}`, year: group[0].year, number: group[0].sessionNumber, date: group[0].date, title: `Täysistunto ${group[0].sessionNumber}/${group[0].year}`, voteIds: group.map(vote => vote.id) })).sort((a, b) => b.date.localeCompare(a.date));
-  const legislation = Object.values(groupBy(votes.filter(vote => vote.document), vote => vote.document)).map(group => ({ id: group[0].document, title: group[0].title, document: group[0].document, url: group[0].documentUrl, firstDate: group.at(-1).date, latestDate: group[0].date, stages: [...new Set(group.map(vote => vote.stage).filter(Boolean))], voteIds: group.map(vote => vote.id), amendmentCount: group.filter(vote => vote.isAmendment).length })).sort((a, b) => b.latestDate.localeCompare(a.latestDate));
+  const sessions = Object.values(groupBy(votes, vote => `${vote.year}-${vote.sessionNumber}`)).map(group => ({ id: `${group[0].year}-${group[0].sessionNumber}`, year: group[0].year, number: group[0].sessionNumber, date: group[0].date, title: `Täysistunto ${group[0].sessionNumber}/${group[0].year}`, titleSv: `Plenum ${group[0].sessionNumber}/${group[0].year}`, voteIds: group.map(vote => vote.id) })).sort((a, b) => b.date.localeCompare(a.date));
+  const legislationById = new Map(matterWrappers.map(normalizeMatter).filter(item => item.id && isInRange(item.firstDate)).map(item => [item.id, item]));
+  for (const group of Object.values(groupBy(votes.filter(vote => vote.document), vote => vote.document))) {
+    const matter = legislationById.get(group[0].document) || normalizeMatter({ valtiopaivaasia: { eduskuntatunnus: { fi: group[0].document, sv: group[0].documentSv }, nimeke: { fi: group[0].title, sv: group[0].titleSv }, laadintapvm: { fi: group.at(-1).date, sv: group.at(-1).date } } });
+    matter.latestDate = [matter.latestDate, group[0].date].filter(Boolean).sort().at(-1) || '';
+    matter.stages = [...new Set([...matter.stages, ...group.map(vote => vote.stage).filter(Boolean)])];
+    matter.stagesSv = [...new Set([...matter.stagesSv, ...group.map(vote => vote.stageSv).filter(Boolean)])];
+    matter.voteIds = group.map(vote => vote.id);
+    matter.amendmentCount = group.filter(vote => vote.isAmendment).length;
+    legislationById.set(matter.id, matter);
+  }
+  const legislation = [...legislationById.values()].sort((a, b) => b.latestDate.localeCompare(a.latestDate));
   const indexes = buildIndexes({ votes, ballots, speeches, members });
   const membersWithStats = members.map(member => ({ ...member, stats: indexes.members[member.id]?.stats || null }));
   const metadata = { generatedAt: new Date().toISOString(), source: API, startDate: START_DATE, counts: { votes: votes.length, ballots: ballots.length, speeches: speeches.length, members: members.length, parties: Object.keys(indexes.parties).length, sessions: sessions.length, legislation: legislation.length, amendments: votes.filter(vote => vote.isAmendment).length } };
@@ -131,8 +169,11 @@ async function sync() {
   const data = { metadata, votes, ballots: packedBallots, speeches, members: membersWithStats, sessions, legislation, parties: Object.values(indexes.parties).sort((a, b) => b.stats.votes - a.stats.votes) };
   await mkdir(OUT, { recursive: true });
   await writeFile(new URL('parliament.json', OUT), `${JSON.stringify(data)}\n`);
+  await writeFile(new URL('speech-texts.json', OUT), `${JSON.stringify(speechTexts)}\n`);
   await writeFile(new URL('metadata.json', OUT), `${JSON.stringify(metadata, null, 2)}\n`);
   console.log(JSON.stringify(metadata, null, 2));
 }
 
-sync().catch(error => { console.error(error); process.exitCode = 1; });
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  sync().catch(error => { console.error(error); process.exitCode = 1; });
+}
