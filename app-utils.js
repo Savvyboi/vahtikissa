@@ -39,6 +39,10 @@ export function localized(value, lang = 'fi') {
   return value[lang] || value.fi || value.sv || '';
 }
 
+export function localizedSearchFields(fields) {
+  return fields.flatMap(field => [field, `${field}Sv`]);
+}
+
 export function choiceLabel(choice, lang = 'fi') {
   const labels = {
     fi: { yes: 'jaa', no: 'ei', abstain: 'tyhjää', absent: 'poissa', other: 'muu' },

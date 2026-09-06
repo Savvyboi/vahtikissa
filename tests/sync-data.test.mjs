@@ -22,11 +22,22 @@ test('speech normalization preserves the complete speech and Swedish metadata', 
   assert.deepEqual(speech.documentsSv, [{ name: 'Regeringens proposition', label: 'RP 1/2024 rd', url: '' }]);
 });
 
-test('speech splitting keeps list metadata small and full text separately addressable', () => {
-  const speeches = [{ id: 'PUH 1/2024/1', text: 'Koko puhe', agenda: 'Asia' }];
-  assert.deepEqual(splitSpeeches(speeches), {
-    speeches: [{ id: 'PUH 1/2024/1', agenda: 'Asia' }],
-    speechTexts: { 'PUH 1/2024/1': 'Koko puhe' }
+test('speech splitting creates bounded chunks and records each chunk on speech metadata', () => {
+  const speeches = [
+    { id: 'PUH 1', text: 'Ensimmäinen', agenda: 'Asia 1' },
+    { id: 'PUH 2', text: 'Toinen', agenda: 'Asia 2' },
+    { id: 'PUH 3', text: 'Kolmas', agenda: 'Asia 3' }
+  ];
+  assert.deepEqual(splitSpeeches(speeches, 2), {
+    speeches: [
+      { id: 'PUH 1', agenda: 'Asia 1', textChunk: 0 },
+      { id: 'PUH 2', agenda: 'Asia 2', textChunk: 0 },
+      { id: 'PUH 3', agenda: 'Asia 3', textChunk: 1 }
+    ],
+    speechTextChunks: [
+      { 'PUH 1': 'Ensimmäinen', 'PUH 2': 'Toinen' },
+      { 'PUH 3': 'Kolmas' }
+    ]
   });
 });
 

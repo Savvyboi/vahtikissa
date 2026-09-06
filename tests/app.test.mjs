@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { filterItems, percent, routeFromHash, hydrateBallots, pageSlice, choiceLabel, localized } from '../app-utils.js';
+import { filterItems, percent, routeFromHash, hydrateBallots, pageSlice, choiceLabel, localized, localizedSearchFields } from '../app-utils.js';
 
 test('filterItems searches Finnish text case-insensitively', () => {
   const items = [{ title: 'Julkisen talouden suunnitelma', party: 'kok' }, { title: 'Kalastuslaki', party: 'kesk' }];
@@ -48,4 +48,8 @@ test('choice labels never expose internal English keys', () => {
 test('localized selects Swedish fields and falls back to Finnish', () => {
   assert.equal(localized({ fi: 'Laki', sv: 'Lag' }, 'sv'), 'Lag');
   assert.equal(localized({ fi: 'Laki', sv: '' }, 'sv'), 'Laki');
+});
+
+test('localized search includes both Finnish and Swedish variants', () => {
+  assert.deepEqual(localizedSearchFields(['title', 'document']), ['title', 'titleSv', 'document', 'documentSv']);
 });

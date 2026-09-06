@@ -100,13 +100,14 @@ export function normalizeSpeech(wrapper) {
   };
 }
 
-export function splitSpeeches(items) {
-  const speechTexts = {};
-  const speeches = items.map(({ text, ...speech }) => {
-    speechTexts[speech.id] = text || '';
-    return speech;
+export function splitSpeeches(items, chunkSize = 1000) {
+  const speechTextChunks = [];
+  const speeches = items.map(({ text, ...speech }, index) => {
+    const textChunk = Math.floor(index / chunkSize);
+    (speechTextChunks[textChunk] ||= {})[speech.id] = text || '';
+    return { ...speech, textChunk };
   });
-  return { speeches, speechTexts };
+  return { speeches, speechTextChunks };
 }
 
 export function normalizeMatter(wrapper) {
@@ -139,7 +140,7 @@ export async function sync() {
   const votes = normalizedVotes.map(item => item.vote).sort((a, b) => b.startsAt.localeCompare(a.startsAt));
   const ballots = normalizedVotes.flatMap(item => item.ballots);
   const completeSpeeches = speechWrappers.map(normalizeSpeech).filter(item => isInRange(item.date)).sort((a, b) => b.date.localeCompare(a.date));
-  const { speeches, speechTexts } = splitSpeeches(completeSpeeches);
+  const { speeches, speechTextChunks } = splitSpeeches(completeSpeeches);
 
   const officialMembers = (await request('/kansanedustajat')).kansanedustajat || [];
   const memberById = new Map(officialMembers.map(member => [clean(member.henkilonro), member]));
@@ -169,7 +170,7 @@ export async function sync() {
   const data = { metadata, votes, ballots: packedBallots, speeches, members: membersWithStats, sessions, legislation, parties: Object.values(indexes.parties).sort((a, b) => b.stats.votes - a.stats.votes) };
   await mkdir(OUT, { recursive: true });
   await writeFile(new URL('parliament.json', OUT), `${JSON.stringify(data)}\n`);
-  await writeFile(new URL('speech-texts.json', OUT), `${JSON.stringify(speechTexts)}\n`);
+  await Promise.all(speechTextChunks.map((chunk, index) => writeFile(new URL(`speech-texts-${index}.json`, OUT), `${JSON.stringify(chunk)}\n`)));
   await writeFile(new URL('metadata.json', OUT), `${JSON.stringify(metadata, null, 2)}\n`);
   console.log(JSON.stringify(metadata, null, 2));
 }
