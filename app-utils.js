@@ -43,6 +43,22 @@ export function localizedSearchFields(fields) {
   return fields.flatMap(field => [field, `${field}Sv`]);
 }
 
+export function memberMatchesQuery(member, query, partyNames = {}) {
+  const q = String(query || '').trim().toLocaleLowerCase('fi');
+  if (!q) return true;
+  const party = partyNames[member.party] || {};
+  return [member.firstName, member.lastName, member.party, party.fi, party.sv]
+    .some(value => String(value || '').toLocaleLowerCase('fi').includes(q));
+}
+
+export function parliamentMatterUrl(document) {
+  return document ? `https://www.eduskunta.fi/asiat-ja-aanestykset/valtiopaivaasiat/${encodeURIComponent(document)}` : '';
+}
+
+export function isLongSpeech(text, threshold = 600) {
+  return String(text || '').length > threshold;
+}
+
 export function choiceLabel(choice, lang = 'fi') {
   const labels = {
     fi: { yes: 'jaa', no: 'ei', abstain: 'tyhjää', absent: 'poissa', other: 'muu' },

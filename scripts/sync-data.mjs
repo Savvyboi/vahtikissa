@@ -2,6 +2,8 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import { normalizeParty, normalizeVote, buildIndexes, deriveMembers, isInRange, START_DATE } from './lib.mjs';
 
+const parliamentMatterUrl = document => document ? `https://www.eduskunta.fi/asiat-ja-aanestykset/valtiopaivaasiat/${encodeURIComponent(document)}` : '';
+
 const API = process.env.EDUSKUNTA_API || 'https://api.eduskunta.fi/api/v1';
 const OUT = new URL('../data/', import.meta.url);
 const END_YEAR = new Date().getFullYear();
@@ -81,7 +83,7 @@ function normalizeVoteRecord(wrapper) {
       date, startsAt: iso(row.aanestysalkuaika), title, titleSv, question, questionSv, detail: clean(fi(row.aanestyslisaotsikko)), detailSv: clean(row.aanestyslisaotsikko?.sv),
       stage: clean(fi(row.kohta?.kasittelyvaihenimi) || fi(row.kohta?.kasittelyotsikkonimi)), stageSv: clean(row.kohta?.kasittelyvaihenimi?.sv || row.kohta?.kasittelyotsikkonimi?.sv),
       yes: Number(totals.jaa ?? counts.yes), no: Number(totals.ei ?? counts.no), abstain: Number(totals.tyhjia ?? counts.abstain), absent: Number(totals.poissa ?? counts.absent), total: events.length,
-      document, documentSv, documentUrl: document ? `https://www.eduskunta.fi/FI/vaski/KasittelytiedotValtiopaivaasia/Sivut/${encodeURIComponent(document)}.aspx` : '',
+      document, documentSv, documentUrl: parliamentMatterUrl(document),
       minutes: clean(fi(row.paivajarjestyksenotsikko)), minutesSv: clean(row.paivajarjestyksenotsikko?.sv), minutesUrl: '', resultUrl: `https://api.eduskunta.fi/api/v1/taysistunnot/aanestykset/${encodeURIComponent(row.id)}`,
       isAmendment: /ehdotus|vastalause|lausuma/i.test(`${title} ${question}`)
     }, ballots
@@ -121,7 +123,7 @@ export function normalizeMatter(wrapper) {
     id: document, document, documentSv: clean(row.eduskuntatunnus?.sv), title: clean(row.nimeke?.fi), titleSv: clean(row.nimeke?.sv),
     firstDate, latestDate, stages: stage ? [stage] : [], stagesSv: stageSv ? [stageSv] : [],
     decision: clean(row.kokonaispaatosnimi?.fi), decisionSv: clean(row.kokonaispaatosnimi?.sv), voteIds: [], amendmentCount: 0,
-    url: document ? `https://www.eduskunta.fi/FI/vaski/KasittelytiedotValtiopaivaasia/Sivut/${encodeURIComponent(document)}.aspx` : ''
+    url: parliamentMatterUrl(document)
   };
 }
 

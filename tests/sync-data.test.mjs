@@ -54,7 +54,7 @@ test('matter normalization preserves Finnish and Swedish titles and stages', () 
     title: 'Esitys laiksi', titleSv: 'Förslag till lag', firstDate: '2024-02-03', latestDate: '2024-02-03',
     stages: ['Ensimmäinen käsittely'], stagesSv: ['Första behandlingen'], decision: 'Hyväksytty', decisionSv: 'Godkänd',
     voteIds: [], amendmentCount: 0,
-    url: 'https://www.eduskunta.fi/FI/vaski/KasittelytiedotValtiopaivaasia/Sivut/HE%201%2F2024%20vp.aspx'
+    url: 'https://www.eduskunta.fi/asiat-ja-aanestykset/valtiopaivaasiat/HE%201%2F2024%20vp'
   });
 });
 

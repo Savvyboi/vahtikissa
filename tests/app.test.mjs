@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { filterItems, percent, routeFromHash, hydrateBallots, pageSlice, choiceLabel, localized, localizedSearchFields } from '../app-utils.js';
+import { filterItems, percent, routeFromHash, hydrateBallots, pageSlice, choiceLabel, localized, localizedSearchFields, memberMatchesQuery, parliamentMatterUrl, isLongSpeech } from '../app-utils.js';
 
 test('filterItems searches Finnish text case-insensitively', () => {
   const items = [{ title: 'Julkisen talouden suunnitelma', party: 'kok' }, { title: 'Kalastuslaki', party: 'kesk' }];
@@ -52,4 +52,23 @@ test('localized selects Swedish fields and falls back to Finnish', () => {
 
 test('localized search includes both Finnish and Swedish variants', () => {
   assert.deepEqual(localizedSearchFields(['title', 'document']), ['title', 'titleSv', 'document', 'documentSv']);
+});
+
+test('member search matches party codes and localized party names', () => {
+  const member = { firstName: 'Ada', lastName: 'Test', party: 'kok' };
+  const names = { kok: { fi: 'Kansallinen Kokoomus', sv: 'Samlingspartiet' } };
+  assert.equal(memberMatchesQuery(member, 'kokoomus', names), true);
+  assert.equal(memberMatchesQuery(member, 'samlingspartiet', names), true);
+  assert.equal(memberMatchesQuery(member, 'kok', names), true);
+  assert.equal(memberMatchesQuery(member, 'keskusta', names), false);
+});
+
+test('Parliament matter links use the current public route', () => {
+  assert.equal(parliamentMatterUrl('HE 119/2024 vp'), 'https://www.eduskunta.fi/asiat-ja-aanestykset/valtiopaivaasiat/HE%20119%2F2024%20vp');
+  assert.equal(parliamentMatterUrl(''), '');
+});
+
+test('only genuinely long speeches need a read-more control', () => {
+  assert.equal(isLongSpeech('x'.repeat(601)), true);
+  assert.equal(isLongSpeech('x'.repeat(600)), false);
 });
