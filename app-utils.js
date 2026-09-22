@@ -59,6 +59,16 @@ export function isLongSpeech(text, threshold = 600) {
   return String(text || '').length > threshold;
 }
 
+export function filterBallots(ballots, choice = 'all') {
+  return choice === 'all' ? ballots : ballots.filter(ballot => ballot.choice === choice);
+}
+
+export function voteOutcome(vote) {
+  const yes = Number(vote?.yes) || 0;
+  const no = Number(vote?.no) || 0;
+  return yes === no ? 'tie' : yes > no ? 'yesWon' : 'noWon';
+}
+
 export function choiceLabel(choice, lang = 'fi') {
   const labels = {
     fi: { yes: 'jaa', no: 'ei', abstain: 'tyhjää', absent: 'poissa', other: 'muu' },

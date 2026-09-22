@@ -1,6 +1,20 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { filterItems, percent, routeFromHash, hydrateBallots, pageSlice, choiceLabel, localized, localizedSearchFields, memberMatchesQuery, parliamentMatterUrl, isLongSpeech } from '../app-utils.js';
+import { filterItems, percent, routeFromHash, hydrateBallots, pageSlice, choiceLabel, localized, localizedSearchFields, memberMatchesQuery, parliamentMatterUrl, isLongSpeech, filterBallots, voteOutcome } from '../app-utils.js';
+
+
+test('vote ballot filters expose one voting choice at a time', () => {
+  const ballots = [{ choice: 'yes' }, { choice: 'no' }, { choice: 'yes' }, { choice: 'absent' }];
+  assert.deepEqual(filterBallots(ballots, 'yes'), [ballots[0], ballots[2]]);
+  assert.equal(filterBallots(ballots, 'all').length, 4);
+});
+
+test('vote outcome reports the winning answer without inferring a policy result', () => {
+  assert.equal(voteOutcome({ yes: 101, no: 90 }), 'yesWon');
+  assert.equal(voteOutcome({ yes: 80, no: 90 }), 'noWon');
+  assert.equal(voteOutcome({ yes: 90, no: 90 }), 'tie');
+});
+
 
 test('filterItems searches Finnish text case-insensitively', () => {
   const items = [{ title: 'Julkisen talouden suunnitelma', party: 'kok' }, { title: 'Kalastuslaki', party: 'kesk' }];
