@@ -66,7 +66,7 @@ export function filterBallots(ballots, choice = 'all') {
 export function voteOutcome(vote) {
   const yes = Number(vote?.yes) || 0;
   const no = Number(vote?.no) || 0;
-  return yes === no ? 'tie' : yes > no ? 'yesWon' : 'noWon';
+  return yes === no ? 'tie' : yes > no ? 'moreYes' : 'moreNo';
 }
 
 export function choiceLabel(choice, lang = 'fi') {

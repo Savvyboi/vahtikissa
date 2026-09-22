@@ -16,9 +16,9 @@ test('paged filtered results retain their active filter', () => {
   assert.deepEqual(pageSlice(filtered, 2, 1), [speeches[2]]);
 });
 
-test('vote outcome reports the winning answer without inferring a policy result', () => {
-  assert.equal(voteOutcome({ yes: 101, no: 90 }), 'yesWon');
-  assert.equal(voteOutcome({ yes: 80, no: 90 }), 'noWon');
+test('vote comparison reports counts without inferring an official outcome', () => {
+  assert.equal(voteOutcome({ yes: 101, no: 90 }), 'moreYes');
+  assert.equal(voteOutcome({ yes: 80, no: 90 }), 'moreNo');
   assert.equal(voteOutcome({ yes: 90, no: 90 }), 'tie');
 });
 
