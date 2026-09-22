@@ -9,6 +9,13 @@ test('vote ballot filters expose one voting choice at a time', () => {
   assert.equal(filterBallots(ballots, 'all').length, 4);
 });
 
+test('paged filtered results retain their active filter', () => {
+  const speeches = [{ party: 'kok' }, { party: 'sd' }, { party: 'kok' }];
+  const filtered = filterItems(speeches, 'kok', ['party']);
+  assert.deepEqual(pageSlice(filtered, 1, 1), [speeches[0]]);
+  assert.deepEqual(pageSlice(filtered, 2, 1), [speeches[2]]);
+});
+
 test('vote outcome reports the winning answer without inferring a policy result', () => {
   assert.equal(voteOutcome({ yes: 101, no: 90 }), 'yesWon');
   assert.equal(voteOutcome({ yes: 80, no: 90 }), 'noWon');
