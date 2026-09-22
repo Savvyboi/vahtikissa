@@ -22,6 +22,8 @@ jobs:
           node-version: 22
       - run: npm test
       - run: npm run sync
+      - name: Validate generated data
+        run: npm run validate-data
       - name: Commit changed data
         run: |
           git config user.name "github-actions[bot]"
