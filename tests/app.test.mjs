@@ -144,6 +144,30 @@ test('member speech page resets when navigating to another member', async () => 
   );
 });
 
+test('speech search ignores async results after leaving the page', async () => {
+  const app = await source('app.js');
+  assert.match(app, /if\(!input\.isConnected\)return;/);
+});
+
+test('search index can retry after a failed request', async () => {
+  const app = await source('app.js');
+  assert.match(app, /speechSearchPromise=null;throw error/);
+});
+
+test('mobile menu stays compact and exposes an X close control', async () => {
+  const [html, app, css] = await Promise.all([source('index.html'), source('app.js'), source('styles.css')]);
+  assert.match(html, /aria-controls="main-navigation"/);
+  assert.match(app, /menu\.textContent=open\?'×':t\('menu'\)/);
+  assert.match(app, /window\.addEventListener\('hashchange',\(\)=>\{closeMenu\(\);render\(\)\}\)/);
+  assert.match(css, /\.nav\.open\{[^}]*max-height:min\(65dvh,420px\)/);
+  assert.doesNotMatch(css, /\.nav\.open\{[^}]*height:calc\(100dvh - 64px\)/);
+});
+
+test('mobile speech metadata wraps instead of causing horizontal overflow', async () => {
+  const css = await source('styles.css');
+  assert.match(css, /\.speech \.date\{white-space:normal;overflow-wrap:anywhere\}/);
+});
+
 test('open-data attribution lives in the footer, not page headers', async () => {
   const [html, app] = await Promise.all([source('index.html'), source('app.js')]);
   assert.match(html, /footer-open-data/);
