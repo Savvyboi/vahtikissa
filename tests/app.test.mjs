@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { filterItems, percent, routeFromHash, hydrateBallots, pageSlice, choiceLabel, localized, localizedSearchFields, memberMatchesQuery, parliamentMatterUrl, isLongSpeech, filterBallots, voteOutcome } from '../app-utils.js';
+import { filterItems, percent, routeFromHash, hydrateBallots, pageSlice, choiceLabel, localized, localizedSearchFields, memberMatchesQuery, parliamentMatterUrl, isLongSpeech, filterBallots, voteOutcome, paginationItems, searchSpeeches, voteAlternatives, brandName } from '../app-utils.js';
+import { readFile } from 'node:fs/promises';
+
+const source = async file => readFile(new URL(`../${file}`, import.meta.url), 'utf8');
 
 
 test('vote ballot filters expose one voting choice at a time', () => {
@@ -92,4 +95,58 @@ test('Parliament matter links use the current public route', () => {
 test('only genuinely long speeches need a read-more control', () => {
   assert.equal(isLongSpeech('x'.repeat(601)), true);
   assert.equal(isLongSpeech('x'.repeat(600)), false);
+});
+
+test('numbered pagination keeps first, neighbours and last page accessible', () => {
+  assert.deepEqual(paginationItems(1, 10), [1, 2, 3, 'ellipsis', 10]);
+  assert.deepEqual(paginationItems(5, 10), [1, 'ellipsis', 4, 5, 6, 'ellipsis', 10]);
+  assert.deepEqual(paginationItems(10, 10), [1, 'ellipsis', 8, 9, 10]);
+});
+
+test('speech search includes complete loaded text and metadata', () => {
+  const speeches = [
+    { id: 'a', firstName: 'Ada', agenda: 'Talous' },
+    { id: 'b', firstName: 'Bo', agendaSv: 'Miljö' }
+  ];
+  assert.deepEqual(searchSpeeches(speeches, 'hemlig fras', { b: 'En hemlig fras i hela anförandet' }), [speeches[1]]);
+  assert.deepEqual(searchSpeeches(speeches, 'talous', {}), [speeches[0]]);
+});
+
+test('vote alternatives parse exact JA and NEJ choices', () => {
+  assert.deepEqual(voteAlternatives('Valiokuntaan lähettäminen: puhemiesneuvoston ehdotus JAA / Suna Kymäläisen ehdotus EI'), {
+    yes: 'puhemiesneuvoston ehdotus', no: 'Suna Kymäläisen ehdotus'
+  });
+  assert.deepEqual(voteAlternatives('Remiss: förslag A JA / förslag B NEJ', 'sv'), { yes: 'förslag A', no: 'förslag B' });
+});
+
+test('brand is localized to Vaktkatt in Swedish', () => {
+  assert.equal(brandName('fi'), 'Vahtikissa');
+  assert.equal(brandName('sv'), 'Vaktkatt');
+});
+
+test('app uses a nonmodal search panel and paginates every speech list', async () => {
+  const [html, app] = await Promise.all([source('index.html'), source('app.js')]);
+  assert.match(html, /class="search-panel"/);
+  assert.doesNotMatch(html, /<dialog[^>]*search-dialog/);
+  assert.match(app, /speech-search\.json/);
+  assert.doesNotMatch(app, /loadAllSpeechTexts/);
+  assert.match(app, /pagination\('speeches'/);
+  assert.match(app, /pagination\('memberSpeeches'/);
+  assert.match(app, /bindSpeechToggles/);
+  assert.match(app, /href:href\('speeches',item\.id\)/);
+});
+
+test('member speech page resets when navigating to another member', async () => {
+  const app = await source('app.js');
+  assert.match(
+    app,
+    /function memberDetail\(m\)\{if\(!m\)return notFound\(\);if\(activeMemberId!==m\.id\)state\.memberSpeeches=1;activeMemberId=m\.id;/
+  );
+});
+
+test('open-data attribution lives in the footer, not page headers', async () => {
+  const [html, app] = await Promise.all([source('index.html'), source('app.js')]);
+  assert.match(html, /footer-open-data/);
+  assert.doesNotMatch(app, /parliament:'Suomen eduskunta · avoin data'/);
+  assert.doesNotMatch(app, /parliament:'Finlands riksdag · öppna data'/);
 });

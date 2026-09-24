@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeSpeech, normalizeMatter, splitSpeeches } from '../scripts/sync-data.mjs';
+import { normalizeSpeech, normalizeMatter, splitSpeeches, buildSpeechSearchIndex } from '../scripts/sync-data.mjs';
+import { decodeSpeechSearchIndex, searchSpeeches } from '../app-utils.js';
 
 test('speech normalization preserves the complete speech and Swedish metadata', () => {
   const longSpeech = `Början ${'x'.repeat(1500)} slut`;
@@ -39,6 +40,29 @@ test('speech splitting creates bounded chunks and records each chunk on speech m
       { 'PUH 3': 'Kolmas' }
     ]
   });
+});
+
+test('compact speech index round-trips every speech in metadata order', () => {
+  const speeches = [
+    { id: 'PUH 1', text: 'Tämä on pitkä puhe taloudesta.' },
+    { id: 'PUH 2', text: 'Ruotsiksi: Hemlig fras här!' }
+  ];
+  const index = buildSpeechSearchIndex(speeches);
+  assert.deepEqual(decodeSpeechSearchIndex(index), [
+    'tämä on pitkä puhe taloudesta',
+    'ruotsiksi hemlig fras här'
+  ]);
+  assert.ok(JSON.stringify(index).length < JSON.stringify(speeches).length);
+});
+
+test('compact speech index supports phrases and substrings, not only whole words', () => {
+  const speeches = [{ id: 'a' }, { id: 'b' }];
+  const texts = decodeSpeechSearchIndex(buildSpeechSearchIndex([
+    { id: 'a', text: 'Uusiutuvan energian ratkaisut' },
+    { id: 'b', text: 'Jotakin aivan muuta' }
+  ]));
+  assert.deepEqual(searchSpeeches(speeches, 'energian ratk', texts), [speeches[0]]);
+  assert.deepEqual(searchSpeeches(speeches, 'energian, ratkaisut', texts), [speeches[0]]);
 });
 
 test('matter normalization preserves Finnish and Swedish titles and stages', () => {

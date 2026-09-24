@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import { normalizeParty, normalizeVote, buildIndexes, deriveMembers, isInRange, START_DATE } from './lib.mjs';
+import { normalizeSpeechSearchText } from '../app-utils.js';
 
 const parliamentMatterUrl = document => document ? `https://www.eduskunta.fi/asiat-ja-aanestykset/valtiopaivaasiat/${encodeURIComponent(document)}` : '';
 
@@ -112,6 +113,19 @@ export function splitSpeeches(items, chunkSize = 1000) {
   return { speeches, speechTextChunks };
 }
 
+export function buildSpeechSearchIndex(items) {
+  const words = [];
+  const wordIds = new Map();
+  const speeches = items.map(item => normalizeSpeechSearchText(item.text).split(' ').filter(Boolean).map(word => {
+    if (!wordIds.has(word)) {
+      wordIds.set(word, words.length);
+      words.push(word);
+    }
+    return wordIds.get(word);
+  }));
+  return [words, speeches];
+}
+
 export function normalizeMatter(wrapper) {
   const row = wrapper.valtiopaivaasia;
   const document = clean(row.eduskuntatunnus?.fi);
@@ -143,6 +157,7 @@ export async function sync() {
   const ballots = normalizedVotes.flatMap(item => item.ballots);
   const completeSpeeches = speechWrappers.map(normalizeSpeech).filter(item => isInRange(item.date)).sort((a, b) => b.date.localeCompare(a.date));
   const { speeches, speechTextChunks } = splitSpeeches(completeSpeeches);
+  const speechSearchIndex = buildSpeechSearchIndex(completeSpeeches);
 
   const officialMembers = (await request('/kansanedustajat')).kansanedustajat || [];
   const memberById = new Map(officialMembers.map(member => [clean(member.henkilonro), member]));
@@ -173,6 +188,7 @@ export async function sync() {
   await mkdir(OUT, { recursive: true });
   await writeFile(new URL('parliament.json', OUT), `${JSON.stringify(data)}\n`);
   await Promise.all(speechTextChunks.map((chunk, index) => writeFile(new URL(`speech-texts-${index}.json`, OUT), `${JSON.stringify(chunk)}\n`)));
+  await writeFile(new URL('speech-search.json', OUT), JSON.stringify(speechSearchIndex));
   await writeFile(new URL('metadata.json', OUT), `${JSON.stringify(metadata, null, 2)}\n`);
   console.log(JSON.stringify(metadata, null, 2));
 }

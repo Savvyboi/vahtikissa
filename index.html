@@ -25,8 +25,13 @@
     <button class="search-button" aria-label="Avaa haku">Hae <kbd>⌘ K</kbd></button>
   </header>
   <main id="content" tabindex="-1"><section class="loading"><span class="spinner"></span><p>Ladataan eduskunnan avointa dataa…</p></section></main>
-  <footer><div><a class="brand small" href="#/overview"><span class="brand-mark">VK</span><span>Vahti<em>kissa</em></span></a><p class="site-footer-note">Riippumaton avoimen datan palvelu. Ei ole Eduskunnan virallinen palvelu.</p></div><div><strong class="footer-data">Data</strong><a href="https://api.eduskunta.fi/" target="_blank" rel="noreferrer">Eduskunnan avoin data ↗</a><a class="footer-about" href="#/about">Tietoa palvelusta</a></div></footer>
-  <dialog class="search-dialog"><form method="dialog"><div class="search-head"><label for="global-search">Hae</label><button aria-label="Sulje">×</button></div><input id="global-search" autocomplete="off" placeholder="Kirjoita hakusana…"><div class="search-results"></div></form></dialog>
+  <footer><div><a class="brand small" href="#/overview"><span class="brand-mark">VK</span><span class="brand-name">Vahtikissa</span></a><p class="site-footer-note">Riippumaton avoimen datan palvelu. Ei ole Eduskunnan virallinen palvelu.</p></div><div><strong class="footer-data">Data</strong><a class="footer-open-data" href="https://api.eduskunta.fi/" target="_blank" rel="noreferrer">Suomen eduskunta · avoin data ↗</a><a class="footer-about" href="#/about">Tietoa palvelusta</a></div></footer>
+  <section class="search-panel" aria-label="Sivustohaku" hidden>
+    <div class="search-head"><label for="global-search">Hae</label><button type="button" class="search-close" aria-label="Sulje haku">×</button></div>
+    <input id="global-search" type="search" autocomplete="off" placeholder="Kirjoita hakusana…" aria-describedby="search-status">
+    <p id="search-status" class="search-status" role="status" aria-live="polite"></p>
+    <div class="search-results"></div>
+  </section>
   <noscript>Palvelu tarvitsee JavaScriptin näyttääkseen eduskunnan avoimen datan.</noscript>
 </body>
 </html>

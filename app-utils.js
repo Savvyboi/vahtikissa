@@ -59,6 +59,50 @@ export function isLongSpeech(text, threshold = 600) {
   return String(text || '').length > threshold;
 }
 
+export function paginationItems(currentPage, totalPages) {
+  const total = Math.max(1, Number(totalPages) || 1);
+  const current = Math.min(total, Math.max(1, Number(currentPage) || 1));
+  const pages = new Set([1, total]);
+  if (current <= 3) [1, 2, 3].forEach(page => page <= total && pages.add(page));
+  else if (current >= total - 2) [total - 2, total - 1, total].forEach(page => page > 0 && pages.add(page));
+  else [current - 1, current, current + 1].forEach(page => pages.add(page));
+  const sorted = [...pages].sort((a, b) => a - b);
+  return sorted.flatMap((page, index) => index && page - sorted[index - 1] > 1 ? ['ellipsis', page] : [page]);
+}
+
+export function normalizeSpeechSearchText(value) {
+  return String(value || '').toLocaleLowerCase('fi').replace(/[^\p{L}\p{N}]+/gu, ' ').trim().replace(/\s+/g, ' ');
+}
+
+export function decodeSpeechSearchIndex(index) {
+  if (!Array.isArray(index) || index.length !== 2 || !Array.isArray(index[0]) || !Array.isArray(index[1])) throw new TypeError('Invalid speech search index');
+  const [words, speeches] = index;
+  if (words.some(word => typeof word !== 'string') || speeches.some(tokens => !Array.isArray(tokens) || tokens.some(token => !Number.isInteger(token) || token < 0 || token >= words.length))) throw new TypeError('Invalid speech search index');
+  return speeches.map(tokens => tokens.map(token => words[token]).join(' '));
+}
+
+export function searchSpeeches(speeches, query, texts = {}) {
+  const q = normalizeSpeechSearchText(query);
+  if (!q) return speeches;
+  return speeches.filter((speech, index) => [
+    speech.firstName, speech.lastName, speech.party, speech.agenda, speech.agendaSv,
+    speech.type, Array.isArray(texts) ? texts[index] : texts[speech.id], speech.text
+  ].some(value => normalizeSpeechSearchText(value).includes(q)));
+}
+
+export function voteAlternatives(question, lang = 'fi') {
+  const yesWord = lang === 'sv' ? 'JA' : 'JAA';
+  const noWord = lang === 'sv' ? 'NEJ' : 'EI';
+  const pattern = new RegExp(`(?:^|:)\\s*(.*?)\\s+${yesWord}\\s*\\/\\s*(.*?)\\s+${noWord}(?:\\s|$)`, 'i');
+  const match = String(question || '').match(pattern);
+  if (!match) return { yes: '', no: '' };
+  return { yes: match[1].split(':').at(-1).trim(), no: match[2].trim() };
+}
+
+export function brandName(lang = 'fi') {
+  return lang === 'sv' ? 'Vaktkatt' : 'Vahtikissa';
+}
+
 export function filterBallots(ballots, choice = 'all') {
   return choice === 'all' ? ballots : ballots.filter(ballot => ballot.choice === choice);
 }

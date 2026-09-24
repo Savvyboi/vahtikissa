@@ -3,10 +3,12 @@ import { readFile } from 'node:fs/promises';
 const path = new URL('../data/parliament.json', import.meta.url);
 let data;
 let speechTextChunks;
+let speechSearchIndex;
 try {
   data = JSON.parse(await readFile(path, 'utf8'));
   const chunkCount = Math.max(...data.speeches.map(speech => speech.textChunk)) + 1;
   speechTextChunks = await Promise.all(Array.from({ length: chunkCount }, (_, index) => readFile(new URL(`../data/speech-texts-${index}.json`, import.meta.url), 'utf8').then(JSON.parse)));
+  speechSearchIndex = JSON.parse(await readFile(new URL('../data/speech-search.json', import.meta.url), 'utf8'));
 } catch (error) {
   console.error(`Invalid or missing generated data: ${error.message}`);
   process.exit(1);
@@ -20,6 +22,7 @@ if (data.metadata.counts.votes !== data.votes.length || data.metadata.counts.bal
 const speechTexts = Object.assign({}, ...speechTextChunks);
 if (Object.keys(speechTexts).length !== data.speeches.length || data.speeches.some(speech => !(speech.id in speechTexts))) throw new Error('Full speech text collection does not match speech metadata');
 if (!Object.values(speechTexts).some(text => text.length > 1200)) throw new Error('Full speech texts are missing');
+if (!Array.isArray(speechSearchIndex) || speechSearchIndex.length !== 2 || !Array.isArray(speechSearchIndex[0]) || !Array.isArray(speechSearchIndex[1]) || speechSearchIndex[1].length !== data.speeches.length) throw new Error('Speech search index does not match speech metadata');
 if (!data.speeches.some(speech => speech.agendaSv)) throw new Error('Swedish speech metadata is missing');
 if (!data.legislation.some(matter => matter.titleSv && matter.stagesSv?.length)) throw new Error('Swedish parliamentary matter metadata is missing');
 console.log(`Validated ${data.votes.length} votes, ${data.ballots.length} ballots, ${data.speeches.length} complete speeches and ${data.legislation.length} bilingual matters.`);
