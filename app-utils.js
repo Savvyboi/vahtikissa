@@ -90,6 +90,32 @@ export function searchSpeeches(speeches, query, texts = {}) {
   ].some(value => normalizeSpeechSearchText(value).includes(q)));
 }
 
+export function legislationStatusKey(item) {
+  return String(item?.decision || '').trim() || '__pending__';
+}
+
+export function filterAndSortLegislation(items, { query = '', status = 'all', sort = 'date-desc' } = {}) {
+  const q = String(query || '').trim().toLocaleLowerCase('fi');
+  const filtered = items.filter(item => {
+    if (status !== 'all' && legislationStatusKey(item) !== status) return false;
+    if (!q) return true;
+    return [
+      item.document, item.documentSv, item.title, item.titleSv, item.decision, item.decisionSv,
+      ...(item.stages || []), ...(item.stagesSv || [])
+    ].some(value => String(value || '').toLocaleLowerCase('fi').includes(q));
+  });
+  const date = item => String(item.latestDate || item.firstDate || '');
+  const votes = item => Array.isArray(item.voteIds) ? item.voteIds.length : 0;
+  const direction = sort.endsWith('-asc') ? 1 : -1;
+  const byVotes = sort.startsWith('votes-');
+  return [...filtered].sort((a, b) => {
+    const primary = byVotes ? votes(a) - votes(b) : date(a).localeCompare(date(b));
+    if (primary) return primary * direction;
+    const recentFirst = date(b).localeCompare(date(a));
+    return recentFirst || String(a.document || '').localeCompare(String(b.document || ''), 'fi');
+  });
+}
+
 export function voteAlternatives(question, lang = 'fi') {
   const yesWord = lang === 'sv' ? 'JA' : 'JAA';
   const noWord = lang === 'sv' ? 'NEJ' : 'EI';

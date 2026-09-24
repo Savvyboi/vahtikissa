@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { filterItems, percent, routeFromHash, hydrateBallots, pageSlice, choiceLabel, localized, localizedSearchFields, memberMatchesQuery, parliamentMatterUrl, isLongSpeech, filterBallots, voteOutcome, paginationItems, searchSpeeches, voteAlternatives, brandName } from '../app-utils.js';
+import { filterItems, percent, routeFromHash, hydrateBallots, pageSlice, choiceLabel, localized, localizedSearchFields, memberMatchesQuery, parliamentMatterUrl, isLongSpeech, filterBallots, voteOutcome, paginationItems, searchSpeeches, voteAlternatives, brandName, legislationStatusKey, filterAndSortLegislation } from '../app-utils.js';
 import { readFile } from 'node:fs/promises';
 
 const source = async file => readFile(new URL(`../${file}`, import.meta.url), 'utf8');
@@ -112,6 +112,21 @@ test('speech search includes complete loaded text and metadata', () => {
   assert.deepEqual(searchSpeeches(speeches, 'talous', {}), [speeches[0]]);
 });
 
+test('legislation can be searched, filtered by decision status and sorted by votes or date', () => {
+  const matters = [
+    { document: 'HE 1/2024 vp', title: 'Vanhempi laki', titleSv: 'Äldre lag', latestDate: '2024-02-01', decision: 'Hyväksytty', voteIds: ['a', 'b'] },
+    { document: 'HE 2/2024 vp', title: 'Uudempi laki', latestDate: '2024-03-01', decision: '', voteIds: [] },
+    { document: 'HE 3/2024 vp', title: 'Hylättävä laki', latestDate: '2024-01-01', decision: 'Hylätty', voteIds: ['c'] }
+  ];
+  assert.equal(legislationStatusKey(matters[1]), '__pending__');
+  assert.deepEqual(filterAndSortLegislation(matters, { query: 'äldre' }), [matters[0]]);
+  assert.deepEqual(filterAndSortLegislation(matters, { status: 'Hyväksytty' }), [matters[0]]);
+  assert.deepEqual(filterAndSortLegislation(matters, { status: '__pending__' }), [matters[1]]);
+  assert.deepEqual(filterAndSortLegislation(matters, { sort: 'votes-desc' }), [matters[0], matters[2], matters[1]]);
+  assert.deepEqual(filterAndSortLegislation(matters, { sort: 'date-asc' }), [matters[2], matters[0], matters[1]]);
+  assert.deepEqual(matters.map(item => item.document), ['HE 1/2024 vp', 'HE 2/2024 vp', 'HE 3/2024 vp']);
+});
+
 test('vote alternatives parse exact JA and NEJ choices', () => {
   assert.deepEqual(voteAlternatives('Valiokuntaan lähettäminen: puhemiesneuvoston ehdotus JAA / Suna Kymäläisen ehdotus EI'), {
     yes: 'puhemiesneuvoston ehdotus', no: 'Suna Kymäläisen ehdotus'
@@ -134,6 +149,20 @@ test('app uses a nonmodal search panel and paginates every speech list', async (
   assert.match(app, /pagination\('memberSpeeches'/);
   assert.match(app, /bindSpeechToggles/);
   assert.match(app, /href:href\('speeches',item\.id\)/);
+});
+
+test('search button omits the visual command-key hint', async () => {
+  const html = await source('index.html');
+  assert.match(html, /class="search-button"[^>]*>Hae<\/button>/);
+  assert.doesNotMatch(html, /<kbd>/);
+});
+
+test('speech typography and legislation controls remain readable and discoverable', async () => {
+  const [app, css] = await Promise.all([source('app.js'), source('styles.css')]);
+  assert.match(app, /data-legislation-status/);
+  assert.match(app, /data-legislation-sort/);
+  assert.match(app, /pagination\('legislation'/);
+  assert.match(css, /\.speech blockquote\{[^}]*max-width:72ch[^}]*line-height:1\.75/);
 });
 
 test('member speech page resets when navigating to another member', async () => {
