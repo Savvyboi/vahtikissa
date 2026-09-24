@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { filterItems, percent, routeFromHash, hydrateBallots, pageSlice, choiceLabel, localized, localizedSearchFields, memberMatchesQuery, parliamentMatterUrl, isLongSpeech, filterBallots, voteOutcome, paginationItems, searchSpeeches, voteAlternatives, brandName, legislationStatusKey, filterAndSortLegislation } from '../app-utils.js';
+import { filterItems, percent, routeFromHash, hydrateBallots, pageSlice, choiceLabel, localized, localizedSearchFields, memberMatchesQuery, parliamentMatterUrl, isLongSpeech, filterBallots, voteOutcome, paginationItems, searchSpeeches, voteAlternatives, brandName, legislationStatusKey, filterAndSortLegislation, speechParagraphs, filterSpeechesBySpeaker } from '../app-utils.js';
 import { readFile } from 'node:fs/promises';
 
 const source = async file => readFile(new URL(`../${file}`, import.meta.url), 'utf8');
@@ -93,8 +93,27 @@ test('Parliament matter links use the current public route', () => {
 });
 
 test('only genuinely long speeches need a read-more control', () => {
-  assert.equal(isLongSpeech('x'.repeat(601)), true);
-  assert.equal(isLongSpeech('x'.repeat(600)), false);
+  assert.equal(isLongSpeech('x'.repeat(181)), true);
+  assert.equal(isLongSpeech('x'.repeat(180)), false);
+});
+
+test('long speeches are split into readable paragraphs without losing words', () => {
+  const text = `${'Ensimmäinen virke. '.repeat(30)}${'Toinen ajatus jatkuu. '.repeat(30)}`.trim();
+  const paragraphs = speechParagraphs(text, 120);
+  assert.ok(paragraphs.length > 2);
+  assert.equal(paragraphs.join(' '), text);
+  assert.ok(paragraphs.every(paragraph => paragraph.length <= 180));
+});
+
+test('speeches can be filtered independently by party and MP', () => {
+  const speeches = [
+    { id: 'a', party: 'kok', mpId: '1' },
+    { id: 'b', party: 'kok', mpId: '2' },
+    { id: 'c', party: 'sd', mpId: '3' }
+  ];
+  assert.deepEqual(filterSpeechesBySpeaker(speeches, { party: 'kok' }), speeches.slice(0, 2));
+  assert.deepEqual(filterSpeechesBySpeaker(speeches, { mpId: '2' }), [speeches[1]]);
+  assert.deepEqual(filterSpeechesBySpeaker(speeches, { party: 'sd', mpId: '3' }), [speeches[2]]);
 });
 
 test('numbered pagination keeps first, neighbours and last page accessible', () => {
@@ -159,10 +178,14 @@ test('search button omits the visual command-key hint', async () => {
 
 test('speech typography and legislation controls remain readable and discoverable', async () => {
   const [app, css] = await Promise.all([source('app.js'), source('styles.css')]);
+  assert.match(app, /data-speech-party/);
+  assert.match(app, /data-speech-member/);
+  assert.match(app, /speechParagraphs/);
   assert.match(app, /data-legislation-status/);
   assert.match(app, /data-legislation-sort/);
   assert.match(app, /pagination\('legislation'/);
-  assert.match(css, /\.speech blockquote\{[^}]*max-width:72ch[^}]*line-height:1\.75/);
+  assert.match(css, /\.speech blockquote\{[^}]*max-width:68ch[^}]*line-height:1\.8/);
+  assert.match(css, /\.speech-text\.collapsed\{[^}]*max-height:calc\(1\.8em\*4\)/);
 });
 
 test('member speech page resets when navigating to another member', async () => {
@@ -175,7 +198,7 @@ test('member speech page resets when navigating to another member', async () => 
 
 test('speech search ignores async results after leaving the page', async () => {
   const app = await source('app.js');
-  assert.match(app, /if\(!input\.isConnected\)return;/);
+  assert.match(app, /if\(!input\.isConnected\|\|request!==searchVersion\)return;/);
 });
 
 test('search index can retry after a failed request', async () => {

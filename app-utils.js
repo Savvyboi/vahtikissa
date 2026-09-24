@@ -55,8 +55,37 @@ export function parliamentMatterUrl(document) {
   return document ? `https://www.eduskunta.fi/asiat-ja-aanestykset/valtiopaivaasiat/${encodeURIComponent(document)}` : '';
 }
 
-export function isLongSpeech(text, threshold = 600) {
+export function isLongSpeech(text, threshold = 180) {
   return String(text || '').length > threshold;
+}
+
+export function speechParagraphs(text, targetLength = 480) {
+  const normalized = String(text || '').trim().replace(/\s+/g, ' ');
+  if (!normalized) return [];
+  const paragraphs = [];
+  let words = [];
+  let length = 0;
+  const flush = () => {
+    if (!words.length) return;
+    paragraphs.push(words.join(' '));
+    words = [];
+    length = 0;
+  };
+  normalized.split(' ').forEach(word => {
+    words.push(word);
+    length += word.length + (words.length > 1 ? 1 : 0);
+    const sentenceEnd = /[.!?…]["'”’»)]?$/.test(word);
+    if (length >= targetLength && sentenceEnd) flush();
+  });
+  flush();
+  return paragraphs;
+}
+
+export function filterSpeechesBySpeaker(speeches, { party = 'all', mpId = 'all' } = {}) {
+  return speeches.filter(speech =>
+    (party === 'all' || speech.party === party) &&
+    (mpId === 'all' || String(speech.mpId) === String(mpId))
+  );
 }
 
 export function paginationItems(currentPage, totalPages) {
