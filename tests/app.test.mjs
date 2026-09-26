@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { filterItems, percent, routeFromHash, hydrateBallots, pageSlice, choiceLabel, localized, localizedSearchFields, memberMatchesQuery, parliamentMatterUrl, isLongSpeech, filterBallots, voteOutcome, filterVotes, filterAndSortMembers, paginationItems, searchSpeeches, voteAlternatives, brandName, legislationStatusKey, filterAndSortLegislation, speechParagraphs, filterSpeechesBySpeaker } from '../app-utils.js';
+import { filterItems, percent, routeFromHash, hydrateBallots, pageSlice, choiceLabel, localized, localizedSearchFields, memberMatchesQuery, parliamentMatterUrl, isLongSpeech, filterBallots, voteOutcome, filterVotes, filterAndSortMembers, paginationItems, searchSpeeches, voteAlternatives, brandName, legislationStatusKey, legislationMatterType, legislationStatusTone, legislationPhase, filterAndSortLegislation, speechParagraphs, filterSpeechesBySpeaker } from '../app-utils.js';
 import { readFile } from 'node:fs/promises';
 
 const source = async file => readFile(new URL(`../${file}`, import.meta.url), 'utf8');
@@ -169,6 +169,19 @@ test('legislation can be searched, filtered by decision status and sorted by vot
   assert.deepEqual(matters.map(item => item.document), ['HE 1/2024 vp', 'HE 2/2024 vp', 'HE 3/2024 vp']);
 });
 
+test('legislation exposes proposal types, grouped status colors and process phases', () => {
+  const committee = { document:'HE 1/2026 vp', decision:'', stages:['Asiantuntijakuuleminen'] };
+  const swedishCommittee = { document:'RP 1/2026 rd', decision:'', stages:['Utfrågning av sakkunniga i delegationen'] };
+  const changed = { document:'HE 2/2026 vp', decision:'Hyväksytty muutettuna', stages:['Toinen käsittely'] };
+  assert.equal(legislationMatterType(committee), 'HE');
+  assert.equal(legislationStatusTone(committee), 'ongoing');
+  assert.equal(legislationPhase(committee), 2);
+  assert.equal(legislationPhase(swedishCommittee), 2);
+  assert.equal(legislationStatusTone(changed), 'changed');
+  assert.equal(legislationPhase(changed), 6);
+  assert.deepEqual(filterAndSortLegislation([committee,changed], { type:'HE', status:'__changed__' }), [changed]);
+});
+
 test('vote alternatives parse exact JA and NEJ choices', () => {
   assert.deepEqual(voteAlternatives('Valiokuntaan lähettäminen: puhemiesneuvoston ehdotus JAA / Suna Kymäläisen ehdotus EI'), {
     yes: 'puhemiesneuvoston ehdotus', no: 'Suna Kymäläisen ehdotus'
@@ -236,6 +249,13 @@ test('mobile menu stays compact and exposes an X close control', async () => {
   assert.match(app, /window\.addEventListener\('hashchange',\(\)=>\{closeMenu\(\);render\(\)\}\)/);
   assert.match(css, /\.nav\.open\{[^}]*max-height:min\(65dvh,420px\)/);
   assert.doesNotMatch(css, /\.nav\.open\{[^}]*height:calc\(100dvh - 64px\)/);
+});
+
+test('internal navigation preserves scroll position instead of forcing the page top', async () => {
+  const app = await source('app.js');
+  assert.match(app, /a\[href\^="#\/"\]/);
+  assert.match(app, /history\.pushState/);
+  assert.doesNotMatch(app, /window\.scrollTo\(0,0\)/);
 });
 
 test('mobile speech metadata wraps instead of causing horizontal overflow', async () => {

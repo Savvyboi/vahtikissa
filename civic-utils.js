@@ -83,12 +83,23 @@ export function filterElectionCandidates(candidates, { query = '', party = 'all'
   );
 }
 
-export function filterInfluence(items, { query = '', year = 'all', kind = 'all' } = {}) {
+export function filterInfluence(items, {
+  query = '', year = 'all', kind = 'all', mp = 'all', party = 'all', actor = 'all',
+  method = 'all', category = 'all', excludedCategories = []
+} = {}) {
   const normalized = String(query).trim().toLocaleLowerCase('fi');
+  const excluded = new Set(excludedCategories || []);
   return items.filter(item =>
     (year === 'all' || String(item.year || item.periodYear) === String(year)) &&
     (kind === 'all' || item.targetKind === kind || item.targetKinds?.includes(kind)) &&
+    (mp === 'all' || item.mpName === mp || item.mpNames?.includes(mp)) &&
+    (party === 'all' || item.party === party || item.targetParties?.includes(party)) &&
+    (actor === 'all' || item.actor === actor) &&
+    (method === 'all' || item.methods?.includes(method)) &&
+    (category === 'all' || item.industry === category) &&
+    (!item.industry || !excluded.has(item.industry)) &&
     (!normalized || [item.mpName, item.donor, item.description, item.actor, item.topic,
+      item.customer, item.industry, item.otherMethod, ...(item.methods || []), ...(item.mpNames || []),
       item.target?.fi?.name, item.target?.sv?.name, item.target?.fi?.department, item.target?.sv?.department,
       ...(item.targets || []).flatMap(target => [target.fi?.name, target.sv?.name, target.fi?.department, target.sv?.department])]
       .some(value => String(value || '').toLocaleLowerCase('fi').includes(normalized)))

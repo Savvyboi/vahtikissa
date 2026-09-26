@@ -1,8 +1,8 @@
-name: Weekly budget, election and influence data sync
+name: Daily budget, election and influence data sync
 
 on:
   schedule:
-    - cron: '43 3 * * 1'
+    - cron: '43 3 * * *'
   workflow_dispatch:
 
 permissions:
@@ -30,7 +30,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add data/budget.json data/elections-2023.json data/influence.json
           git diff --cached --quiet && exit 0
-          git commit -m "data: weekly civic data sync"
+          git commit -m "data: daily civic data sync"
           for attempt in 1 2 3; do
             git pull --rebase origin main && git push && exit 0
             git rebase --abort 2>/dev/null || true

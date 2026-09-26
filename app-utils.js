@@ -123,10 +123,39 @@ export function legislationStatusKey(item) {
   return String(item?.decision || '').trim() || '__pending__';
 }
 
-export function filterAndSortLegislation(items, { query = '', status = 'all', sort = 'date-desc' } = {}) {
+export function legislationMatterType(item) {
+  return String(item?.document || '').trim().split(/\s+/)[0].toUpperCase() || 'OTHER';
+}
+
+export function legislationStatusTone(item) {
+  const decision = `${item?.decision || ''} ${item?.decisionSv || ''}`.toLocaleLowerCase('fi');
+  if (!decision.trim()) return 'ongoing';
+  if (/muutett|ändring/.test(decision)) return 'changed';
+  if (/hyväks|godkän/.test(decision)) return 'approved';
+  if (/hylät|förkast/.test(decision)) return 'rejected';
+  if (/peruut|återtag/.test(decision)) return 'withdrawn';
+  if (/rauen|förfall/.test(decision)) return 'expired';
+  return 'closed';
+}
+
+export function legislationPhase(item) {
+  if (legislationStatusTone(item) !== 'ongoing') return 6;
+  const stage = [...(item?.stages || []), ...(item?.stagesSv || [])].at(-1)?.toLocaleLowerCase('fi') || '';
+  if (/vastauk|kirjelm|response|svar/.test(stage)) return 6;
+  if (/toinen|andra behand/.test(stage)) return 5;
+  if (/ensimmäinen|första behand/.test(stage)) return 4;
+  if (/pöydälle|bordlägg/.test(stage)) return 3;
+  if (/valiok|utskott|asiantuntija|expert|sakkunn|mietint|betänk|lausun|utlåt|valmistava|beredande/.test(stage)) return 2;
+  if (/lähete|remiss/.test(stage)) return 1;
+  return 0;
+}
+
+export function filterAndSortLegislation(items, { query = '', status = 'all', type = 'all', sort = 'date-desc' } = {}) {
   const q = String(query || '').trim().toLocaleLowerCase('fi');
   const filtered = items.filter(item => {
-    if (status !== 'all' && legislationStatusKey(item) !== status) return false;
+    const tone = legislationStatusTone(item);
+    if (status !== 'all' && status !== `__${tone}__` && legislationStatusKey(item) !== status) return false;
+    if (type !== 'all' && legislationMatterType(item) !== type) return false;
     if (!q) return true;
     return [
       item.document, item.documentSv, item.title, item.titleSv, item.decision, item.decisionSv,

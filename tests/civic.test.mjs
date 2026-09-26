@@ -38,6 +38,15 @@ test('civic filters search bilingual labels and combine structured filters', () 
   assert.equal(filterInfluence(contacts, { query:'ledamot', year:'2025', kind:'mp' }).length, 1);
 });
 
+test('influence filters combine MP, party, actor, method and category exclusions', () => {
+  const contacts = [
+    { actor:'Energia ry', periodYear:2026, methods:['meeting'], industry:'Energia', mpNames:['Ada Edustaja'], targetParties:['kok'] },
+    { actor:'Terveys ry', periodYear:2026, methods:['mail'], industry:'Terveys', mpNames:['Bo Edustaja'], targetParties:['sd'] }
+  ];
+  assert.deepEqual(filterInfluence(contacts, { mp:'Ada Edustaja', party:'kok', actor:'Energia ry', method:'meeting', category:'Energia' }), [contacts[0]]);
+  assert.deepEqual(filterInfluence(contacts, { excludedCategories:['Energia'] }), [contacts[1]]);
+});
+
 test('the three civic applications are separate bilingual menu items', async () => {
   const [html, app] = await Promise.all([source('index.html'), source('app.js')]);
   for (const page of ['budget', 'elections', 'influence']) assert.match(html, new RegExp(`data-page="${page}"`));
@@ -47,13 +56,24 @@ test('the three civic applications are separate bilingual menu items', async () 
   assert.match(app, /influence:'Gåvor och lobbning'/);
   assert.match(app, /renderBudget\(root,lang,r\.id,e\)/);
   assert.match(app, /renderElections\(root,lang,e\)/);
-  assert.match(app, /renderInfluence\(root,lang,e\)/);
+  assert.match(app, /renderInfluence\(root,lang,e,data\.members\)/);
 });
 
-test('civic snapshots refresh weekly and deploy through Pages', async () => {
-  const [workflow, pages] = await Promise.all([source('.github/workflows/weekly-civic-sync.yml'), source('.github/workflows/pages.yml')]);
-  assert.match(workflow, /cron: ['"]\d+ \d+ \* \* \d['"]/);
+test('civic snapshots refresh daily and deploy through Pages', async () => {
+  const [workflow, pages] = await Promise.all([source('.github/workflows/daily-civic-sync.yml'), source('.github/workflows/pages.yml')]);
+  assert.match(workflow, /name: Daily budget, election and influence data sync/);
+  assert.match(workflow, /cron: ['"]\d+ \d+ \* \* \*['"]/);
   assert.match(workflow, /npm run sync:civic/);
   assert.match(workflow, /data\/budget\.json data\/elections-2023\.json data\/influence\.json/);
-  assert.match(pages, /Weekly budget, election and influence data sync/);
+  assert.match(pages, /Daily budget, election and influence data sync/);
+});
+
+test('budget drill-down uses in-place history navigation and influence exposes advanced filters', async () => {
+  const app = await source('civic-apps.js');
+  assert.match(app, /data-budget-route/);
+  assert.match(app, /history\.pushState/);
+  assert.match(app, /data-influence-filter="mp"/);
+  assert.match(app, /data-influence-filter="party"/);
+  assert.match(app, /data-influence-filter="category"/);
+  assert.match(app, /data-exclude-category/);
 });

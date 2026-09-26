@@ -18,7 +18,7 @@ The visual and information hierarchy is inspired by the public-facing `mijnkamer
 - MPs' gift disclosures and lobbying contacts directed at MPs, assistants and Parliament
 - Keyboard-accessible global search (`Ctrl/Cmd + K`)
 - Responsive layout and semantic HTML
-- Daily Parliament and weekly civic-data ingestion via GitHub Actions
+- Daily Parliament, budget, election, gift and lobbying-data ingestion via GitHub Actions
 - Free GitHub Pages deployment workflow
 - Netlify configuration as an alternative
 - Node's dependency-free test suite
@@ -51,7 +51,7 @@ npm run dev
 
 Open `http://localhost:4173`.
 
-`npm run sync` can take several minutes because it downloads an individual ballot table for each vote. `npm run sync:civic:all` rebuilds every budget year from 2020 and the election and influence snapshots; the ordinary weekly `npm run sync:civic` only refreshes the current budget year plus the other civic sources. Generated files are committed under `data/` so the public site has no server, database, secrets or runtime API dependency.
+`npm run sync` can take several minutes because it downloads Parliament's yearly datasets. `npm run sync:civic:all` rebuilds every budget year from 2020 and the election and influence snapshots; the ordinary daily `npm run sync:civic` refreshes the current budget year plus the other civic sources. Generated files are committed under `data/` so the public site has no server, database, secrets or runtime API dependency.
 
 ## Free deployment (recommended: GitHub Pages)
 
@@ -74,7 +74,7 @@ Connect the repository, use no framework preset, leave the build command empty (
 ## Automation details
 
 - `.github/workflows/daily-sync.yml`: tests, downloads fresh data, commits only when data changed.
-- `.github/workflows/weekly-civic-sync.yml`: refreshes the budget, election, gift and lobbying snapshots each Monday.
+- `.github/workflows/daily-civic-sync.yml`: refreshes the budget, election, gift and lobbying snapshots daily at 03:43 UTC.
 - `.github/workflows/pages.yml`: checks and publishes every `main` update.
 - `EDUSKUNTA_API` can override the API base URL for testing.
 - If the upstream API fails, the sync exits non-zero and does not replace the last valid dataset.
