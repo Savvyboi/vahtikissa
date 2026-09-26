@@ -168,6 +168,28 @@ export function voteOutcome(vote) {
   return yes === no ? 'tie' : yes > no ? 'moreYes' : 'moreNo';
 }
 
+export function filterVotes(votes, { query = '', outcome = 'all', type = 'all', stage = 'all' } = {}) {
+  const matchesQuery = filterItems(votes, query, localizedSearchFields(['title', 'question', 'document', 'stage']));
+  return matchesQuery.filter(vote =>
+    (outcome === 'all' || voteOutcome(vote) === outcome) &&
+    (type === 'all' || (type === 'amendment' ? Boolean(vote.isAmendment) : !vote.isAmendment)) &&
+    (stage === 'all' || vote.stage === stage)
+  );
+}
+
+export function filterAndSortMembers(members, { query = '', party = 'all', sort = 'name' } = {}, partyNames = {}) {
+  const filtered = members.filter(member =>
+    (party === 'all' || member.party === party) && memberMatchesQuery(member, query, partyNames)
+  );
+  const name = member => `${member.lastName || ''} ${member.firstName || ''}`.trim();
+  const score = (member, key) => Number(member.stats?.[key]) || 0;
+  return [...filtered].sort((a, b) => {
+    if (sort === 'participation-desc') return score(b, 'participation') - score(a, 'participation') || name(a).localeCompare(name(b), 'fi');
+    if (sort === 'speeches-desc') return score(b, 'speeches') - score(a, 'speeches') || name(a).localeCompare(name(b), 'fi');
+    return name(a).localeCompare(name(b), 'fi');
+  });
+}
+
 export function choiceLabel(choice, lang = 'fi') {
   const labels = {
     fi: { yes: 'jaa', no: 'ei', abstain: 'tyhjää', absent: 'poissa', other: 'muu' },

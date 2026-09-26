@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { filterItems, percent, routeFromHash, hydrateBallots, pageSlice, choiceLabel, localized, localizedSearchFields, memberMatchesQuery, parliamentMatterUrl, isLongSpeech, filterBallots, voteOutcome, paginationItems, searchSpeeches, voteAlternatives, brandName, legislationStatusKey, filterAndSortLegislation, speechParagraphs, filterSpeechesBySpeaker } from '../app-utils.js';
+import { filterItems, percent, routeFromHash, hydrateBallots, pageSlice, choiceLabel, localized, localizedSearchFields, memberMatchesQuery, parliamentMatterUrl, isLongSpeech, filterBallots, voteOutcome, filterVotes, filterAndSortMembers, paginationItems, searchSpeeches, voteAlternatives, brandName, legislationStatusKey, filterAndSortLegislation, speechParagraphs, filterSpeechesBySpeaker } from '../app-utils.js';
 import { readFile } from 'node:fs/promises';
 
 const source = async file => readFile(new URL(`../${file}`, import.meta.url), 'utf8');
@@ -95,6 +95,29 @@ test('Parliament matter links use the current public route', () => {
 test('only genuinely long speeches need a read-more control', () => {
   assert.equal(isLongSpeech('x'.repeat(181)), true);
   assert.equal(isLongSpeech('x'.repeat(180)), false);
+});
+
+test('vote list filters combine search, outcome, type and stage', () => {
+  const votes = [
+    { title: 'Talousarvio', stage: 'Budjetti', yes: 100, no: 80, isAmendment: true },
+    { title: 'Kalastuslaki', stage: 'Toinen käsittely', yes: 70, no: 90, isAmendment: false },
+    { title: 'Budgetförslag', titleSv: 'Miljöbudget', stage: 'Budjetti', yes: 80, no: 80, isAmendment: true }
+  ];
+  assert.deepEqual(filterVotes(votes, { query: 'miljö', outcome: 'tie', type: 'amendment', stage: 'Budjetti' }), [votes[2]]);
+  assert.deepEqual(filterVotes(votes, { outcome: 'moreNo' }), [votes[1]]);
+  assert.deepEqual(filterVotes(votes, { type: 'other' }), [votes[1]]);
+});
+
+test('member list filters by party and sorts by activity', () => {
+  const members = [
+    { firstName: 'Ada', lastName: 'Aalto', party: 'kok', stats: { participation: 82, speeches: 10 } },
+    { firstName: 'Bo', lastName: 'Berg', party: 'sd', stats: { participation: 91, speeches: 30 } },
+    { firstName: 'Cia', lastName: 'Carlsson', party: 'kok', stats: { participation: 96, speeches: 20 } }
+  ];
+  const names = { kok: { fi: 'Kansallinen Kokoomus', sv: 'Samlingspartiet' } };
+  assert.deepEqual(filterAndSortMembers(members, { party: 'kok', sort: 'participation-desc' }, names), [members[2], members[0]]);
+  assert.deepEqual(filterAndSortMembers(members, { query: 'samlings', sort: 'speeches-desc' }, names), [members[2], members[0]]);
+  assert.deepEqual(filterAndSortMembers(members, { sort: 'name' }, names), members);
 });
 
 test('long speeches are split into readable paragraphs without losing words', () => {
