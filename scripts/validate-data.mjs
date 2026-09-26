@@ -25,4 +25,14 @@ if (!Object.values(speechTexts).some(text => text.length > 1200)) throw new Erro
 if (!Array.isArray(speechSearchIndex) || speechSearchIndex.length !== 2 || !Array.isArray(speechSearchIndex[0]) || !Array.isArray(speechSearchIndex[1]) || speechSearchIndex[1].length !== data.speeches.length) throw new Error('Speech search index does not match speech metadata');
 if (!data.speeches.some(speech => speech.agendaSv)) throw new Error('Swedish speech metadata is missing');
 if (!data.legislation.some(matter => matter.titleSv && matter.stagesSv?.length)) throw new Error('Swedish parliamentary matter metadata is missing');
-console.log(`Validated ${data.votes.length} votes, ${data.ballots.length} ballots, ${data.speeches.length} complete speeches and ${data.legislation.length} bilingual matters.`);
+const [budget, election, influence] = await Promise.all([
+  readFile(new URL('../data/budget.json', import.meta.url), 'utf8').then(JSON.parse),
+  readFile(new URL('../data/elections-2023.json', import.meta.url), 'utf8').then(JSON.parse),
+  readFile(new URL('../data/influence.json', import.meta.url), 'utf8').then(JSON.parse)
+]);
+if (!Array.isArray(budget.years) || !budget.years.some(item => item.year === 2020) || budget.years.some(item => !item.income?.length || !item.expense?.length)) throw new Error('Budget data must contain complete annual income and expense views from 2020');
+if (!budget.years.some(item => item.expense.some(group => group.name?.sv))) throw new Error('Swedish budget headings are missing');
+if (election.metadata?.year !== 2023 || election.summary?.seats !== 200 || election.candidates?.length !== 200) throw new Error('The 2023 election data must contain all 200 elected candidates');
+if (!election.parties?.some(item => item.name?.fi && item.name?.sv) || !election.districts?.some(item => item.name?.fi && item.name?.sv)) throw new Error('Bilingual election labels are missing');
+if (!Array.isArray(influence.gifts) || !influence.gifts.some(item => item.donor && item.mpName) || !Array.isArray(influence.targets) || !influence.targets.some(item => item.fi && item.sv) || !Array.isArray(influence.lobbying) || !influence.lobbying.some(item => item.targetIds?.length)) throw new Error('Gift or lobbying data is missing');
+console.log(`Validated ${data.votes.length} votes, ${data.ballots.length} ballots, ${data.speeches.length} complete speeches, ${budget.years.length} budgets, ${election.candidates.length} elected candidates, ${influence.gifts.length} gifts and ${influence.counts.lobbying} lobbying contacts in ${influence.lobbying.length} topics.`);
