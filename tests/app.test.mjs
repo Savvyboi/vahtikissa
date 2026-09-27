@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { filterItems, percent, routeFromHash, hydrateBallots, pageSlice, choiceLabel, localized, localizedSearchFields, memberMatchesQuery, parliamentMatterUrl, isLongSpeech, filterBallots, voteOutcome, filterVotes, filterAndSortMembers, paginationItems, searchSpeeches, voteAlternatives, brandName, legislationStatusKey, legislationMatterType, legislationStatusTone, legislationPhase, filterAndSortLegislation, speechParagraphs, filterSpeechesBySpeaker, fetchJSONWithTimeout } from '../app-utils.js';
+import { filterItems, percent, routeFromHash, hydrateBallots, pageSlice, choiceLabel, localized, localizedSearchFields, memberMatchesQuery, parliamentMatterUrl, isLongSpeech, filterBallots, voteOutcome, filterVotes, filterAndSortMembers, paginationItems, searchSpeeches, voteAlternatives, brandName, legislationStatusKey, legislationMatterType, legislationStatusTone, legislationPhase, filterAndSortLegislation, speechParagraphs, filterSpeechesBySpeaker, fetchJSONWithTimeout, policyTopicKeys, buildSpeechAnalytics } from '../app-utils.js';
+import { serializeCSV, serializeJSON } from '../data-tools.js';
 import { readFile } from 'node:fs/promises';
 
 const source = async file => readFile(new URL(`../${file}`, import.meta.url), 'utf8');
@@ -137,6 +138,29 @@ test('speeches can be filtered independently by party and MP', () => {
   assert.deepEqual(filterSpeechesBySpeaker(speeches, { party: 'kok' }), speeches.slice(0, 2));
   assert.deepEqual(filterSpeechesBySpeaker(speeches, { mpId: '2' }), [speeches[1]]);
   assert.deepEqual(filterSpeechesBySpeaker(speeches, { party: 'sd', mpId: '3' }), [speeches[2]]);
+});
+
+test('policy topics filter votes, legislation and speeches consistently', () => {
+  const health = { title: 'Hallituksen esitys lastensuojelulaiksi', committees: [{ id: 'STV01' }] };
+  const defence = { title: 'Puolustusvoimien määrärahat', committees: [{ id: 'PUV01' }] };
+  assert.deepEqual(policyTopicKeys(health), ['social-health']);
+  assert.deepEqual(filterVotes([health, defence], { topic: 'defence' }), [defence]);
+  assert.deepEqual(filterAndSortLegislation([health, defence], { committee: 'STV01' }), [health]);
+  assert.deepEqual(filterSpeechesBySpeaker([{ ...health, party: 'sd' }, { ...defence, party: 'kok' }], { topic: 'social-health' }), [{ ...health, party: 'sd' }]);
+});
+
+test('speech analytics reports frequency, total words and average length by topic', () => {
+  const analytics = buildSpeechAnalytics([
+    { mpId: '1', firstName: 'Ada', lastName: 'Aalto', party: 'sd', agenda: 'Talousarvio', text: 'yksi kaksi kolme' },
+    { mpId: '1', firstName: 'Ada', lastName: 'Aalto', party: 'sd', agenda: 'Verotus', text: 'neljä viisi' }
+  ]);
+  assert.deepEqual(analytics.topics.economy.members[0], { mpId: '1', firstName: 'Ada', lastName: 'Aalto', party: 'sd', speeches: 2, words: 5, averageWords: 3 });
+});
+
+test('CSV and JSON exports preserve structured values safely', () => {
+  const rows = [{ name: 'Ada, Test', topics: ['Talous', 'Ympäristö'], votes: 12 }];
+  assert.equal(serializeCSV(rows), 'name,topics,votes\r\n"Ada, Test","Talous; Ympäristö",12');
+  assert.deepEqual(JSON.parse(serializeJSON(rows)), rows);
 });
 
 test('numbered pagination keeps first, neighbours and last page accessible', () => {

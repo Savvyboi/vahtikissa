@@ -272,6 +272,7 @@ export async function syncInfluence() {
   ]);
   const members = memberResponse.kansanedustajat || [];
   const gifts = [];
+  const interests = [];
   for (const member of members) {
     const fi = member.sidonnaisuudet?.fi || [];
     const sv = member.sidonnaisuudet?.sv || [];
@@ -287,8 +288,22 @@ export async function syncInfluence() {
         amount: parsed.amount, used: parsed.used, raw: { fi: parsed.raw, sv: translatedParsed.raw }
       });
     }
+    for (const disclosure of fi.filter(item => ['sidonnaisuusilmoitus', 'tuloilmoitus'].includes(item.ilmoitusTyyppi))) {
+      const translated = sv.find(item => item.ilmoitusTyyppi === disclosure.ilmoitusTyyppi && item.jarjestys === disclosure.jarjestys && item.vuosi === disclosure.vuosi);
+      const description = clean(disclosure.sidonta);
+      interests.push({
+        id: `${member.henkilonro}-${disclosure.vuosi}-${disclosure.ilmoitusTyyppi}-${disclosure.jarjestys}`,
+        mpId: clean(member.henkilonro), mpName: `${clean(member.kutsumanimi || member.etunimet)} ${clean(member.sukunimi)}`.trim(),
+        party: normalizeParty(clean(member.viimeisinEduskuntaryhma?.tunnus).split('~')[0].replace(/\d+$/, '')), year: Number(disclosure.vuosi),
+        type: disclosure.ilmoitusTyyppi === 'tuloilmoitus' ? 'income' : 'interest',
+        category: clean(disclosure.ryhmaotsikko), categorySv: clean(translated?.ryhmaotsikko || disclosure.ryhmaotsikko),
+        description, descriptionSv: clean(translated?.sidonta || description),
+        declared: Boolean(description && !/^ei ilmoitettavia/i.test(description))
+      });
+    }
   }
   gifts.sort((a, b) => b.reported.split('.').reverse().join('-').localeCompare(a.reported.split('.').reverse().join('-')) || b.amount - a.amount);
+  interests.sort((a, b) => b.year - a.year || a.mpName.localeCompare(b.mpName, 'fi') || a.category.localeCompare(b.category, 'fi'));
 
   const closedTerms = terms.filter(term => term.status === 'closed');
   const notifications = (await Promise.all(closedTerms.map(term => json(`${TRANSPARENCY}/open-data-activity-notification/term/${term.id}`, { timeout: 300_000 })))).flat();
@@ -329,11 +344,11 @@ export async function syncInfluence() {
   lobbying.sort((a, b) => b.reported.localeCompare(a.reported) || a.actor.localeCompare(b.actor, 'fi'));
   const output = {
     metadata: { generatedAt: new Date().toISOString(), parliamentSource: PARLIAMENT, transparencySource: `${TRANSPARENCY}/open-data-activity-notification`, license: 'CC BY 4.0' },
-    gifts, targets: [...parliamentTargets.values()], lobbying,
-    counts: { gifts: gifts.length, giftValue: Math.round(gifts.reduce((sum, gift) => sum + gift.amount, 0)), lobbying: contactCount, lobbyingTopics: lobbying.length, actors: new Set(lobbying.map(item => item.actor)).size }
+    gifts, interests, targets: [...parliamentTargets.values()], lobbying,
+    counts: { gifts: gifts.length, giftValue: Math.round(gifts.reduce((sum, gift) => sum + gift.amount, 0)), interests: interests.filter(item => item.declared).length, lobbying: contactCount, lobbyingTopics: lobbying.length, actors: new Set(lobbying.map(item => item.actor)).size }
   };
   await writeFile(new URL('influence.json', OUT), `${JSON.stringify(output)}\n`);
-  console.log(`Influence snapshot: ${gifts.length} gifts and ${contactCount} Parliament-related declared contacts in ${lobbying.length} topics.`);
+  console.log(`Influence snapshot: ${gifts.length} gifts, ${interests.length} interest/income declarations and ${contactCount} Parliament-related declared contacts in ${lobbying.length} topics.`);
   return output;
 }
 

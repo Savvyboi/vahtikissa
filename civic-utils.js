@@ -98,7 +98,7 @@ export function filterInfluence(items, {
     (method === 'all' || item.methods?.includes(method)) &&
     (category === 'all' || item.industry === category) &&
     (!item.industry || !excluded.has(item.industry)) &&
-    (!normalized || [item.mpName, item.donor, item.description, item.actor, item.topic,
+    (!normalized || [item.mpName, item.donor, item.description, item.descriptionSv, item.category, item.categorySv, item.type, item.actor, item.topic,
       item.customer, item.industry, item.otherMethod, ...(item.methods || []), ...(item.mpNames || []),
       item.target?.fi?.name, item.target?.sv?.name, item.target?.fi?.department, item.target?.sv?.department,
       ...(item.targets || []).flatMap(target => [target.fi?.name, target.sv?.name, target.fi?.department, target.sv?.department])]

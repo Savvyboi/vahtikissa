@@ -43,6 +43,49 @@ export function localizedSearchFields(fields) {
   return fields.flatMap(field => [field, `${field}Sv`]);
 }
 
+const POLICY_TOPICS = [
+  { key: 'social-health', fi: 'Sosiaali- ja terveys', sv: 'Social- och hälsovård', pattern: /sosiaali|terveys|hyvinvointi|eläke|sairau|lääke|lastensuoj|vammais|social|häls|välfärd|pension|sjuk|läkemed|barnskydd|funktionshind/i },
+  { key: 'economy', fi: 'Talous ja verotus', sv: 'Ekonomi och beskattning', pattern: /talous|vero|budjet|rahoit|pankki|yrity|kauppa|työmarkkin|julkinen velka|ekonomi|skatt|budget|finans|bank|företag|handel|arbetsmarknad|offentlig skuld/i },
+  { key: 'defence', fi: 'Puolustus ja turvallisuus', sv: 'Försvar och säkerhet', pattern: /puolustus|sotilas|asevelvoll|nato|rajaturvall|kriisinhall|försvar|militär|värnplikt|gränssäker|krishanter/i },
+  { key: 'environment', fi: 'Ympäristö ja energia', sv: 'Miljö och energi', pattern: /ympär|ilmasto|luonnon|metsä|kaivos|energia|päästö|vesien|jäte|miljö|klimat|natur|skog|gruv|energi|utsläpp|vatten|avfall/i },
+  { key: 'education', fi: 'Koulutus ja kulttuuri', sv: 'Utbildning och kultur', pattern: /opetus|koul|yliopisto|ammattikorkea|tutkimus|kulttuur|nuori|liikunta|utbild|skol|universitet|forskning|kultur|ungdom|idrott/i },
+  { key: 'justice', fi: 'Oikeus ja perusoikeudet', sv: 'Rättsväsende och grundrättigheter', pattern: /oikeus|rikos|poliisi|vankeus|tuomio|perustus|yhdenver|tietosuoja|rätt|brott|polis|fäng|domstol|grundlag|jämlik|dataskydd/i },
+  { key: 'transport', fi: 'Liikenne ja viestintä', sv: 'Kommunikation och trafik', pattern: /liikenne|tie\b|raide|rautatie|ilmailu|merenkul|viestintä|digitaal|tietoverk|trafik|väg\b|järnväg|luftfart|sjöfart|kommunikation|digital|datanät/i },
+  { key: 'agriculture', fi: 'Maa- ja metsätalous', sv: 'Jord- och skogsbruk', pattern: /maatalou|metsätalou|kalast|elintarvi|eläinsuoj|maaseu|jordbruk|skogsbruk|fiske|livsmed|djurskydd|landsbygd/i },
+  { key: 'foreign-eu', fi: 'Ulkoasiat ja EU', sv: 'Utrikesfrågor och EU', pattern: /ulkoasi|euroopan unioni|\beu[:\s-]|kehitysyhte|kansainväli|utrikes|europeiska union|utvecklingssamarb|internationell/i },
+  { key: 'governance', fi: 'Hallinto ja kunnat', sv: 'Förvaltning och kommuner', pattern: /hallinto|kunta|aluehall|vaali|kansalaisuus|maahanmuut|virkamie|förvaltning|kommun|regionförvalt|val\b|medborgarskap|invandring|tjänsteman/i },
+  { key: 'other', fi: 'Muu aihe', sv: 'Övrigt ämne', pattern: null }
+];
+
+export function policyTopicOptions(lang = 'fi') {
+  return POLICY_TOPICS.map(topic => ({ key: topic.key, label: topic[lang] || topic.fi }));
+}
+
+export function policyTopicLabel(key, lang = 'fi') {
+  const topic = POLICY_TOPICS.find(item => item.key === key) || POLICY_TOPICS.at(-1);
+  return topic[lang] || topic.fi;
+}
+
+export function policyTopicKeys(item) {
+  const text = [item?.title, item?.titleSv, item?.question, item?.questionSv, item?.agenda, item?.agendaSv, item?.document, item?.documentSv]
+    .filter(Boolean).join(' ');
+  const matches = POLICY_TOPICS.filter(topic => topic.pattern?.test(text)).map(topic => topic.key);
+  return matches.length ? matches.slice(0, 3) : ['other'];
+}
+
+export function committeeOptions(items, lang = 'fi') {
+  const committees = new Map();
+  for (const item of items || []) for (const committee of item.committees || []) {
+    const id = String(committee.id || committee.code || committee.name || '');
+    if (id && !committees.has(id)) committees.set(id, lang === 'sv' ? committee.nameSv || committee.name : committee.name || committee.nameSv);
+  }
+  return [...committees].sort((a, b) => String(a[1]).localeCompare(String(b[1]), lang));
+}
+
+export function hasCommittee(item, committee = 'all') {
+  return committee === 'all' || (item?.committees || []).some(value => String(value.id || value.code || value.name) === String(committee));
+}
+
 export function memberMatchesQuery(member, query, partyNames = {}) {
   const q = String(query || '').trim().toLocaleLowerCase('fi');
   if (!q) return true;
@@ -81,11 +124,36 @@ export function speechParagraphs(text, targetLength = 480) {
   return paragraphs;
 }
 
-export function filterSpeechesBySpeaker(speeches, { party = 'all', mpId = 'all' } = {}) {
+export function filterSpeechesBySpeaker(speeches, { party = 'all', mpId = 'all', topic = 'all' } = {}) {
   return speeches.filter(speech =>
     (party === 'all' || speech.party === party) &&
-    (mpId === 'all' || String(speech.mpId) === String(mpId))
+    (mpId === 'all' || String(speech.mpId) === String(mpId)) &&
+    (topic === 'all' || policyTopicKeys(speech).includes(topic))
   );
+}
+
+export function buildSpeechAnalytics(speeches) {
+  const buckets = new Map();
+  const bucketFor = key => {
+    if (!buckets.has(key)) buckets.set(key, { members: new Map(), parties: new Map() });
+    return buckets.get(key);
+  };
+  for (const speech of speeches || []) {
+    const words = String(speech.text || '').trim().split(/\s+/u).filter(Boolean).length;
+    const topics = ['all', ...policyTopicKeys(speech)];
+    for (const topic of topics) {
+      const bucket = bucketFor(topic);
+      const memberKey = String(speech.mpId || `${speech.firstName}-${speech.lastName}`);
+      const member = bucket.members.get(memberKey) || { mpId: memberKey, firstName: speech.firstName || '', lastName: speech.lastName || '', party: speech.party || '', speeches: 0, words: 0 };
+      member.speeches += 1; member.words += words; bucket.members.set(memberKey, member);
+      const partyKey = String(speech.party || 'other');
+      const party = bucket.parties.get(partyKey) || { party: partyKey, speeches: 0, words: 0 };
+      party.speeches += 1; party.words += words; bucket.parties.set(partyKey, party);
+    }
+  }
+  const finish = map => [...map.values()].map(item => ({ ...item, averageWords: item.speeches ? Math.round(item.words / item.speeches) : 0 }))
+    .sort((a, b) => b.words - a.words || b.speeches - a.speeches);
+  return { topics: Object.fromEntries([...buckets].map(([key, bucket]) => [key, { members: finish(bucket.members), parties: finish(bucket.parties) }])) };
 }
 
 export function paginationItems(currentPage, totalPages) {
@@ -150,12 +218,14 @@ export function legislationPhase(item) {
   return 0;
 }
 
-export function filterAndSortLegislation(items, { query = '', status = 'all', type = 'all', sort = 'date-desc' } = {}) {
+export function filterAndSortLegislation(items, { query = '', status = 'all', type = 'all', topic = 'all', committee = 'all', sort = 'date-desc' } = {}) {
   const q = String(query || '').trim().toLocaleLowerCase('fi');
   const filtered = items.filter(item => {
     const tone = legislationStatusTone(item);
     if (status !== 'all' && status !== `__${tone}__` && legislationStatusKey(item) !== status) return false;
     if (type !== 'all' && legislationMatterType(item) !== type) return false;
+    if (topic !== 'all' && !policyTopicKeys(item).includes(topic)) return false;
+    if (!hasCommittee(item, committee)) return false;
     if (!q) return true;
     return [
       item.document, item.documentSv, item.title, item.titleSv, item.decision, item.decisionSv,
@@ -197,12 +267,14 @@ export function voteOutcome(vote) {
   return yes === no ? 'tie' : yes > no ? 'moreYes' : 'moreNo';
 }
 
-export function filterVotes(votes, { query = '', outcome = 'all', type = 'all', stage = 'all' } = {}) {
+export function filterVotes(votes, { query = '', outcome = 'all', type = 'all', stage = 'all', topic = 'all', committee = 'all' } = {}) {
   const matchesQuery = filterItems(votes, query, localizedSearchFields(['title', 'question', 'document', 'stage']));
   return matchesQuery.filter(vote =>
     (outcome === 'all' || voteOutcome(vote) === outcome) &&
     (type === 'all' || (type === 'amendment' ? Boolean(vote.isAmendment) : !vote.isAmendment)) &&
-    (stage === 'all' || vote.stage === stage)
+    (stage === 'all' || vote.stage === stage) &&
+    (topic === 'all' || policyTopicKeys(vote).includes(topic)) &&
+    hasCommittee(vote, committee)
   );
 }
 

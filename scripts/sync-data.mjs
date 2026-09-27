@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import { normalizeParty, normalizeVote, buildIndexes, deriveMembers, isInRange, START_DATE } from './lib.mjs';
-import { normalizeSpeechSearchText } from '../app-utils.js';
+import { buildSpeechAnalytics, normalizeSpeechSearchText } from '../app-utils.js';
 
 const parliamentMatterUrl = document => document ? `https://www.eduskunta.fi/asiat-ja-aanestykset/valtiopaivaasiat/${encodeURIComponent(document)}` : '';
 
@@ -133,12 +133,47 @@ export function normalizeMatter(wrapper) {
   const latestDate = iso(row.viimeisinJulkaisuajankohta?.fi || row.viimeisinJulkaisuajankohta?.sv || firstDate);
   const stage = clean(row.viimeisinKasittelyvaihe?.fi);
   const stageSv = clean(row.viimeisinKasittelyvaihe?.sv);
+  const committeeRows = language => [
+    ...(row.valiokuntienViimeisimmatKasittelyt?.[language] || []),
+    ...(row.kasittelyt?.[language] || [])
+  ].map(item => item?.valiokunta || item).filter(item => item?.tunnus || item?.nimi);
+  const committeesById = new Map();
+  for (const committee of committeeRows('fi')) {
+    const id = clean(committee.tunnus || committee.nimi);
+    committeesById.set(id, { id, name: clean(committee.nimi), nameSv: '' });
+  }
+  for (const committee of committeeRows('sv')) {
+    const id = clean(committee.tunnus || committee.nimi);
+    const existing = committeesById.get(id) || { id, name: '', nameSv: '' };
+    existing.nameSv = clean(committee.nimi);
+    committeesById.set(id, existing);
+  }
   return {
     id: document, document, documentSv: clean(row.eduskuntatunnus?.sv), title: clean(row.nimeke?.fi), titleSv: clean(row.nimeke?.sv),
     firstDate, latestDate, stages: stage ? [stage] : [], stagesSv: stageSv ? [stageSv] : [],
     decision: clean(row.kokonaispaatosnimi?.fi), decisionSv: clean(row.kokonaispaatosnimi?.sv), voteIds: [], amendmentCount: 0,
+    ...(committeesById.size ? { committees: [...committeesById.values()] } : {}),
     url: parliamentMatterUrl(document)
   };
+}
+
+function committeeSnapshot(items) {
+  return {
+    generatedAt: new Date().toISOString(),
+    matters: Object.fromEntries(items.filter(item => item.id && item.committees?.length).map(item => [item.id, item.committees]))
+  };
+}
+
+export async function syncCommitteeIndex() {
+  console.log(`Syncing Parliament committee assignments from ${START_DATE}…`);
+  const years = Array.from({ length: END_YEAR - 2023 + 1 }, (_, index) => 2023 + index);
+  const matterWrappers = [];
+  for (const year of years) matterWrappers.push(...await search('valtiopaivaasia', year, 'laadintapvm'));
+  const snapshot = committeeSnapshot(matterWrappers.map(normalizeMatter).filter(item => item.id && isInRange(item.firstDate)));
+  await mkdir(OUT, { recursive: true });
+  await writeFile(new URL('committee-index.json', OUT), `${JSON.stringify(snapshot)}\n`);
+  console.log(`Committee index: ${Object.keys(snapshot.matters).length} matters.`);
+  return snapshot;
 }
 
 export async function sync() {
@@ -158,6 +193,7 @@ export async function sync() {
   const completeSpeeches = speechWrappers.map(normalizeSpeech).filter(item => isInRange(item.date)).sort((a, b) => b.date.localeCompare(a.date));
   const { speeches, speechTextChunks } = splitSpeeches(completeSpeeches);
   const speechSearchIndex = buildSpeechSearchIndex(completeSpeeches);
+  const speechAnalytics = { generatedAt: new Date().toISOString(), ...buildSpeechAnalytics(completeSpeeches) };
 
   const officialMembers = (await request('/kansanedustajat')).kansanedustajat || [];
   const memberById = new Map(officialMembers.map(member => [clean(member.henkilonro), member]));
@@ -169,7 +205,12 @@ export async function sync() {
   });
   const groupBy = (items, key) => items.reduce((result, item) => ((result[key(item)] ||= []).push(item), result), {});
   const sessions = Object.values(groupBy(votes, vote => `${vote.year}-${vote.sessionNumber}`)).map(group => ({ id: `${group[0].year}-${group[0].sessionNumber}`, year: group[0].year, number: group[0].sessionNumber, date: group[0].date, title: `Täysistunto ${group[0].sessionNumber}/${group[0].year}`, titleSv: `Plenum ${group[0].sessionNumber}/${group[0].year}`, voteIds: group.map(vote => vote.id) })).sort((a, b) => b.date.localeCompare(a.date));
-  const legislationById = new Map(matterWrappers.map(normalizeMatter).filter(item => item.id && isInRange(item.firstDate)).map(item => [item.id, item]));
+  const normalizedMatters = matterWrappers.map(normalizeMatter).filter(item => item.id && isInRange(item.firstDate));
+  const committeeIndex = committeeSnapshot(normalizedMatters);
+  const legislationById = new Map(normalizedMatters.map(item => {
+    const { committees, ...matter } = item;
+    return [matter.id, matter];
+  }));
   for (const group of Object.values(groupBy(votes.filter(vote => vote.document), vote => vote.document))) {
     const matter = legislationById.get(group[0].document) || normalizeMatter({ valtiopaivaasia: { eduskuntatunnus: { fi: group[0].document, sv: group[0].documentSv }, nimeke: { fi: group[0].title, sv: group[0].titleSv }, laadintapvm: { fi: group.at(-1).date, sv: group.at(-1).date } } });
     matter.latestDate = [matter.latestDate, group[0].date].filter(Boolean).sort().at(-1) || '';
@@ -189,10 +230,12 @@ export async function sync() {
   await writeFile(new URL('parliament.json', OUT), `${JSON.stringify(data)}\n`);
   await Promise.all(speechTextChunks.map((chunk, index) => writeFile(new URL(`speech-texts-${index}.json`, OUT), `${JSON.stringify(chunk)}\n`)));
   await writeFile(new URL('speech-search.json', OUT), JSON.stringify(speechSearchIndex));
+  await writeFile(new URL('speech-analytics.json', OUT), `${JSON.stringify(speechAnalytics)}\n`);
+  await writeFile(new URL('committee-index.json', OUT), `${JSON.stringify(committeeIndex)}\n`);
   await writeFile(new URL('metadata.json', OUT), `${JSON.stringify(metadata, null, 2)}\n`);
   console.log(JSON.stringify(metadata, null, 2));
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  sync().catch(error => { console.error(error); process.exitCode = 1; });
+  (process.argv.includes('--committees-only') ? syncCommitteeIndex() : sync()).catch(error => { console.error(error); process.exitCode = 1; });
 }

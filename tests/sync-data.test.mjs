@@ -92,3 +92,15 @@ test('matter normalization keeps proposals even when only Swedish publication da
   assert.equal(matter.firstDate, '2024-03-04');
   assert.equal(matter.latestDate, '2024-03-05T09:00:00+00:00');
 });
+
+test('matter normalization deduplicates official committee assignments', () => {
+  const matter = normalizeMatter({ valtiopaivaasia: {
+    eduskuntatunnus: { fi: 'HE 3/2024 vp', sv: 'RP 3/2024 rd' },
+    nimeke: { fi: 'Esitys', sv: 'Proposition' }, laadintapvm: { fi: '2024-03-04' },
+    valiokuntienViimeisimmatKasittelyt: {
+      fi: [{ valiokunta: { tunnus: 'STV01', nimi: 'Sosiaali- ja terveysvaliokunta' } }, { valiokunta: { tunnus: 'STV01', nimi: 'Sosiaali- ja terveysvaliokunta' } }],
+      sv: [{ valiokunta: { tunnus: 'STV01', nimi: 'Social- och hälsovårdsutskottet' } }]
+    }
+  }});
+  assert.deepEqual(matter.committees, [{ id: 'STV01', name: 'Sosiaali- ja terveysvaliokunta', nameSv: 'Social- och hälsovårdsutskottet' }]);
+});

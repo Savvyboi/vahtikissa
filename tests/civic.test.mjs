@@ -52,11 +52,11 @@ test('the three civic applications are separate bilingual menu items', async () 
   for (const page of ['budget', 'elections', 'influence']) assert.match(html, new RegExp(`data-page="${page}"`));
   assert.match(app, /budget:'Budjetti'/);
   assert.match(app, /budget:'Budget'/);
-  assert.match(app, /influence:'Lahjat ja lobbaus'/);
-  assert.match(app, /influence:'Gåvor och lobbning'/);
+  assert.match(app, /influence:'Sidonnaisuudet'/);
+  assert.match(app, /influence:'Bindningar'/);
   assert.match(app, /renderBudget\(root,lang,r\.id,e\)/);
   assert.match(app, /renderElections\(root,lang,e\)/);
-  assert.match(app, /renderInfluence\(root,lang,e,data\.members\)/);
+  assert.match(app, /renderInfluence\(root,lang,e,data\.members,r\.id\)/);
 });
 
 test('civic snapshots refresh daily and deploy through Pages', async () => {

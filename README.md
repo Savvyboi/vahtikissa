@@ -1,6 +1,6 @@
 # Eduskunta-vahti
 
-A static, privacy-friendly Finnish civic dashboard. It combines Parliament data from **2 April 2023 onward** with the state budget since 2020, the official 2023 parliamentary election results, MPs' gift disclosures and declared lobbying contacts in a searchable Finnish and Swedish interface.
+A static, privacy-friendly Finnish civic dashboard. It combines Parliament data from **2 April 2023 onward** with the state budget since 2020, the official 2023 parliamentary election results, MPs' financial-interest and gift disclosures, and declared lobbying contacts in a searchable Finnish and Swedish interface.
 
 The visual and information hierarchy is inspired by the public-facing `mijnkamer.be` service, but this repository contains an original implementation and visual system. The separate GitHub repository currently found at `GustaveCurtil/mijn_kamer` has no declared license, so none of its code or assets are included here. The live `mijnkamer.be` service appears to be a different implementation than that repository; this project only borrows its general civic-information structure.
 
@@ -9,13 +9,16 @@ The visual and information hierarchy is inspired by the public-facing `mijnkamer
 - Overview with current dataset totals and latest votes
 - Vote list and vote detail, including party breakdowns
 - MP list and MP detail with participation, party-line and speech statistics
+- Downloadable 1200 × 630 social cards and Instagram Story cards for vote and MP summaries
+- CSV and JSON export controls on tables, vote ballots and filtered result lists
+- Policy-topic and official committee filters for votes and parliamentary matters
 - Party comparison and party detail
-- Speech browser
+- Speech browser with topic filters plus MP and party frequency/word-count analytics
 - Parliamentary matter pages connecting matters, votes and amendments
 - Plenary session index
 - State budget explorer for 2020 onward, with income, expenditure, budget and actual figures
 - Official 2023 parliamentary election results by party, district and elected candidate
-- MPs' gift disclosures and lobbying contacts directed at MPs, assistants and Parliament
+- Searchable MP financial interests, outside income declarations, gift disclosures and lobbying contacts
 - Keyboard-accessible global search (`Ctrl/Cmd + K`)
 - Responsive layout and semantic HTML
 - Daily Parliament, budget, election, gift and lobbying-data ingestion via GitHub Actions
@@ -31,10 +34,10 @@ The additional applications use these official sources:
 
 - State Treasury's State Budget Finances API for annual and monthly budget figures
 - Statistics Finland's PXWeb API for 2023 election votes, shares, turnout and elected candidates
-- Parliament's open-data API for MPs' gift disclosures
+- Parliament's open-data API for MPs' financial interests, outside income and gift disclosures
 - The Finnish Transparency Register's public API for self-reported lobbying activities and targets
 
-Lobbying entries are grouped by declaration topic in the interface while preserving all reported targets. A contact in this dataset means a contact declared by the reporting organisation; it is not an independently verified finding. Detailed budget classifications currently follow the source's Finnish terminology, while all application controls, explanations and top-level budget classes are available in Finnish and Swedish.
+Lobbying entries are grouped by declaration topic in the interface while preserving all reported targets. A contact in this dataset means a contact declared by the reporting organisation; it is not an independently verified finding. Policy domains are broad keyword-based discovery tags, while committee filters use the official committee names associated with a matter by Parliament's API. Speech word totals are derived from published transcript text. Detailed budget classifications currently follow the source's Finnish terminology, while all application controls, explanations and top-level budget classes are available in Finnish and Swedish.
 
 “Amendment” is a transparent heuristic: a vote is marked as an amendment when its Finnish title includes terms such as `ehdotus`, `vastalause` or `lausuma`. This is useful for discovery, but not a legal classification. Participation and party-line scores are descriptive and should not be interpreted as measures of political quality.
 
@@ -45,13 +48,15 @@ Requires Node.js 22 or newer.
 ```bash
 npm test
 npm run sync
+npm run sync:committees
+npm run build:speech-analytics
 npm run sync:civic:all
 npm run dev
 ```
 
 Open `http://localhost:4173`.
 
-`npm run sync` can take several minutes because it downloads Parliament's yearly datasets. `npm run sync:civic:all` rebuilds every budget year from 2020 and the election and influence snapshots; the ordinary daily `npm run sync:civic` refreshes the current budget year plus the other civic sources. Generated files are committed under `data/` so the public site has no server, database, secrets or runtime API dependency.
+`npm run sync` can take several minutes because it downloads Parliament's yearly datasets and rebuilds the committee and speech-analysis indexes. The two narrower commands rebuild those derived files independently. `npm run sync:civic:all` rebuilds every budget year from 2020 and the election and influence snapshots; the ordinary daily `npm run sync:civic` refreshes the current budget year plus the other civic sources. Generated files are committed under `data/` so the public site has no server, database, secrets or runtime API dependency.
 
 ## Free deployment (recommended: GitHub Pages)
 
@@ -74,7 +79,7 @@ Connect the repository, use no framework preset, leave the build command empty (
 ## Automation details
 
 - `.github/workflows/daily-sync.yml`: tests, downloads fresh data, commits only when data changed.
-- `.github/workflows/daily-civic-sync.yml`: refreshes the budget, election, gift and lobbying snapshots daily at 03:43 UTC.
+- `.github/workflows/daily-civic-sync.yml`: refreshes the budget, election, interests, gifts and lobbying snapshots daily at 03:43 UTC.
 - `.github/workflows/pages.yml`: checks and publishes every `main` update.
 - `EDUSKUNTA_API` can override the API base URL for testing.
 - If the upstream API fails, the sync exits non-zero and does not replace the last valid dataset.
