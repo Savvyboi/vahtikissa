@@ -1,4 +1,5 @@
 import { filterBudgetItems, filterElectionCandidates, filterInfluence } from './civic-utils.js';
+import { fetchJSONWithTimeout } from './app-utils.js';
 
 const cache = new Map();
 const budgetState = { metric: 'budget', query: '', sort: 'amount' };
@@ -55,10 +56,7 @@ const formatDate = (value, lang) => value ? new Intl.DateTimeFormat(lang === 'sv
 const pct = (part, total) => total ? Math.max(0, Math.min(100, part / total * 100)) : 0;
 
 async function load(path) {
-  if (!cache.has(path)) cache.set(path, fetch(path).then(response => {
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    return response.json();
-  }).catch(error => { cache.delete(path); throw error; }));
+  if (!cache.has(path)) cache.set(path, fetchJSONWithTimeout(path).catch(error => { cache.delete(path); throw error; }));
   return cache.get(path);
 }
 
@@ -66,8 +64,10 @@ function loading(root, lang) {
   root.innerHTML = `<section class="loading"><span class="spinner"></span><p>${lang === 'sv' ? 'Öppna data laddas…' : 'Ladataan avointa dataa…'}</p></section>`;
 }
 
-function errorView(root, lang, escapeHTML, error) {
-  root.innerHTML = `<div class="page"><div class="empty"><h2>${lang === 'sv' ? 'Uppgifterna kunde inte laddas' : 'Tietoja ei voitu ladata'}</h2><p>${escapeHTML(error.message)}</p></div></div>`;
+function errorView(root, lang, escapeHTML, error, retry) {
+  const timeout=error?.name==='TimeoutError';
+  root.innerHTML = `<div class="page"><section class="load-error" role="alert"><span class="eyebrow">${lang === 'sv' ? 'Laddningsfel' : 'Latausvirhe'}</span><h1>${lang === 'sv' ? 'Uppgifterna kunde inte laddas' : 'Tietoja ei voitu ladata'}</h1><p>${lang === 'sv' ? (timeout?'Laddningen tog för lång tid. Kontrollera anslutningen och försök igen.':'Kontrollera anslutningen och försök igen.') : (timeout?'Lataus kesti liian kauan. Tarkista verkkoyhteys ja yritä uudelleen.':'Tarkista verkkoyhteys ja yritä uudelleen.')}</p><details><summary>${lang === 'sv' ? 'Tekniska detaljer' : 'Tekniset tiedot'}</summary><code>${escapeHTML(error?.message||'Unknown error')}</code></details><button type="button" data-retry>${lang === 'sv' ? 'Försök igen' : 'Yritä uudelleen'}</button></section></div>`;
+  root.querySelector('[data-retry]').onclick=retry;
 }
 
 function pageHeader(lang, escapeHTML, kicker, title, lead, generatedAt) {
@@ -164,7 +164,7 @@ function renderBudgetContent(root, lang, escapeHTML, data, routeId = '') {
 export async function renderBudget(root, lang, routeId, escapeHTML) {
   if(!cache.has('./data/budget.json')) loading(root,lang);
   try { renderBudgetContent(root,lang,escapeHTML,await load('./data/budget.json'),routeId); }
-  catch (error) { errorView(root,lang,escapeHTML,error); }
+  catch (error) { errorView(root,lang,escapeHTML,error,()=>renderBudget(root,lang,routeId,escapeHTML)); }
 }
 
 function electionStats(data,lang) {
@@ -192,7 +192,7 @@ function renderElectionContent(root,lang,escapeHTML,data) {
 export async function renderElections(root,lang,escapeHTML) {
   loading(root,lang);
   try { renderElectionContent(root,lang,escapeHTML,await load('./data/elections-2023.json')); }
-  catch(error){ errorView(root,lang,escapeHTML,error); }
+  catch(error){ errorView(root,lang,escapeHTML,error,()=>renderElections(root,lang,escapeHTML)); }
 }
 
 const methodNames={fi:{meeting:'Tapaaminen',phone:'Puhelu',mail:'Sähköposti',social_media:'Sosiaalinen media',event:'Tilaisuus',online:'Verkkotapaaminen',other:'Muu'},sv:{meeting:'Möte',phone:'Telefonsamtal',mail:'E-post',social_media:'Sociala medier',event:'Evenemang',online:'Distansmöte',other:'Övrigt'}};
@@ -276,5 +276,5 @@ export async function renderInfluence(root,lang,escapeHTML,members=[]){
     const data=await load('./data/influence.json');
     prepareInfluenceData(data,members);
     renderInfluenceContent(root,lang,escapeHTML,data);
-  }catch(error){errorView(root,lang,escapeHTML,error)}
+  }catch(error){errorView(root,lang,escapeHTML,error,()=>renderInfluence(root,lang,escapeHTML,members))}
 }

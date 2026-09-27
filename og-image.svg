@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+  <title id="title">Vahtikissa</title>
+  <desc id="desc">Riippumaton eduskunnan avoimen datan palvelu</desc>
+  <rect width="1200" height="630" fill="#f6f3ec"/>
+  <path d="M0 520C250 425 445 590 690 490c210-86 338-41 510 25v115H0z" fill="#dce9f2"/>
+  <circle cx="170" cy="160" r="76" fill="#003b70"/>
+  <path d="M123 117l30 24h34l30-24-9 88h-76zm30 56h3m27 0h3m-25 19c8 7 17 7 25 0" fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="10"/>
+  <text x="285" y="185" fill="#172032" font-family="Georgia,serif" font-size="92" font-weight="700">Vahti<tspan fill="#003b70">kissa</tspan></text>
+  <text x="126" y="335" fill="#172032" font-family="Arial,sans-serif" font-size="48" font-weight="700">Seuraa eduskunnan työtä.</text>
+  <text x="126" y="405" fill="#475467" font-family="Arial,sans-serif" font-size="31">Äänestykset, puheet, lakiasiat ja avoimuustiedot</text>
+  <text x="126" y="455" fill="#475467" font-family="Arial,sans-serif" font-size="31">helposti tutkittavassa muodossa.</text>
+  <text x="126" y="565" fill="#003b70" font-family="Arial,sans-serif" font-size="25" font-weight="700">RIIPPUMATON · AVOIN DATA · SUOMI &amp; SVENSKA</text>
+</svg>

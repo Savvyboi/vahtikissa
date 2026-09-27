@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { filterItems, percent, routeFromHash, hydrateBallots, pageSlice, choiceLabel, localized, localizedSearchFields, memberMatchesQuery, parliamentMatterUrl, isLongSpeech, filterBallots, voteOutcome, filterVotes, filterAndSortMembers, paginationItems, searchSpeeches, voteAlternatives, brandName, legislationStatusKey, legislationMatterType, legislationStatusTone, legislationPhase, filterAndSortLegislation, speechParagraphs, filterSpeechesBySpeaker } from '../app-utils.js';
+import { filterItems, percent, routeFromHash, hydrateBallots, pageSlice, choiceLabel, localized, localizedSearchFields, memberMatchesQuery, parliamentMatterUrl, isLongSpeech, filterBallots, voteOutcome, filterVotes, filterAndSortMembers, paginationItems, searchSpeeches, voteAlternatives, brandName, legislationStatusKey, legislationMatterType, legislationStatusTone, legislationPhase, filterAndSortLegislation, speechParagraphs, filterSpeechesBySpeaker, fetchJSONWithTimeout } from '../app-utils.js';
 import { readFile } from 'node:fs/promises';
 
 const source = async file => readFile(new URL(`../${file}`, import.meta.url), 'utf8');
@@ -268,4 +268,44 @@ test('open-data attribution lives in the footer, not page headers', async () => 
   assert.match(html, /footer-open-data/);
   assert.doesNotMatch(app, /parliament:'Suomen eduskunta · avoin data'/);
   assert.doesNotMatch(app, /parliament:'Finlands riksdag · öppna data'/);
+});
+
+test('JSON loading has an explicit timeout and accepts a successful response', async () => {
+  const value = await fetchJSONWithTimeout('/data.json', {
+    timeout: 50,
+    fetchImpl: async () => ({ ok: true, json: async () => ({ ready: true }) })
+  });
+  assert.deepEqual(value, { ready: true });
+
+  await assert.rejects(fetchJSONWithTimeout('/slow.json', {
+    timeout: 5,
+    fetchImpl: (url, { signal }) => new Promise((resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason)))
+  }), error => error.name === 'TimeoutError');
+});
+
+test('critical accessibility, metadata and recovery affordances are present', async () => {
+  const [html, app, civic] = await Promise.all([source('index.html'), source('app.js'), source('civic-apps.js')]);
+  assert.match(html, /href="#content"/);
+  assert.match(html, /<main id="content"/);
+  assert.doesNotMatch(html, /about:invalid/);
+  assert.match(html, /property="og:title"/);
+  assert.match(html, /property="og:description"/);
+  assert.match(html, /property="og:image"/);
+  assert.match(html, /<noscript><section class="noscript-notice">/);
+  assert.match(html, /id="route-status"[^>]*aria-live="polite"/);
+  assert.match(app, /document\.title=`\$\{label\} \| \$\{brand\}`/);
+  assert.match(app, /data-retry/);
+  assert.match(civic, /data-retry/);
+});
+
+test('transparency footer, methodology and display themes are exposed', async () => {
+  const [html, app, css] = await Promise.all([source('index.html'), source('app.js'), source('styles.css')]);
+  assert.match(html, /class="footer-updated"/);
+  assert.match(html, /class="footer-repository"/);
+  assert.match(html, /class="theme-select"/);
+  assert.match(app, /Osallistumisprosentti =/);
+  assert.match(app, /äänestyspari/);
+  assert.match(app, /Ryhmälinja/);
+  assert.match(css, /data-theme="dark"/);
+  assert.match(css, /data-theme="contrast"/);
 });

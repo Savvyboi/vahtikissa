@@ -233,6 +233,26 @@ export function formatDate(value, locale = 'fi-FI') {
   return Number.isNaN(date.valueOf()) ? value : new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'long', year: 'numeric' }).format(date);
 }
 
+export async function fetchJSONWithTimeout(url, { timeout = 15000, fetchImpl = globalThis.fetch } = {}) {
+  if (typeof fetchImpl !== 'function') throw new TypeError('Fetch is not available');
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(new DOMException('Request timed out', 'TimeoutError')), timeout);
+  try {
+    const response = await fetchImpl(url, { signal: controller.signal });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return await response.json();
+  } catch (error) {
+    if (controller.signal.aborted) {
+      const timeoutError = new Error(`Request timed out after ${timeout} ms`);
+      timeoutError.name = 'TimeoutError';
+      throw timeoutError;
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export function escapeHTML(value) {
   return String(value ?? '').replace(/[&<>'"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[char]);
 }

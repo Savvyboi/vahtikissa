@@ -5,6 +5,18 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="description" content="Vahtikissa näyttää Eduskunnan äänestykset, puheenvuorot ja lakiasiat kansanedustajittain ja puolueittain.">
   <meta name="theme-color" content="#f5f2ea">
+  <meta name="color-scheme" content="light dark">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Vahtikissa">
+  <meta property="og:title" content="Vahtikissa – seuraa eduskunnan työtä">
+  <meta property="og:description" content="Äänestykset, puheenvuorot, lakiasiat, budjetti ja avoimuustiedot helposti tutkittavassa muodossa.">
+  <meta property="og:image" content="https://savvyboi.github.io/vahtikissa/og-image.png">
+  <meta property="og:image:type" content="image/png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Vahtikissa – riippumaton eduskunnan avoimen datan palvelu">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="canonical" href="https://savvyboi.github.io/vahtikissa/">
   <title>Vahtikissa</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22><rect width=%2264%22 height=%2264%22 rx=%2212%22 fill=%22%23003873%22/><path d=%22M18 17l8 6h12l8-6-2 27H20zM26 33h1m10 0h1m-9 6c2 2 4 2 6 0%22 stroke=%22white%22 stroke-width=%223%22 fill=%22none%22/></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -21,17 +33,19 @@
     <nav class="nav" id="main-navigation" aria-label="Päänavigaatio">
       <a data-page="overview" href="#/overview">Yleiskuva</a><a data-page="sessions" href="#/sessions">Istunnot</a><a data-page="votes" href="#/votes">Äänestykset</a><a data-page="members" href="#/members">Kansanedustajat</a><a data-page="parties" href="#/parties">Puolueet</a><a data-page="speeches" href="#/speeches">Puheet</a><a data-page="legislation" href="#/legislation">Lakiasiat</a><a class="nav-new-section" data-page="budget" href="#/budget">Budjetti</a><a data-page="elections" href="#/elections">Vaalit 2023</a><a data-page="influence" href="#/influence">Lahjat ja lobbaus</a>
     </nav>
+    <label class="theme-control"><span class="sr-only">Väriteema</span><select class="theme-select" aria-label="Väriteema"><option value="light">Vaalea</option><option value="dark">Tumma</option><option value="contrast">Korkea kontrasti</option></select></label>
     <button class="language-button" type="button">På svenska</button>
     <button class="search-button" type="button" aria-label="Avaa haku">Hae</button>
   </header>
-  <main id="content" tabindex="-1"><section class="loading"><span class="spinner"></span><p>Ladataan eduskunnan avointa dataa…</p></section></main>
-  <footer><div><a class="brand small" href="#/overview"><span class="brand-mark">VK</span><span class="brand-name">Vahtikissa</span></a><p class="site-footer-note">Riippumaton avoimen datan palvelu. Ei ole Eduskunnan virallinen palvelu.</p></div><div><strong class="footer-data">Data</strong><a class="footer-open-data" href="https://api.eduskunta.fi/" target="_blank" rel="noreferrer">Suomen eduskunta · avoin data ↗</a><a class="footer-budget-data" href="https://avoindata.tutkihallintoa.fi/api-details#api=valtiontalous" target="_blank" rel="noreferrer">Valtiokonttori · budjetti ↗</a><a class="footer-election-data" href="https://pxdata.stat.fi/PxWeb/pxweb/fi/StatFin/StatFin__evaa/" target="_blank" rel="noreferrer">Tilastokeskus · vaalit ↗</a><a class="footer-transparency-data" href="https://www.avoimuusrekisteri.fi/" target="_blank" rel="noreferrer">Avoimuusrekisteri ↗</a><a class="footer-about" href="#/about">Tietoa palvelusta</a></div></footer>
+  <p id="route-status" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></p>
+  <main id="content" tabindex="-1" aria-busy="true"><section class="loading"><span class="spinner" aria-hidden="true"></span><p>Ladataan eduskunnan avointa dataa…</p></section></main>
+  <footer><div><a class="brand small" href="#/overview"><span class="brand-mark">VK</span><span class="brand-name">Vahtikissa</span></a><p class="site-footer-note">Riippumaton avoimen datan palvelu. Ei ole Eduskunnan virallinen palvelu.</p><p class="footer-updated">Eduskunnan dataa ladataan…</p></div><div><strong class="footer-data">Data ja avoimuus</strong><a class="footer-open-data" href="https://api.eduskunta.fi/" target="_blank" rel="noreferrer">Suomen eduskunta · avoin data ↗</a><a class="footer-budget-data" href="https://avoindata.tutkihallintoa.fi/api-details#api=valtiontalous" target="_blank" rel="noreferrer">Valtiokonttori · budjetti ↗</a><a class="footer-election-data" href="https://pxdata.stat.fi/PxWeb/pxweb/fi/StatFin/StatFin__evaa/" target="_blank" rel="noreferrer">Tilastokeskus · vaalit ↗</a><a class="footer-transparency-data" href="https://www.avoimuusrekisteri.fi/" target="_blank" rel="noreferrer">Avoimuusrekisteri ↗</a><a class="footer-repository" href="https://github.com/Savvyboi/vahtikissa" target="_blank" rel="noreferrer">Lähdekoodi GitHubissa ↗</a><a class="footer-about" href="#/about">Tietoa palvelusta ja menetelmistä</a></div></footer>
   <section class="search-panel" aria-label="Sivustohaku" hidden>
     <div class="search-head"><label for="global-search">Hae</label><button type="button" class="search-close" aria-label="Sulje haku">×</button></div>
     <input id="global-search" type="search" autocomplete="off" placeholder="Kirjoita hakusana…" aria-describedby="search-status">
     <p id="search-status" class="search-status" role="status" aria-live="polite"></p>
     <div class="search-results"></div>
   </section>
-  <noscript>Palvelu tarvitsee JavaScriptin näyttääkseen eduskunnan avoimen datan.</noscript>
+  <noscript><section class="noscript-notice"><h1>Vahtikissa tarvitsee JavaScriptin</h1><p>Palvelun interaktiiviset näkymät eivät toimi ilman JavaScriptiä. Viralliset tiedot ovat saatavilla <a href="https://www.eduskunta.fi/">Eduskunnan verkkosivuilta</a> ja <a href="https://api.eduskunta.fi/">avoimen datan rajapinnasta</a>.</p></section></noscript>
 </body>
 </html>
