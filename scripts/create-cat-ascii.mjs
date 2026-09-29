@@ -1,7 +1,8 @@
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { chromium } from 'playwright';
+import { basketCatSVG } from './basket-cat-ascii.mjs';
 
-// Convert the user's two reference photographs to actual ASCII text in SVGs.
+// Render the hand-refined basket cat and the photo-sampled face logo as ASCII SVGs.
 // Usage: node scripts/create-cat-ascii.mjs basket-photo.jpg face-photo.jpg
 const inputs = process.argv.slice(2);
 if (inputs.length !== 2) throw new Error('Provide the basket photo and face photo paths.');
@@ -10,18 +11,22 @@ try {
   const page = await browser.newPage();
   await mkdir(new URL('../assets/', import.meta.url), { recursive: true });
   for (let index = 0; index < inputs.length; index++) {
+    if (index === 0) {
+      const ascii = await readFile(new URL('../assets/cat-character.txt', import.meta.url), 'utf8');
+      await writeFile(new URL('../assets/cat-character.svg', import.meta.url), basketCatSVG(ascii));
+      continue;
+    }
     const source = `data:image/jpeg;base64,${(await readFile(inputs[index])).toString('base64')}`;
     const rows = await page.evaluate(async ({ source, index }) => {
       const img = new Image(); img.src = source; await img.decode();
-      const cols = index ? 48 : 100, rowCount = index ? 36 : 66;
-      const crop = index ? [.325,.19,.39,.53] : [.15,.12,.56,.83];
+      const cols = 48, rowCount = 36;
+      const crop = [.325,.19,.39,.53];
       const canvas = document.createElement('canvas'); canvas.width = cols; canvas.height = rowCount;
       const ctx = canvas.getContext('2d');
       ctx.drawImage(img, crop[0]*img.width, crop[1]*img.height, crop[2]*img.width, crop[3]*img.height, 0, 0, cols, rowCount);
       const pixels = ctx.getImageData(0,0,cols,rowCount).data;
-      const polygon = index ? [[.13,.36],[.23,.01],[.36,.16],[.40,.29],[.53,.34],[.98,.25],[.97,.35],[.80,.57],[.76,.83],[.57,.98],[.27,.93],[.06,.73],[.07,.50]] : null;
+      const polygon = [[.13,.36],[.23,.01],[.36,.16],[.40,.29],[.53,.34],[.98,.25],[.97,.35],[.80,.57],[.76,.83],[.57,.98],[.27,.93],[.06,.73],[.07,.50]];
       const inside = (x,y) => {
-        if (!polygon) return ((x-.49)/.5)**2+((y-.54)/.48)**2 <= 1 || (y>.07&&y<.34&&x>.79-(y-.07)*.6&&x<.86+(y-.07)*.3);
         let hit=false;
         for(let i=0,j=polygon.length-1;i<polygon.length;j=i++) {
           const [xi,yi]=polygon[i],[xj,yj]=polygon[j];
@@ -44,7 +49,7 @@ try {
         const color=r>g*1.12&&r>b*1.2?(light<.3?'#542d18':'#814113'):(light<.3?'#172032':'#334155');
         return {char,color};
       }));
-    }, { source, index });
+    }, { source });
     const escape = value => value.replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
     const width = rows[0].length * 6, height = rows.length * 10;
     const text = rows.map((row,y)=>{
