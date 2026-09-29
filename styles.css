@@ -159,6 +159,8 @@ html[data-theme="dark"] .choice-absent,html[data-theme="contrast"] .choice-absen
 .nav a.nav-civic:hover,.nav a.nav-civic.active{border-color:var(--blue);box-shadow:inset 0 -2px 0 var(--blue)}
 html[data-theme="dark"] .nav a.nav-civic,html[data-theme="contrast"] .nav a.nav-civic{color:var(--blue);border-color:var(--blue)}
 .cat-character{display:block;width:100%;max-width:300px;height:auto;margin:0 auto 1rem}
+.cat-character-link{display:block;max-width:300px;margin:0 auto 1rem;border-radius:7px;overflow:hidden;cursor:zoom-in}
+.cat-character-link .cat-character{margin:0}
 .hero{align-items:center;gap:3rem;grid-template-columns:minmax(0,1fr) 300px;padding-top:1.5rem}
 .member-identity{display:flex;align-items:center;gap:.8rem;min-width:0}
 .member-identity>div{min-width:0}
@@ -184,3 +186,4 @@ html[data-theme="dark"] .nav a.nav-civic,html[data-theme="contrast"] .nav a.nav-
   .member-identity{gap:.6rem}
 }
 @media(max-height:420px) and (max-width:600px){.nav.open{gap:.2rem;padding:.4rem 10px}.nav.open a,.nav.open a.nav-civic{min-height:34px;padding:.35rem .5rem}}
+@media(max-width:980px){.hero-side .cat-character-link{grid-row:1/3;margin:0}}

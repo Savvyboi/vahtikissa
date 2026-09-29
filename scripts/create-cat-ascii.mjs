@@ -1,8 +1,8 @@
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { chromium } from 'playwright';
-import { basketCatSVG } from './basket-cat-ascii.mjs';
+import { basketPhotoASCII } from './basket-cat-ascii.mjs';
 
-// Render the hand-refined basket cat and the photo-sampled face logo as ASCII SVGs.
+// Convert both supplied reference photographs directly into ASCII SVGs.
 // Usage: node scripts/create-cat-ascii.mjs basket-photo.jpg face-photo.jpg
 const inputs = process.argv.slice(2);
 if (inputs.length !== 2) throw new Error('Provide the basket photo and face photo paths.');
@@ -12,8 +12,11 @@ try {
   await mkdir(new URL('../assets/', import.meta.url), { recursive: true });
   for (let index = 0; index < inputs.length; index++) {
     if (index === 0) {
-      const ascii = await readFile(new URL('../assets/cat-character.txt', import.meta.url), 'utf8');
-      await writeFile(new URL('../assets/cat-character.svg', import.meta.url), basketCatSVG(ascii));
+      const source = `data:image/jpeg;base64,${(await readFile(inputs[index])).toString('base64')}`;
+      const {svg,ascii,preview} = await basketPhotoASCII(page,source);
+      await writeFile(new URL('../assets/cat-character.svg', import.meta.url), svg);
+      await writeFile(new URL('../assets/cat-character.txt', import.meta.url), ascii);
+      await writeFile(new URL('../assets/cat-character.webp', import.meta.url), Buffer.from(preview,'base64'));
       continue;
     }
     const source = `data:image/jpeg;base64,${(await readFile(inputs[index])).toString('base64')}`;

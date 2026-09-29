@@ -1,27 +1,48 @@
-// Hand-refined ASCII contours from the owner's basket-cat photograph.
-// Keep the face and draped paw readable at the site's small character size.
-export function basketCatSVG(ascii) {
-  const lines = ascii.trimEnd().split(/\r?\n/);
-  if (lines.some(line => /[^\x20-\x7e]/.test(line))) throw new Error('The basket cat must use ASCII characters.');
-  const columns = Math.max(...lines.map(line => line.length));
-  const cell = 8, lineHeight = 13, padding = 12;
-  const escape = text => text.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
-  const rows = lines.map((line, y) => {
-    const runs = [];
-    for (let x = 0; x < columns; x++) {
-      const char = line[x] || ' ';
-      let color = y >= 23 ? '#795333' : '#445161';
-      if (char === ':' || (y < 6 && x >= 36)) color = '#a45824';
-      if (char === '@') color = '#244334';
-      if (y >= 9 && y <= 12 && x >= 47 && x <= 52) color = '#985c53';
-      // The white paw hangs in front of the basket, rather than becoming wicker.
-      if (y >= 23 && y <= 32 && x >= 47 && x <= 59) color = '#445161';
-      const last = runs.at(-1);
-      if (last?.color === color) last.text += char;
-      else runs.push({ color, text: char });
-    }
-    return `<text x="${padding}" y="${padding + y * lineHeight + 11}" xml:space="preserve" textLength="${columns * cell}" lengthAdjust="spacingAndGlyphs">${runs.map(run => `<tspan fill="${run.color}">${escape(run.text)}</tspan>`).join('')}</text>`;
-  });
-  const width = columns * cell + padding * 2, height = lines.length * lineHeight + padding * 2;
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" role="img" aria-labelledby="title"><title id="title">Vahtikissa — orange-and-white ASCII cat resting in a woven basket</title><rect width="${width}" height="${height}" rx="24" fill="#f6f3ec"/><g font-family="monospace" font-size="13" font-weight="600">${rows.join('\n')}</g></svg>\n`;
+// Deterministic photograph-to-ASCII conversion. Every glyph and colour is
+// sampled from DSC_0001.jpg; no outlines or facial features are drawn by hand.
+export async function basketPhotoASCII(page, source) {
+  const sampled = await page.evaluate(async source => {
+    const image = new Image(); image.src = source; await image.decode();
+    // A rectangular crop keeps the complete basket, toys, original pose and paw.
+    const crop = [.14, .10, .57, .87], columns = 240;
+    const rows = Math.round(columns * .6 * (image.height * crop[3]) / (image.width * crop[2]));
+    const canvas = document.createElement('canvas'); canvas.width = columns; canvas.height = rows;
+    const context = canvas.getContext('2d');
+    context.imageSmoothingQuality = 'high';
+    context.drawImage(image, crop[0]*image.width, crop[1]*image.height, crop[2]*image.width, crop[3]*image.height, 0, 0, columns, rows);
+    const pixels = context.getImageData(0, 0, columns, rows).data;
+    const luminances = Array.from({length:columns*rows},(_,index)=>{
+      const p=index*4;return (pixels[p]*.2126+pixels[p+1]*.7152+pixels[p+2]*.0722)/255;
+    });
+    const sorted = [...luminances].sort((a,b)=>a-b);
+    const low = sorted[Math.floor(sorted.length*.01)], high = sorted[Math.floor(sorted.length*.99)];
+    const ramp = ' .,:;irsXA253hMHGS#9B&@';
+    return Array.from({length:rows},(_,y)=>Array.from({length:columns},(_,x)=>{
+      const index=y*columns+x,p=index*4;
+      const light=Math.max(0,Math.min(1,(luminances[index]-low)/(high-low)));
+      const char=ramp[Math.min(ramp.length-1,Math.floor(light**.65*ramp.length))];
+      const rgb=[pixels[p],pixels[p+1],pixels[p+2]].map(value=>Math.min(255,Math.round(255*(value/255)**.7*1.25/8)*8));
+      return {char,color:`#${rgb.map(value=>value.toString(16).padStart(2,'0')).join('')}`};
+    }));
+  },source);
+  const width=sampled[0].length*6,height=sampled.length*10;
+  const escape=text=>text.replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
+  const text=sampled.map((row,y)=>{
+    const runs=[];
+    for(const cell of row){const last=runs.at(-1);if(last?.color===cell.color)last.text+=cell.char;else runs.push({color:cell.color,text:cell.char})}
+    return `<text x="0" y="${y*10+8}" xml:space="preserve" textLength="${width}" lengthAdjust="spacingAndGlyphs">${runs.map(run=>`<tspan fill="${run.color}">${escape(run.text)}</tspan>`).join('')}</text>`;
+  }).join('\n');
+  const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-labelledby="title"><title id="title">Vahtikissa — detailed ASCII conversion of DSC_0001.jpg</title><rect width="${width}" height="${height}" fill="#14130f"/><g font-family="monospace" font-size="10" font-weight="700">${text}</g></svg>\n`;
+  // Rasterize the ASCII itself at full resolution before downsampling. This
+  // avoids thin-row aliasing when thousands of text glyphs fit in a thumbnail.
+  const preview=await page.evaluate(async ({svg,width,height})=>{
+    const image=new Image();image.src=`data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;await image.decode();
+    const full=document.createElement('canvas');full.width=width;full.height=height;
+    full.getContext('2d').drawImage(image,0,0,width,height);
+    const thumbnail=document.createElement('canvas');thumbnail.width=600;thumbnail.height=Math.round(600*height/width);
+    const context=thumbnail.getContext('2d');context.imageSmoothingQuality='high';
+    context.drawImage(full,0,0,thumbnail.width,thumbnail.height);
+    return thumbnail.toDataURL('image/webp',.95).split(',')[1];
+  },{svg,width,height});
+  return {svg,preview,ascii:sampled.map(row=>row.map(cell=>cell.char).join('')).join('\n')+'\n'};
 }
