@@ -11,7 +11,12 @@
     "sync:committees": "node scripts/sync-data.mjs --committees-only",
     "build:speech-analytics": "node scripts/build-speech-analytics.mjs",
     "test": "node --test tests/*.test.mjs",
+    "test:browser": "node scripts/check-browser.mjs",
     "validate-data": "node scripts/validate-data.mjs",
-    "check": "node --check app.js && node --check civic-apps.js && node --check scripts/sync-data.mjs && node --check scripts/sync-civic-data.mjs && node --test tests/*.test.mjs && node scripts/validate-data.mjs"
+    "check": "node --check app.js && node --check civic-apps.js && node --check collection-tools.js && node --check scripts/sync-data.mjs && node --check scripts/sync-civic-data.mjs && node --test tests/*.test.mjs && node scripts/validate-data.mjs"
+  },
+  "devDependencies": {
+    "axe-core": "^4.13.0",
+    "playwright": "^1.63.0"
   }
 }

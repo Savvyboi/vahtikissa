@@ -1,6 +1,9 @@
 name: Daily budget, election and influence data sync
 
 on:
+  push:
+    branches: [main]
+    paths: ['scripts/sync-civic-data.mjs', '.github/workflows/daily-civic-sync.yml']
   schedule:
     - cron: '43 3 * * *'
   workflow_dispatch:
@@ -9,19 +12,34 @@ permissions:
   contents: write
 
 concurrency:
-  group: civic-data-sync
+  group: daily-data-sync
   cancel-in-progress: false
 
 jobs:
   sync:
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 22
       - run: npm test
-      - run: npm run sync:civic
+      - name: Refresh all budget years
+        id: budget
+        continue-on-error: true
+        run: npm run sync:civic -- --only=budget --all
+      - name: Refresh election results
+        id: elections
+        continue-on-error: true
+        run: npm run sync:civic -- --only=elections
+      - name: Refresh interests, gifts and lobbying
+        id: influence
+        continue-on-error: true
+        run: npm run sync:civic -- --only=influence
       - name: Validate generated data
         run: npm run validate-data
       - name: Commit changed snapshots
@@ -36,4 +54,9 @@ jobs:
             git rebase --abort 2>/dev/null || true
             sleep $((attempt * 5))
           done
+          exit 1
+      - name: Report upstream failures
+        if: ${{ steps.budget.outcome == 'failure' || steps.elections.outcome == 'failure' || steps.influence.outcome == 'failure' }}
+        run: |
+          echo "One or more upstream sources failed. Valid successful snapshots were committed; failed sources keep their last published data." >> "$GITHUB_STEP_SUMMARY"
           exit 1

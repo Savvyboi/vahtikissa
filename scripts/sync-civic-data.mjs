@@ -353,11 +353,12 @@ export async function syncInfluence() {
 }
 
 export async function syncCivicData(options = {}) {
-  await syncBudget(options);
-  await syncElection();
-  await syncInfluence();
+  if (options.only && !['budget','elections','influence'].includes(options.only)) throw new Error(`Unknown source: ${options.only}`);
+  if (!options.only || options.only === 'budget') await syncBudget(options);
+  if (!options.only || options.only === 'elections') await syncElection();
+  if (!options.only || options.only === 'influence') await syncInfluence();
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  syncCivicData({ all: process.argv.includes('--all') }).catch(error => { console.error(error); process.exitCode = 1; });
+  syncCivicData({ all: process.argv.includes('--all'), only: process.argv.find(argument => argument.startsWith('--only='))?.slice(7) }).catch(error => { console.error(error); process.exitCode = 1; });
 }

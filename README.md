@@ -9,7 +9,7 @@ The visual and information hierarchy is inspired by the public-facing `mijnkamer
 - Overview with current dataset totals and latest votes
 - Vote list and vote detail, including party breakdowns
 - MP list and MP detail with participation, party-line and speech statistics
-- Downloadable 1200 × 630 social cards and Instagram Story cards for vote and MP summaries
+- Include/exclude checkboxes, search, date/value ranges and ascending/descending sorting throughout the Parliament and civic data views
 - CSV and JSON export controls on tables, vote ballots and filtered result lists
 - Policy-topic and official committee filters for votes and parliamentary matters
 - Party comparison and party detail
@@ -20,7 +20,8 @@ The visual and information hierarchy is inspired by the public-facing `mijnkamer
 - Official 2023 parliamentary election results by party, district and elected candidate
 - Searchable MP financial interests, outside income declarations, gift disclosures and lobbying contacts
 - Keyboard-accessible global search (`Ctrl/Cmd + K`)
-- Responsive layout and semantic HTML
+- Responsive layout, keyboard focus retention, named controls, screen-reader announcements, reduced-motion support and readable light/dark/high-contrast themes
+- Automated browser interaction and axe accessibility checks
 - Daily Parliament, budget, election, gift and lobbying-data ingestion via GitHub Actions
 - Free GitHub Pages deployment workflow
 - Netlify configuration as an alternative
@@ -56,7 +57,19 @@ npm run dev
 
 Open `http://localhost:4173`.
 
-`npm run sync` can take several minutes because it downloads Parliament's yearly datasets and rebuilds the committee and speech-analysis indexes. The two narrower commands rebuild those derived files independently. `npm run sync:civic:all` rebuilds every budget year from 2020 and the election and influence snapshots; the ordinary daily `npm run sync:civic` refreshes the current budget year plus the other civic sources. Generated files are committed under `data/` so the public site has no server, database, secrets or runtime API dependency.
+`npm run sync` can take several minutes because it downloads Parliament's yearly datasets and rebuilds the committee and speech-analysis indexes. The two narrower commands rebuild those derived files independently. `npm run sync:civic:all` rebuilds every budget year from 2020 and the election and influence snapshots. Scheduled civic runs refresh **all budget years**, elections and influence in independent steps. To run one source locally, use `npm run sync:civic -- --only=budget --all`, `--only=elections`, or `--only=influence`. Generated files are committed under `data/` so the public site has no server, database, secrets or runtime API dependency.
+
+Browser checks use development-only Playwright and axe dependencies:
+
+```bash
+npm ci
+npx playwright install chromium
+npm run test:browser
+```
+
+On Windows with Microsoft Edge installed, use `$env:BROWSER_CHANNEL='msedge'` before the browser test instead of downloading Chromium. Checks cover the Finnish and Swedish data views, details, 320px layouts, light/dark/high-contrast themes, inclusion/exclusion behavior, sorting, pagination and keyboard focus. Automated checks help catch regressions; they do not replace usability testing with people who use assistive technology.
+
+The main search and sort controls stay visible. Open **Valitse pikarajaus / Välj en snabbavgränsning** for a single selection, or **Sisällytä, sulje pois ja rajaa / Inkludera, uteslut och avgränsa** for multiple include/exclude selections and ranges. Selections within one group use OR, different groups use AND, and exclusions take precedence. Data exports follow the active filters and order.
 
 ## Free deployment (recommended: GitHub Pages)
 
@@ -78,11 +91,15 @@ Connect the repository, use no framework preset, leave the build command empty (
 
 ## Automation details
 
-- `.github/workflows/daily-sync.yml`: tests, downloads fresh data, commits only when data changed.
-- `.github/workflows/daily-civic-sync.yml`: refreshes the budget, election, interests, gifts and lobbying snapshots daily at 03:43 UTC.
-- `.github/workflows/pages.yml`: checks and publishes every `main` update.
+- `.github/workflows/daily-sync.yml`: tests, downloads Parliament votes, full speeches, matters, members, sessions, committees and derived indexes daily at 02:17 UTC; validates before committing.
+- `.github/workflows/daily-civic-sync.yml`: refreshes every budget year, elections, interests, gifts and lobbying daily at 03:43 UTC. A source failure retains its last published snapshot while allowing other valid sources to update; the run reports failure so maintainers can investigate.
+- Both scheduled writers share a concurrency group, use complete Git history and retry rebased pushes.
+- `.github/workflows/pages.yml`: validates and publishes the latest `main`, including valid updates committed by bot workflows. This explicit `workflow_run` trigger is needed because bot-token pushes do not start ordinary push workflows.
+- `.github/workflows/browser-check.yml`: browser and accessibility regression checks on code changes.
 - `EDUSKUNTA_API` can override the API base URL for testing.
 - If the upstream API fails, the sync exits non-zero and does not replace the last valid dataset.
+
+Schedules are requested times, not guaranteed delivery times. GitHub can delay scheduled runs, and public-repository schedules are disabled after 60 days without activity; see [GitHub's schedule documentation](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule). Check the Actions tab after prolonged inactivity and re-enable workflows if needed. All refresh workflows also support manual execution. Source publication delays can mean there is no new data even after a successful daily refresh.
 
 ## License
 

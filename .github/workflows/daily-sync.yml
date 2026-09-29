@@ -1,6 +1,9 @@
 name: Daily Eduskunta data sync
 
 on:
+  push:
+    branches: [main]
+    paths: ['scripts/sync-data.mjs', 'scripts/lib.mjs', '.github/workflows/daily-sync.yml']
   schedule:
     - cron: '17 2 * * *'
   workflow_dispatch:
@@ -9,14 +12,18 @@ permissions:
   contents: write
 
 concurrency:
-  group: eduskunta-data-sync
+  group: daily-data-sync
   cancel-in-progress: false
 
 jobs:
   sync:
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 22

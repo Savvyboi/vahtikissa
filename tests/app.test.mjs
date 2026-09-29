@@ -242,7 +242,7 @@ test('speech typography and legislation controls remain readable and discoverabl
   assert.match(app, /data-speech-member/);
   assert.match(app, /speechParagraphs/);
   assert.match(app, /data-legislation-status/);
-  assert.match(app, /data-legislation-sort/);
+  assert.match(app, /addTools\(root\.querySelector\('\[data-legislation-count\]'\),'legislation'/);
   assert.match(app, /pagination\('legislation'/);
   assert.match(css, /\.speech blockquote\{[^}]*max-width:68ch[^}]*line-height:1\.8/);
   assert.match(css, /\.speech-text\.collapsed\{[^}]*max-height:calc\(1\.8em\*4\)/);
@@ -252,7 +252,7 @@ test('member speech page resets when navigating to another member', async () => 
   const app = await source('app.js');
   assert.match(
     app,
-    /function memberDetail\(m\)\{if\(!m\)return notFound\(\);if\(activeMemberId!==m\.id\)state\.memberSpeeches=1;activeMemberId=m\.id;/
+    /function memberDetail\(m\)\{if\(!m\)return notFound\(\);if\(activeMemberId!==m\.id\)\{state\.memberSpeeches=1;state\.memberVotes=1\}activeMemberId=m\.id;/
   );
 });
 
