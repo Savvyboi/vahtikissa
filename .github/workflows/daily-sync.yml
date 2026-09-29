@@ -29,13 +29,25 @@ jobs:
           node-version: 22
       - run: npm test
       - run: npm run sync
+      - name: Check for missing member portraits
+        id: portraits
+        run: |
+          node --input-type=module -e "import {readFileSync,existsSync,appendFileSync} from 'node:fs'; const data=JSON.parse(readFileSync('data/parliament.json')); const missing=data.members.some(member=>!existsSync('assets/members/'+member.id+'.webp')); appendFileSync(process.env.GITHUB_OUTPUT,'missing='+missing+'\n');"
+      - name: Prepare portrait importer
+        if: steps.portraits.outputs.missing == 'true'
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+      - name: Download portraits for new members
+        if: steps.portraits.outputs.missing == 'true'
+        run: npm run sync:portraits
       - name: Validate generated data
         run: npm run validate-data
       - name: Commit changed data
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/
+          git add data/ assets/members/
           git diff --cached --quiet && exit 0
           git commit -m "data: daily Eduskunta sync"
           for attempt in 1 2 3; do

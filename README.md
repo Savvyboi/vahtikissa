@@ -9,6 +9,7 @@ The visual and information hierarchy is inspired by the public-facing `mijnkamer
 - Overview with current dataset totals and latest votes
 - Vote list and vote detail, including party breakdowns
 - MP list and MP detail with participation, party-line and speech statistics
+- Locally hosted official Parliament portraits for every recorded MP, with source attribution
 - Include/exclude checkboxes, search, date/value ranges and ascending/descending sorting throughout the Parliament and civic data views
 - CSV and JSON export controls on tables, vote ballots and filtered result lists
 - Policy-topic and official committee filters for votes and parliamentary matters
@@ -68,6 +69,10 @@ npm run test:browser
 ```
 
 On Windows with Microsoft Edge installed, use `$env:BROWSER_CHANNEL='msedge'` before the browser test instead of downloading Chromium. Checks cover the Finnish and Swedish data views, details, 320px layouts, light/dark/high-contrast themes, inclusion/exclusion behavior, sorting, pagination and keyboard focus. Automated checks help catch regressions; they do not replace usability testing with people who use assistive technology.
+
+Official portraits come from the `https://www.eduskunta.fi/api/memberImages/{memberId}` endpoint used by Parliament's member directory. `npm run sync:portraits` downloads missing portraits and creates 240px WebP copies; `npm run sync:portraits -- --refresh` refreshes existing images as well. It uses the same Playwright browser setup as the browser checks. The daily Parliament sync also fetches portraits when new member IDs appear. Portrait attribution is shown on the member list and detail pages.
+
+The ASCII logo and basket-cat character are converted from the owner's two reference photos. Their SVGs contain ASCII characters, and plain-text versions are included under `assets/`. To regenerate them, run `node scripts/create-cat-ascii.mjs basket-photo.jpg face-photo.jpg` after setting up the browser checks.
 
 The main search and sort controls stay visible. Open **Valitse pikarajaus / Välj en snabbavgränsning** for a single selection, or **Sisällytä, sulje pois ja rajaa / Inkludera, uteslut och avgränsa** for multiple include/exclude selections and ranges. Selections within one group use OR, different groups use AND, and exclusions take precedence. Data exports follow the active filters and order.
 

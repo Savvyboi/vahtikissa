@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import { chromium } from 'playwright';
 import { createRequire } from 'node:module';
+import { checkUI } from './browser-ui-checks.mjs';
 
 const require = createRequire(import.meta.url);
 const data = JSON.parse(await readFile(new URL('../data/parliament.json',import.meta.url),'utf8'));
@@ -18,7 +19,7 @@ try {
   }
   browser=await chromium.launch({headless:true,...(process.env.BROWSER_CHANNEL?{channel:process.env.BROWSER_CHANNEL}:{})});
   const page=await browser.newPage({viewport:{width:1440,height:1000}});
-  page.on('pageerror',error=>failures.push(`JavaScript: ${error.message}`));
+  page.on('pageerror',error=>{const finding=`JavaScript (${page.url()}): ${error.stack||error.message}`;failures.push(finding);console.error(finding)});
   await page.goto(url);
   await page.locator('main[aria-busy="false"] h1').waitFor();
   const routes=['overview','votes','members','parties','sessions','speeches','legislation','budget','elections','influence','about',`votes/${encodeURIComponent(data.votes[0].id)}`,`members/${data.members[0].id}`,`parties/${data.parties[0].code}`,`sessions/${data.sessions[0].id}`,`legislation/${encodeURIComponent(data.legislation.find(item=>item.voteIds.length)?.id)}`];
@@ -88,6 +89,7 @@ try {
   assert.equal(await page.locator('.gift-card').count(),Math.min(100,influence.gifts.filter(gift=>String(gift.year)===year).length));
   assert.equal(await page.locator(`[data-collection="influence"] [data-facet="year"] [data-selection="include"][value="${year}"]`).evaluate(element=>element===document.activeElement),true);
 
+  await checkUI(page,navigate,data);
   await page.setViewportSize({width:320,height:740});
   for(const route of ['overview','votes','members','sessions','speeches','legislation','budget','elections','influence']) {await navigate(route);await audit(`fi / 320px / ${route}`);}
   await page.locator('.menu-button').click();await audit('fi / 320px / open menu');await page.keyboard.press('Escape');

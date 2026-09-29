@@ -9,6 +9,7 @@
     "sync:civic": "node scripts/sync-civic-data.mjs",
     "sync:civic:all": "node scripts/sync-civic-data.mjs --all",
     "sync:committees": "node scripts/sync-data.mjs --committees-only",
+    "sync:portraits": "node scripts/sync-member-portraits.mjs",
     "build:speech-analytics": "node scripts/build-speech-analytics.mjs",
     "test": "node --test tests/*.test.mjs",
     "test:browser": "node scripts/check-browser.mjs",
