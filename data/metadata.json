@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-05T09:12:48.468Z",
+  "generatedAt": "2026-10-06T09:05:51.049Z",
   "source": "https://api.eduskunta.fi/api/v1",
   "startDate": "2023-04-02",
   "counts": {
@@ -9,7 +9,7 @@
     "members": 219,
     "parties": 12,
     "sessions": 148,
-    "legislation": 7101,
+    "legislation": 7107,
     "amendments": 1829
   }
 }
