@@ -1,4 +1,4 @@
-import { filterBudgetItems, filterElectionCandidates, filterInfluence } from './civic-utils.js';
+import { filterElectionCandidates, filterInfluence } from './civic-utils.js';
 import { fetchJSONWithTimeout } from './app-utils.js';
 import { bindExportButtons, exportButtons } from './data-tools.js';
 import { collectionState, applyCollection, facetOptions, mountCollectionTools, preserveFocus, collapseQuickFilters } from './collection-tools.js';
@@ -33,7 +33,6 @@ function setupViewButtons(root, selector, lang) {
     button.onclick=event=>preserveFocus(root,()=>action(event));
   });
 }
-const budgetState = { metric: 'budget', query: '' };
 const electionState = { tab: 'parties', query: '', party: 'all', district: 'all' };
 const influenceState = {
   tab: 'gifts', query: '', year: 'all', kind: 'all', mp: 'all', party: 'all', actor: 'all',
@@ -111,100 +110,7 @@ function sourceNote(content, links = []) {
   return `<aside class="civic-note"><p>${content}</p><div class="source-links">${links.map(link => `<a href="${link.href}" target="_blank" rel="noreferrer">${link.label} ↗</a>`).join('')}</div></aside>`;
 }
 
-function metricValue(item) {
-  return Number(item?.[budgetState.metric]) || 0;
-}
-
-function budgetPath(year, type, codes = []) {
-  return `#/budget/${[year, type, ...codes].join('/')}`;
-}
-
-function findBudgetLevel(yearData, codes) {
-  if (!codes.length) return null;
-  const main = [...yearData.income, ...yearData.expense].find(item => item.code === codes[0]);
-  if (codes.length === 1) return main;
-  return main?.children?.find(item => item.code === codes[1]) || null;
-}
-
-function budgetRouteId(hash) {
-  return String(hash || '').replace(/^#\/budget\/?/, '');
-}
-
-function renderBudgetContent(root, lang, escapeHTML, data, routeId = '') {
-  const route = String(routeId || '').split('/').filter(Boolean);
-  const latest = data.years.at(-1);
-  const yearNumber = Number(route[0]);
-  const yearData = data.years.find(item => item.year === yearNumber) || latest;
-  const type = route[1] === 'income' ? 'income' : 'expense';
-  const codes = route.slice(2, 4);
-  const currentLevel = findBudgetLevel(yearData, codes);
-  const allItems = currentLevel?.children || yearData[type];
-  const extra=extraState(`budget-${yearData.year}-${type}-${codes.join('-')}`,'amount'), config={
-    label:tr(lang,'budget'),sorts:[{key:'amount',label:tr(lang,budgetState.metric==='budget'?'budgetMetric':'actual'),value:metricValue},{key:'name',label:lang==='sv'?'Namn':'Nimi',value:item=>localized(item.name,lang)},{key:'code',label:lang==='sv'?'Kod':'Tunnus',value:item=>item.code}],
-    number:{label:lang==='sv'?'Belopp (€)':'Summa (€)',value:metricValue},facets:[extraFacet(allItems,'code',lang==='sv'?'Budgetposter':'Budjettikohdat',item=>item.code,code=>localized(allItems.find(item=>item.code===code)?.name,lang),lang)]
-  };
-  const items=applyCollection(filterBudgetItems(allItems||[],budgetState.query),extra,config,lang);
-  const total = (yearData[type] || []).reduce((sum, item) => sum + metricValue(item), 0);
-  const incomeTotal = yearData.income.reduce((sum, item) => sum + metricValue(item), 0);
-  const expenseTotal = yearData.expense.reduce((sum, item) => sum + metricValue(item), 0);
-  const previous = data.years.find(item => item.year === yearData.year - 1);
-  const previousLevel = previous ? findBudgetLevel(previous, codes) : null;
-  const previousItems = previousLevel?.children || previous?.[type] || [];
-  const scopeTotal = (allItems || []).reduce((sum,item)=>sum+metricValue(item),0) || metricValue(currentLevel) || total;
-  const levelName = localized(currentLevel?.name,lang) || `${tr(lang,type)} ${yearData.year}`;
-  const crumbs = [
-    `<a data-budget-route href="${budgetPath(yearData.year,type)}">${tr(lang,type)}</a>`,
-    ...codes.map((code,index) => {
-      const node = findBudgetLevel(yearData,codes.slice(0,index+1));
-      return index===codes.length-1
-        ? `<span aria-current="page">${escapeHTML(localized(node?.name,lang)||code)}</span>`
-        : `<a data-budget-route href="${budgetPath(yearData.year,type,codes.slice(0,index+1))}">${escapeHTML(localized(node?.name,lang)||code)}</a>`;
-    })
-  ];
-  const composition=items.slice(0,12).map((item,index)=>`<span style="width:${pct(metricValue(item),scopeTotal)}%;background:${colors[(Number(item.code.slice(-2))||index)%colors.length]}" title="${escapeHTML(localized(item.name,lang))}: ${formatNumber(pct(metricValue(item),scopeTotal),lang,1)} %"></span>`).join('');
-  root.innerHTML = `<div class="page civic-page budget-page">
-    ${pageHeader(lang,escapeHTML,lang==='sv'?'Statskontoret · öppen data':'Valtiokonttori · avoin data',tr(lang,'budget'),tr(lang,'budgetLead'),data.metadata.generatedAt)}
-    <div class="civic-toolbar budget-toolbar">
-      <label class="filter-control"><span>${lang==='sv'?'År':'Vuosi'}</span><select data-budget-year>${data.years.map(item=>`<option value="${item.year}" ${item.year===yearData.year?'selected':''}>${item.year}${item.latestMonth<12?` · ${item.latestMonth}/${12}`:''}</option>`).join('')}</select></label>
-      <div class="segmented" role="group" aria-label="${lang==='sv'?'Typ':'Tyyppi'}"><a data-budget-route class="${type==='expense'?'active':''}" href="${budgetPath(yearData.year,'expense')}">${tr(lang,'expense')}</a><a data-budget-route class="${type==='income'?'active':''}" href="${budgetPath(yearData.year,'income')}">${tr(lang,'income')}</a></div>
-      <div class="segmented" role="group" aria-label="${lang==='sv'?'Mått':'Mittari'}"><button data-budget-metric="budget" class="${budgetState.metric==='budget'?'active':''}">${tr(lang,'budgetMetric')}</button><button data-budget-metric="actual" class="${budgetState.metric==='actual'?'active':''}">${tr(lang,'actual')}</button></div>
-    </div>
-    <section class="budget-summary" aria-label="${tr(lang,'budget')}"><div><span>${tr(lang,type)} ${yearData.year}</span><strong>${formatMoney(total,lang,true)}</strong></div><div><span>${tr(lang,'income')}</span><strong>${formatMoney(incomeTotal,lang,true)}</strong></div><div><span>${tr(lang,'expense')}</span><strong>${formatMoney(expenseTotal,lang,true)}</strong></div><div><span>${lang==='sv'?'Balans':'Tasapaino'}</span><strong class="${incomeTotal-expenseTotal<0?'negative':''}">${formatMoney(incomeTotal-expenseTotal,lang,true)}</strong></div></section>
-    <nav class="budget-crumbs" aria-label="${lang==='sv'?'Sökväg':'Murupolku'}">${crumbs.join('<span>›</span>')}</nav>
-    <section class="budget-explorer-head">
-      <div><span class="eyebrow">${codes.length?`${lang==='sv'?'Nivå':'Taso'} ${codes.length+1}`:(lang==='sv'?'Helhetsbild':'Kokonaiskuva')}</span><h2>${escapeHTML(levelName)}</h2><p>${codes.length?(lang==='sv'?'Välj en rad för att gå djupare. Använd sökvägen ovan för att gå tillbaka.':'Valitse rivi nähdäksesi tarkemman jaon. Palaa ylemmälle tasolle murupolusta.'):(lang==='sv'?'Beloppen är ordnade från störst till minst. Stapeln visar andelen av den valda helheten.':'Summat ovat suurimmasta pienimpään. Palkki näyttää osuuden valitusta kokonaisuudesta.')}</p></div>
-      <div class="budget-scope-total"><span>${lang==='sv'?'Denna nivå':'Tämä taso'}</span><strong>${formatMoney(scopeTotal,lang,true)}</strong></div>
-    </section>
-    <div class="budget-composition" role="img" aria-label="${escapeHTML(lang==='sv'?'Fördelningen på denna nivå':'Tämän tason jakauma')}">${composition}</div>
-    <div class="filters civic-search budget-list-controls"><input data-budget-search type="search" value="${escapeHTML(budgetState.query)}" placeholder="${escapeHTML(tr(lang,'search'))}" aria-label="${escapeHTML(tr(lang,'search'))}"></div>
-    <div class="data-actions"><p class="filter-summary" role="status" aria-live="polite">${formatNumber(items.length,lang)} ${lang==='sv'?'poster':'kohtaa'}</p>${exportButtons('budget',lang)}</div>
-    <div class="budget-bars">${items.length?items.map((item,index)=>{
-      const old=previousItems.find(previousItem=>previousItem.code===item.code),value=metricValue(item),oldValue=metricValue(old),delta=oldValue?(value-oldValue)/oldValue*100:null;
-      const childCodes=[...codes,item.code];const hasChildren=item.children?.length;
-      const share=pct(value,scopeTotal),color=colors[(Number(item.code.slice(-2))||index)%colors.length];
-      const content=`<div class="budget-row-head"><div><span class="budget-rank">${index+1}</span><span class="pill">${escapeHTML(item.code)}</span><strong>${escapeHTML(localized(item.name,lang))}</strong></div><div><strong>${formatMoney(value,lang,true)}</strong><span class="budget-share">${formatNumber(share,lang,1)} %</span>${delta!==null?`<small class="${delta>0?'up':delta<0?'down':''}">${delta>0?'+':''}${formatNumber(delta,lang,1)} % ${tr(lang,'compared')}</small>`:''}</div></div><div class="budget-track" role="img" aria-label="${escapeHTML(localized(item.name,lang))}: ${formatMoney(value,lang)}"><span style="width:${Math.max(share,.6)}%"></span></div>${hasChildren?`<span class="budget-open">${lang==='sv'?'Öppna fördelningen':'Avaa tarkempi jako'} →</span>`:''}`;
-      return hasChildren?`<a data-budget-route class="budget-row budget-row-link" style="--budget-color:${color}" href="${budgetPath(yearData.year,type,childCodes)}">${content}</a>`:`<article class="budget-row" style="--budget-color:${color}">${content}</article>`;
-    }).join(''):`<div class="empty">${tr(lang,'noData')}</div>`}</div>
-    ${sourceNote(escapeHTML(tr(lang,'officialTerms')),[{href:'https://avoindata.tutkihallintoa.fi/api-details#api=valtiontalous&operation=BudjettitaloudenTapahtumatTiedostot',label:lang==='sv'?'Statskontorets budget-API':'Valtiokonttorin budjettirajapinta'}])}
-  </div>`;
-  attachExtra(root,'budget',extra,config,lang,'.data-actions',()=>renderBudgetContent(root,lang,escapeHTML,data,[yearData.year,type,...codes].join('/')));
-  root.querySelectorAll('[data-budget-metric]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.budgetMetric===budgetState.metric)));
-  root.querySelectorAll('.segmented [data-budget-route]').forEach(link=>{if(link.classList.contains('active'))link.setAttribute('aria-current','page')});
-  const navigate = hash => { history.pushState(null,'',hash); renderBudgetContent(root,lang,escapeHTML,data,budgetRouteId(hash)); };
-  bindExportButtons(root,'budget',()=>items.map(item=>({year:yearData.year,type,code:item.code,name:localized(item.name,lang),budget:item.budget,actual:item.actual,sharePercent:Number(pct(metricValue(item),scopeTotal).toFixed(2))})),`vahtikissa-budjetti-${yearData.year}-${type}`);
-  root.querySelectorAll('[data-budget-route]').forEach(link=>link.onclick=event=>{event.preventDefault();navigate(link.getAttribute('href'))});
-  root.querySelector('[data-budget-year]').onchange = event => navigate(budgetPath(event.target.value,type,codes));
-  root.querySelectorAll('[data-budget-metric]').forEach(button => button.onclick=()=>{budgetState.metric=button.dataset.budgetMetric;renderBudgetContent(root,lang,escapeHTML,data,[yearData.year,type,...codes].join('/'))});
-  root.querySelectorAll('[data-budget-metric], [data-budget-year]').forEach(control=>{const action=control.onclick||control.onchange;if(action){const event=control.tagName==='SELECT'?'onchange':'onclick';control[event]=e=>preserveFocus(root,()=>action(e))}});
-  root.querySelector('[data-budget-search]').oninput = event => {const position=event.target.selectionStart;budgetState.query=event.target.value;renderBudgetContent(root,lang,escapeHTML,data,[yearData.year,type,...codes].join('/'));const input=root.querySelector('[data-budget-search]');input?.focus({preventScroll:true});input?.setSelectionRange(position,position)};
-}
-
-export async function renderBudget(root, lang, routeId, escapeHTML) {
-  const requested=location.hash;
-  if(!cache.has('./data/budget.json')) loading(root,lang);
-  try { const data=await load('./data/budget.json');if(location.hash===requested&&document.documentElement.lang===lang)renderBudgetContent(root,lang,escapeHTML,data,routeId); }
-  catch (error) { if(location.hash===requested)errorView(root,lang,escapeHTML,error,()=>renderBudget(root,lang,routeId,escapeHTML)); }
-}
+export { renderBudget } from './budget-app.js';
 
 function electionStats(data,lang) {
   const stats=[['turnout',`${formatNumber(data.summary.turnout,lang,1)} %`],['voters',formatNumber(data.summary.voters,lang)],['eligible',formatNumber(data.summary.eligible,lang)],['seats',formatNumber(data.summary.seats,lang)]];
@@ -310,7 +216,7 @@ function renderInfluenceContent(root,lang,escapeHTML,data){
     <section class="influence-filter-panel" aria-label="${lang==='sv'?'Avgränsa uppgifter':'Rajaa tietoja'}"><div class="filters influence-filters"><input data-influence-search type="search" aria-label="${escapeHTML(searchPlaceholder)}" value="${escapeHTML(influenceState.query)}" placeholder="${escapeHTML(searchPlaceholder)}"><label class="filter-control"><span>${lang==='sv'?'År':'Vuosi'}</span><select data-influence-filter="year">${influenceOptions(years.map(String),String(influenceState.year),tr(lang,'allYears'),escapeHTML,lang)}</select></label><label class="filter-control"><span>${lang==='sv'?'Ledamot':'Kansanedustaja'}</span><select data-influence-filter="mp">${influenceOptions(mpNames,influenceState.mp,tr(lang,'allMps'),escapeHTML,lang)}</select></label><label class="filter-control"><span>${tr(lang,'party')}</span><select data-influence-filter="party"><option value="all">${tr(lang,'allParties')}</option>${parties.map(party=>`<option value="${escapeHTML(party)}" ${influenceState.party===party?'selected':''}>${escapeHTML(influencePartyName(party,lang))}</option>`).join('')}</select></label>${influenceState.tab==='lobbying'?`<label class="filter-control"><span>${lang==='sv'?'Måltyp':'Kohdetyyppi'}</span><select data-influence-filter="kind"><option value="all">${tr(lang,'allTargets')}</option><option value="mp" ${influenceState.kind==='mp'?'selected':''}>${tr(lang,'mps')}</option><option value="assistant" ${influenceState.kind==='assistant'?'selected':''}>${tr(lang,'assistants')}</option><option value="parliament" ${influenceState.kind==='parliament'?'selected':''}>${tr(lang,'parliament')}</option></select></label><label class="filter-control"><span>${tr(lang,'oneCategory')}</span><select data-influence-filter="category">${influenceOptions(categories,influenceState.category,lang==='sv'?'Alla branscher':'Kaikki toimialat',escapeHTML,lang)}</select></label><label class="filter-control"><span>${tr(lang,'actor')}</span><select data-influence-filter="actor">${influenceOptions(actors,influenceState.actor,tr(lang,'allActors'),escapeHTML,lang)}</select></label><label class="filter-control"><span>${tr(lang,'methods')}</span><select data-influence-filter="method"><option value="all">${tr(lang,'allMethods')}</option>${methods.map(method=>`<option value="${escapeHTML(method)}" ${influenceState.method===method?'selected':''}>${escapeHTML(methodName(method,lang))}</option>`).join('')}</select></label>`:''}</div>
     ${influenceState.tab==='lobbying'?`<details class="category-exclusions" ${influenceState.exclusionOpen?'open':''}><summary>${tr(lang,'excludeCategories')} <span>${influenceState.excludedCategories.size}</span></summary><div class="category-exclusion-body"><input data-category-search type="search" aria-label="${lang==='sv'?'Sök bransch':'Hae toimialaa'}" value="${escapeHTML(influenceState.categoryQuery)}" placeholder="${escapeHTML(lang==='sv'?'Sök bransch…':'Hae toimialaa…')}"><div class="category-checklist">${categories.map(category=>`<label data-category-label="${escapeHTML(category.toLocaleLowerCase('fi'))}"><input type="checkbox" data-exclude-category value="${escapeHTML(category)}" ${influenceState.excludedCategories.has(category)?'checked':''}><span>${escapeHTML(category)}</span></label>`).join('')}</div></div></details>`:''}
     <div class="filter-actions"><p class="filter-summary" role="status" aria-live="polite">${formatNumber(filtered.length,lang)} ${kindLabel.toLocaleLowerCase(lang)}</p><div>${exportButtons('influence',lang)}${hasFilters?`<button type="button" data-influence-clear>${tr(lang,'clearFilters')}</button>`:''}</div></div></section>
-    <div class="influence-list">${shown.length?shown.map(item=>influenceState.tab==='gifts'?`<article class="influence-card gift-card"><div class="influence-card-head"><div><span class="eyebrow">${escapeHTML(item.donor||tr(lang,'donor'))}</span><h2>${escapeHTML(item.mpName)}</h2></div><strong>${item.amount?formatMoney(item.amount,lang):'—'}</strong></div><p>${escapeHTML(lang==='sv'?(item.descriptionSv||item.description):item.description)}</p><dl><div><dt>${tr(lang,'party')}</dt><dd>${escapeHTML(String(item.party||'').toUpperCase())}</dd></div><div><dt>${tr(lang,'useTime')}</dt><dd>${escapeHTML(item.used||String(item.year))}</dd></div><div><dt>${lang==='sv'?'Anmäld':'Ilmoitettu'}</dt><dd>${escapeHTML(item.reported||'—')}</dd></div></dl></article>`:influenceState.tab==='interests'?`<article class="influence-card interest-card ${item.declared?'':'empty-declaration'}"><div class="influence-card-head"><div><span class="eyebrow">${escapeHTML(item.type==='income'?(lang==='sv'?'Inkomstanmälan':'Tuloilmoitus'):(lang==='sv'?'Bindningsanmälan':'Sidonnaisuusilmoitus'))}</span><h2>${escapeHTML(item.mpName)}</h2></div><span class="pill">${escapeHTML(String(item.year))}</span></div><h3>${escapeHTML(lang==='sv'?(item.categorySv||item.category):item.category)}</h3><p>${escapeHTML(lang==='sv'?(item.descriptionSv||item.description):item.description)}</p><dl><div><dt>${tr(lang,'party')}</dt><dd>${escapeHTML(influencePartyName(item.party,lang))}</dd></div><div><dt>${lang==='sv'?'Uppgiftstyp':'Ilmoitustyyppi'}</dt><dd>${item.type==='income'?(lang==='sv'?'Inkomst':'Tulo'):(lang==='sv'?'Bindning':'Sidonnaisuus')}</dd></div><div><dt>${lang==='sv'?'Status':'Tila'}</dt><dd>${item.declared?(lang==='sv'?'Anmäld uppgift':'Ilmoitettu tieto'):(lang==='sv'?'Inget att anmäla':'Ei ilmoitettavaa')}</dd></div></dl></article>`:
+    <div class="influence-list">${shown.length?shown.map(item=>influenceState.tab==='gifts'?`<article class="influence-card gift-card"><div class="influence-card-head"><div><span class="eyebrow">${escapeHTML(item.donor||tr(lang,'donor'))}</span><h2>${escapeHTML(item.mpName)}</h2></div><strong>${item.amount==null?(lang==='sv'?'Ej angivet':'Ei ilmoitettu'):formatMoney(item.amount,lang)}</strong></div><p>${escapeHTML(lang==='sv'?(item.descriptionSv||item.description):item.description)}</p><dl><div><dt>${tr(lang,'party')}</dt><dd>${escapeHTML(String(item.party||'').toUpperCase())}</dd></div><div><dt>${tr(lang,'useTime')}</dt><dd>${escapeHTML(item.used||String(item.year))}</dd></div><div><dt>${lang==='sv'?'Anmäld':'Ilmoitettu'}</dt><dd>${escapeHTML(item.reported||'—')}</dd></div></dl></article>`:influenceState.tab==='interests'?`<article class="influence-card interest-card ${item.declared?'':'empty-declaration'}"><div class="influence-card-head"><div><span class="eyebrow">${escapeHTML(item.type==='income'?(lang==='sv'?'Inkomstanmälan':'Tuloilmoitus'):(lang==='sv'?'Bindningsanmälan':'Sidonnaisuusilmoitus'))}</span><h2>${escapeHTML(item.mpName)}</h2></div><span class="pill">${escapeHTML(String(item.year))}</span></div><h3>${escapeHTML(lang==='sv'?(item.categorySv||item.category):item.category)}</h3><p>${escapeHTML(lang==='sv'?(item.descriptionSv||item.description):item.description)}</p><dl><div><dt>${tr(lang,'party')}</dt><dd>${escapeHTML(influencePartyName(item.party,lang))}</dd></div><div><dt>${lang==='sv'?'Uppgiftstyp':'Ilmoitustyyppi'}</dt><dd>${item.type==='income'?(lang==='sv'?'Inkomst':'Tulo'):(lang==='sv'?'Bindning':'Sidonnaisuus')}</dd></div><div><dt>${lang==='sv'?'Status':'Tila'}</dt><dd>${item.declared?(lang==='sv'?'Anmäld uppgift':'Ilmoitettu tieto'):(lang==='sv'?'Inget att anmäla':'Ei ilmoitettavaa')}</dd></div></dl></article>`:
     `<article class="influence-card lobby-card"><div class="influence-card-head"><div><span class="eyebrow">${escapeHTML(item.industry||(lang==='sv'?'Bransch inte angiven':'Toimialaa ei ilmoitettu'))}</span><h2>${escapeHTML(item.actor)}</h2></div><span class="pill">${primaryTargetKind(item)==='mp'?tr(lang,'mps'):primaryTargetKind(item)==='assistant'?tr(lang,'assistants'):primaryTargetKind(item)==='parliament'?tr(lang,'parliament'):tr(lang,'allTargets')}</span></div><p class="lobby-topic">${escapeHTML(item.topic||'—')}</p><dl><div><dt>${tr(lang,'target')}</dt><dd>${escapeHTML(targetLabel(item,lang))}</dd></div><div><dt>${tr(lang,'party')}</dt><dd>${item.targetParties?.length?item.targetParties.map(party=>`<span class="pill">${escapeHTML(influencePartyName(party,lang))}</span>`).join(' '):'—'}</dd></div><div><dt>${tr(lang,'methods')}</dt><dd class="method-list">${item.methods.map(method=>`<span>${escapeHTML(methodName(method,lang))}</span>`).join('')||'—'}</dd></div><div><dt>${tr(lang,'period')}</dt><dd>${escapeHTML(item.period.start)}–${escapeHTML(item.period.end)}</dd></div></dl></article>`).join(''):`<div class="empty">${tr(lang,'noData')}</div>`}</div>
     ${shown.length<filtered.length?`<div class="load-more"><button data-influence-more>${tr(lang,'showMore')} <span>(${Math.min(100,filtered.length-shown.length)})</span></button><small>${shown.length} / ${filtered.length}</small></div>`:''}
     ${sourceNote(escapeHTML(influenceState.tab==='gifts'?tr(lang,'giftSourceText'):influenceState.tab==='interests'?tr(lang,'interestSourceText'):tr(lang,'sourceText')),[influenceState.tab==='lobbying'?{href:'https://www.avoimuusrekisteri.fi/',label:lang==='sv'?'Öppenhetsregistret':'Avoimuusrekisteri'}:{href:'https://api.eduskunta.fi/',label:lang==='sv'?'Riksdagens öppna data':'Eduskunnan avoin data'}])}</div>`;

@@ -21,7 +21,7 @@ test('scheduled writers serialize and deployments read the current main branch',
   assert.match(civic,/--only=budget --all/);
   assert.match(civic,/--only=elections/);
   assert.match(civic,/--only=influence/);
-  assert.equal((civic.match(/continue-on-error: true/g)||[]).length,3);
+  assert.equal((civic.match(/continue-on-error: true/g)||[]).length,4);
   assert.match(pages,/ref: main/);
   assert.match(pages,/head_branch == 'main'/);
 });

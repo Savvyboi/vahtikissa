@@ -32,7 +32,7 @@ export function parseGiftDisclosure(text = '') {
     reported: captured(/Ilmoitettu:\s*(\d{1,2}\.\d{1,2}\.\d{4})/i),
     donor: captured(/Antaja:\s*(.*?)\.\s*Kuvaus:/i),
     description: captured(/Kuvaus:\s*(.*?)(?:,\s*[\d\s]+,\d{2}\s*euroa|\.\s*Käyttöaika:)/i),
-    amount: numberValue(amountText),
+    amount: amountText ? numberValue(amountText) : null,
     used: captured(/Käyttöaika:\s*(.*?)(?:\.\s*Luovutettu|\.\s*$)/i),
     raw: value.trim()
   };

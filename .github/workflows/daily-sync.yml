@@ -3,7 +3,7 @@ name: Daily Eduskunta data sync
 on:
   push:
     branches: [main]
-    paths: ['scripts/sync-data.mjs', 'scripts/lib.mjs', '.github/workflows/daily-sync.yml']
+    paths: ['scripts/sync-data.mjs', 'scripts/lib.mjs', 'scripts/parliament-members.mjs', '.github/workflows/daily-sync.yml']
   schedule:
     - cron: '17 2 * * *'
   workflow_dispatch:

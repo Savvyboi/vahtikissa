@@ -17,13 +17,14 @@ The visual and information hierarchy is inspired by the public-facing `mijnkamer
 - Speech browser with topic filters plus MP and party frequency/word-count analytics
 - Parliamentary matter pages connecting matters, votes and amendments
 - Plenary session index
-- State budget explorer for 2020 onward, with income, expenditure, budget and actual figures
+- State budget explorer for 2020 onward, with clickable treemaps, bar charts, ministry/chapter/moment drill-down, original/current budgets, actuals and year comparisons
+- Parliamentary party programmes from Pohtiva’s 2023 election collection, with document type/language search, verified current representation and original source links
 - Official 2023 parliamentary election results by party, district and elected candidate
 - Searchable MP financial interests, outside income declarations, gift disclosures and lobbying contacts
 - Keyboard-accessible global search (`Ctrl/Cmd + K`)
 - Responsive layout, keyboard focus retention, named controls, screen-reader announcements, reduced-motion support and readable light/dark/high-contrast themes
 - Automated browser interaction and axe accessibility checks
-- Daily Parliament, budget, election, gift and lobbying-data ingestion via GitHub Actions
+- Daily Parliament, budget, election, gift, lobbying and party-programme ingestion via GitHub Actions
 - Free GitHub Pages deployment workflow
 - Netlify configuration as an alternative
 - Node's dependency-free test suite
@@ -37,6 +38,7 @@ The additional applications use these official sources:
 - State Treasury's State Budget Finances API for annual and monthly budget figures
 - Statistics Finland's PXWeb API for 2023 election votes, shares, turnout and elected candidates
 - Parliament's open-data API for MPs' financial interests, outside income and gift disclosures
+- FSD / Tampere University’s Pohtiva collection at https://www.fsd.tuni.fi/pohtiva/vaalit/6 for parliamentary party programmes
 - The Finnish Transparency Register's public API for self-reported lobbying activities and targets
 
 Lobbying entries are grouped by declaration topic in the interface while preserving all reported targets. A contact in this dataset means a contact declared by the reporting organisation; it is not an independently verified finding. Policy domains are broad keyword-based discovery tags, while committee filters use the official committee names associated with a matter by Parliament's API. Speech word totals are derived from published transcript text. Detailed budget classifications currently follow the source's Finnish terminology, while all application controls, explanations and top-level budget classes are available in Finnish and Swedish.
@@ -53,6 +55,7 @@ npm run sync
 npm run sync:committees
 npm run build:speech-analytics
 npm run sync:civic:all
+npm run sync:programmes
 npm run dev
 ```
 
@@ -97,7 +100,7 @@ Connect the repository, use no framework preset, leave the build command empty (
 ## Automation details
 
 - `.github/workflows/daily-sync.yml`: tests, downloads Parliament votes, full speeches, matters, members, sessions, committees and derived indexes daily at 02:17 UTC; validates before committing.
-- `.github/workflows/daily-civic-sync.yml`: refreshes every budget year, elections, interests, gifts and lobbying daily at 03:43 UTC. A source failure retains its last published snapshot while allowing other valid sources to update; the run reports failure so maintainers can investigate.
+- `.github/workflows/daily-civic-sync.yml`: refreshes every budget year, elections, interests, gifts, lobbying and party programmes daily at 03:43 UTC. A source failure retains its last published snapshot while allowing other valid sources to update; the run reports failure so maintainers can investigate.
 - Both scheduled writers share a concurrency group, use complete Git history and retry rebased pushes.
 - `.github/workflows/pages.yml`: validates and publishes the latest `main`, including valid updates committed by bot workflows. This explicit `workflow_run` trigger is needed because bot-token pushes do not start ordinary push workflows.
 - `.github/workflows/browser-check.yml`: browser and accessibility regression checks on code changes.
@@ -109,3 +112,11 @@ Schedules are requested times, not guaranteed delivery times. GitHub can delay s
 ## License
 
 Application code: MIT. Parliament data remains subject to the source provider's terms and attribution requirements. The interface states that this is not an official Parliament service.
+
+## Budget and programme methods
+
+The budget view uses the treemap and bar-chart interactions demonstrated in the Ministry of Finance’s Tutki budjettia video. Areas show monetary proportions; original and current budgets are distinct. Revenue excludes budget section 15 (borrowing) when calculating the deficit. Actuals show their source month, and percentage comparisons of actuals are suppressed if the years cover different numbers of months. Small chart blocks have equivalent, readable links in the complete table.
+
+Pohtiva documents are linked in their original language, with publication year and programme type. The page deliberately represents the requested **2023 election collection**, not a claim to each party’s newest programme. Representation and group seat counts are checked against Parliament’s current member reference list every day. Independent groups without matching documents in that collection are excluded.
+
+Parliament’s bulk member endpoint currently stops at 1,000 historical records. The importers supplement it with individual records for every active MP and every MP in the tracked period. Any failed supplement stops that source from replacing its previous snapshot.

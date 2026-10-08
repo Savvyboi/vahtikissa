@@ -1,3 +1,4 @@
+import { fetchParliamentMembers } from './parliament-members.mjs';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import { normalizeParty, normalizeVote, buildIndexes, deriveMembers, isInRange, START_DATE } from './lib.mjs';
@@ -195,10 +196,10 @@ export async function sync() {
   const speechSearchIndex = buildSpeechSearchIndex(completeSpeeches);
   const speechAnalytics = { generatedAt: new Date().toISOString(), ...buildSpeechAnalytics(completeSpeeches) };
 
-  const officialMembers = (await request('/kansanedustajat')).kansanedustajat || [];
-  const memberById = new Map(officialMembers.map(member => [clean(member.henkilonro), member]));
   const voteDates = Object.fromEntries(votes.map(vote => [vote.id, vote.date]));
   const derived = deriveMembers(ballots.map(ballot => ({ ...ballot, date: voteDates[ballot.voteId] || '' })), speeches);
+  const { members: officialMembers } = await fetchParliamentMembers(request, { memberIds: derived.map(member=>member.id) });
+  const memberById = new Map(officialMembers.map(member => [clean(member.henkilonro), member]));
   const members = derived.map(member => {
     const official = memberById.get(member.id);
     return official ? { ...member, firstName: clean(official.kutsumanimi || official.etunimet), lastName: clean(official.sukunimi) } : member;

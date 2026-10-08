@@ -7,7 +7,7 @@ export async function checkUI(page, navigate, data) {
     parties:new Set(data.parties.map(item=>item.code)), sessions:new Set(data.sessions.map(item=>item.id)),
     legislation:new Set(data.legislation.map(item=>item.id))
   };
-  const routes = ['overview','votes','members','parties','sessions','speeches','legislation','budget','elections','influence','about',
+  const routes = ['overview','votes','members','parties','programmes','sessions','speeches','legislation','budget','elections','influence','about',
     `members/${data.members[0].id}`,`votes/${encodeURIComponent(data.votes[0].id)}`,`parties/${data.parties[0].code}`,`sessions/${data.sessions[0].id}`,`legislation/${encodeURIComponent(data.legislation.find(item=>item.voteIds.length).id)}`];
   async function inspectFields() {
     // Open each filter panel so the fields are exercised through visible controls.
@@ -76,10 +76,10 @@ export async function checkUI(page, navigate, data) {
       const boxes=await page.locator('.nav a').evaluateAll(elements=>elements.map(e=>{
         const b=e.getBoundingClientRect();return {text:e.textContent,left:b.left,right:b.right,top:b.top,bottom:b.bottom};
       }));
-      assert.equal(boxes.length,10);
+      assert.equal(boxes.length,11);
       for(const box of boxes)assert.ok(box.left>=0&&box.right<=viewport.width+1&&box.top>=0&&box.bottom<=viewport.height,`Menu item outside ${viewport.width}×${viewport.height}: ${box.text}`);
       await page.keyboard.press('Escape');assert.equal(await page.locator('.menu-button').getAttribute('aria-expanded'),'false');
-      for(const route of routes.slice(0,10)) {
+      for(const route of routes.slice(0,11)) {
         await page.locator('.menu-button').click();await page.locator(`.nav [data-page="${route}"]`).click();
         assert.equal(await page.locator('.menu-button').getAttribute('aria-expanded'),'false');
         assert.equal(await page.locator('main').getAttribute('data-route'),`#/${route}`);
@@ -101,5 +101,5 @@ export async function checkUI(page, navigate, data) {
   assert.equal(await page.locator('html').getAttribute('data-theme'),'contrast');
   assert.equal(await page.locator('html').getAttribute('lang'),'sv');
   await page.locator('.theme-select').selectOption('light');await page.locator('.language-button').click();
-  console.log(`${fields} filter interactions; ${links} rendered links; ${data.members.length} decoded portraits; all 10 menu links at 5 mobile/tablet sizes in Finnish and Swedish passed.`);
+  console.log(`${fields} filter interactions; ${links} rendered links; ${data.members.length} decoded portraits; all 11 menu links at 5 mobile/tablet sizes in Finnish and Swedish passed.`);
 }

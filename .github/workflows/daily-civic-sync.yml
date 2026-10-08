@@ -3,7 +3,7 @@ name: Daily budget, election and influence data sync
 on:
   push:
     branches: [main]
-    paths: ['scripts/sync-civic-data.mjs', '.github/workflows/daily-civic-sync.yml']
+    paths: ['scripts/sync-civic-data.mjs', 'scripts/sync-programmes.mjs', 'scripts/parliament-members.mjs', '.github/workflows/daily-civic-sync.yml']
   schedule:
     - cron: '43 3 * * *'
   workflow_dispatch:
@@ -40,13 +40,17 @@ jobs:
         id: influence
         continue-on-error: true
         run: npm run sync:civic -- --only=influence
+      - name: Refresh parliamentary party programmes
+        id: programmes
+        continue-on-error: true
+        run: npm run sync:programmes
       - name: Validate generated data
         run: npm run validate-data
       - name: Commit changed snapshots
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/budget.json data/elections-2023.json data/influence.json
+          git add data/budget.json data/elections-2023.json data/influence.json data/programmes.json
           git diff --cached --quiet && exit 0
           git commit -m "data: daily civic data sync"
           for attempt in 1 2 3; do
@@ -56,7 +60,7 @@ jobs:
           done
           exit 1
       - name: Report upstream failures
-        if: ${{ steps.budget.outcome == 'failure' || steps.elections.outcome == 'failure' || steps.influence.outcome == 'failure' }}
+        if: ${{ steps.budget.outcome == 'failure' || steps.elections.outcome == 'failure' || steps.influence.outcome == 'failure' || steps.programmes.outcome == 'failure' }}
         run: |
           echo "One or more upstream sources failed. Valid successful snapshots were committed; failed sources keep their last published data." >> "$GITHUB_STEP_SUMMARY"
           exit 1

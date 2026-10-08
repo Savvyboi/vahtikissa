@@ -70,10 +70,16 @@ test('civic snapshots refresh daily and deploy through Pages', async () => {
 
 test('budget drill-down uses in-place history navigation and influence exposes advanced filters', async () => {
   const app = await source('civic-apps.js');
-  assert.match(app, /data-budget-route/);
-  assert.match(app, /history\.pushState/);
+  const budget = await source('budget-app.js');
+  assert.match(budget, /data-budget-route/);
+  assert.match(budget, /history\.pushState/);
   assert.match(app, /data-influence-filter="mp"/);
   assert.match(app, /data-influence-filter="party"/);
   assert.match(app, /data-influence-filter="category"/);
   assert.match(app, /data-exclude-category/);
+});
+
+test('unreported gift values remain missing rather than becoming zero in exports', () => {
+  assert.equal(parseGiftDisclosure('Ilmoitettu: 01.09.2023. Antaja: Testi. Kuvaus: Vierailu (lahjan arvoa ei ole ilmoitettu), . Käyttöaika: 28.08.2023.').amount, null);
+  assert.equal(parseGiftDisclosure('Ilmoitettu: 01.09.2023. Antaja: Testi. Kuvaus: Lahja, 0,00 euroa. Käyttöaika: 28.08.2023.').amount, 0);
 });

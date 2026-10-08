@@ -1,3 +1,4 @@
+import { fetchParliamentMembers } from './parliament-members.mjs';
 import { readFile, writeFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import { jsonStatRows, numberValue, parseCSVLine, parseGiftDisclosure } from '../civic-utils.js';
@@ -61,7 +62,7 @@ async function json(url, options = {}) {
 }
 
 function addBudgetValue(map, code, name, row) {
-  if (!code) return;
+  if (!/^\d{2}(\d{2}){0,2}$/.test(code)) return;
   const entry = map.get(code) || { code, name: { fi: clean(name), sv: '' }, budget: 0, original: 0, supplemental: 0, actual: 0 };
   if (!entry.name.fi && name) entry.name.fi = clean(name);
   entry.original += numberValue(row.Alkuperäinen_talousarvio);
@@ -267,10 +268,11 @@ function localizedTarget(target, language) {
 
 export async function syncInfluence() {
   console.log('Syncing Parliament gifts and Transparency Register lobbying data…');
+  const parliament = JSON.parse(await readFile(new URL('parliament.json', OUT), 'utf8'));
   const [memberResponse, terms, targets] = await Promise.all([
-    json(PARLIAMENT), json(`${TRANSPARENCY}/open-data-term`), json(`${TRANSPARENCY}/open-data-target/targets`, { timeout: 240_000 })
+    fetchParliamentMembers(path=>json(`https://api.eduskunta.fi/api/v1${path}`), { memberIds: parliament.members.map(member=>member.id) }), json(`${TRANSPARENCY}/open-data-term`), json(`${TRANSPARENCY}/open-data-target/targets`, { timeout: 240_000 })
   ]);
-  const members = memberResponse.kansanedustajat || [];
+  const members = memberResponse.members;
   const gifts = [];
   const interests = [];
   for (const member of members) {
@@ -343,7 +345,7 @@ export async function syncInfluence() {
   }
   lobbying.sort((a, b) => b.reported.localeCompare(a.reported) || a.actor.localeCompare(b.actor, 'fi'));
   const output = {
-    metadata: { generatedAt: new Date().toISOString(), parliamentSource: PARLIAMENT, transparencySource: `${TRANSPARENCY}/open-data-activity-notification`, license: 'CC BY 4.0' },
+    metadata: { generatedAt: new Date().toISOString(), parliamentSource: PARLIAMENT, memberCoverage: parliament.members.length, activeMemberCount: memberResponse.activeIds.length, transparencySource: `${TRANSPARENCY}/open-data-activity-notification`, license: 'CC BY 4.0' },
     gifts, interests, targets: [...parliamentTargets.values()], lobbying,
     counts: { gifts: gifts.length, giftValue: Math.round(gifts.reduce((sum, gift) => sum + gift.amount, 0)), interests: interests.filter(item => item.declared).length, lobbying: contactCount, lobbyingTopics: lobbying.length, actors: new Set(lobbying.map(item => item.actor)).size }
   };
