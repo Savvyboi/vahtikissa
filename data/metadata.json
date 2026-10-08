@@ -1,15 +1,15 @@
 {
-  "generatedAt": "2026-10-07T08:47:39.604Z",
+  "generatedAt": "2026-10-08T09:06:22.658Z",
   "source": "https://api.eduskunta.fi/api/v1",
   "startDate": "2023-04-02",
   "counts": {
-    "votes": 2791,
-    "ballots": 555409,
-    "speeches": 39806,
+    "votes": 2796,
+    "ballots": 556404,
+    "speeches": 39905,
     "members": 219,
     "parties": 12,
-    "sessions": 148,
-    "legislation": 7113,
-    "amendments": 1829
+    "sessions": 149,
+    "legislation": 7122,
+    "amendments": 1833
   }
 }
