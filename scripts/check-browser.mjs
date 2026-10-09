@@ -5,6 +5,7 @@ import { chromium } from 'playwright';
 import { createRequire } from 'node:module';
 import { checkUI } from './browser-ui-checks.mjs';
 import { checkNewPages } from './check-new-pages.mjs';
+import { checkResearch } from './check-research.mjs';
 
 const require = createRequire(import.meta.url);
 const data = JSON.parse(await readFile(new URL('../data/parliament.json',import.meta.url),'utf8'));
@@ -91,6 +92,7 @@ try {
   assert.equal(await page.locator(`[data-collection="influence"] [data-facet="year"] [data-selection="include"][value="${year}"]`).evaluate(element=>element===document.activeElement),true);
 
   await checkNewPages(page,navigate);
+  await checkResearch(page,navigate,data,audit);
   await checkUI(page,navigate,data);
   await page.setViewportSize({width:320,height:740});
   for(const route of ['overview','votes','members','sessions','speeches','legislation','budget','programmes','elections','influence']) {await navigate(route);await audit(`fi / 320px / ${route}`);}

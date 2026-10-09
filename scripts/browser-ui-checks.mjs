@@ -48,7 +48,7 @@ export async function checkUI(page, navigate, data) {
     for(const link of hrefs){
       assert.ok(link && !/^javascript:/i.test(link));links++;
       if(!link.startsWith('#/'))continue;
-      const [route,...parts]=link.slice(2).split('/');
+      const [route,...parts]=link.slice(2).split('?')[0].split('/');
       assert.ok([...routes.map(item=>item.split('/')[0]),'speeches'].includes(route),`Unknown route ${link}`);
       if(parts.length&&valid[route])assert.ok(valid[route].has(decodeURIComponent(parts.join('/'))),`Missing route target ${link}`);
     }

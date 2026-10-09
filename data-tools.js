@@ -50,6 +50,12 @@ export function exportButtons(key, lang = 'fi') {
 
 export function bindExportButtons(container, key, getRows, filename) {
   container.querySelectorAll(`[data-export-key="${key}"]`).forEach(button => {
-    button.onclick = () => downloadRows(getRows(), typeof filename === 'function' ? filename() : filename, button.dataset.exportFormat);
+    button.onclick = async () => {
+      button.disabled = true;button.setAttribute('aria-busy','true');
+      const errorKey=key+'-export-error';container.querySelector('[data-export-error="'+errorKey+'"]')?.remove();
+      try { const rows = await getRows();downloadRows(rows, typeof filename === 'function' ? filename() : filename, button.dataset.exportFormat); }
+      catch { const error=document.createElement('p');error.dataset.exportError=errorKey;error.setAttribute('role','alert');error.textContent=document.documentElement.lang==='sv'?'Exporten misslyckades. Försök igen.':'Vienti epäonnistui. Yritä uudelleen.';button.parentElement.after(error); }
+      finally {button.disabled=false;button.setAttribute('aria-busy','false');}
+    };
   });
 }

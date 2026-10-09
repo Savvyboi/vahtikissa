@@ -12,7 +12,7 @@ export function percent(part, total) {
 }
 
 export function routeFromHash(hash) {
-  const parts = String(hash || '').replace(/^#\/?/, '').split('/').filter(Boolean);
+  const parts = String(hash || '').split('?')[0].replace(/^#\/?/, '').split('/').filter(Boolean);
   return { page: parts[0] || 'overview', id: parts[1] ? decodeURIComponent(parts.slice(1).join('/')) : null };
 }
 
@@ -168,7 +168,7 @@ export function paginationItems(currentPage, totalPages) {
 }
 
 export function normalizeSpeechSearchText(value) {
-  return String(value || '').toLocaleLowerCase('fi').replace(/[^\p{L}\p{N}]+/gu, ' ').trim().replace(/\s+/g, ' ');
+  return String(value || '').normalize('NFC').toLocaleLowerCase('fi').replace(/[^\p{L}\p{N}]+/gu, ' ').trim().replace(/\s+/g, ' ');
 }
 
 export function decodeSpeechSearchIndex(index) {

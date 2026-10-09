@@ -14,8 +14,9 @@
     "test": "node --test tests/*.test.mjs",
     "test:browser": "node scripts/check-browser.mjs",
     "validate-data": "node scripts/validate-data.mjs",
-    "check": "node --check app.js && node --check civic-apps.js && node --check budget-app.js && node --check budget-utils.js && node --check programmes-app.js && node --check scripts/sync-programmes.mjs && node --check scripts/parliament-members.mjs && node --check collection-tools.js && node --check scripts/sync-data.mjs && node --check scripts/sync-civic-data.mjs && node --test tests/*.test.mjs && node scripts/validate-data.mjs",
-    "sync:programmes": "node scripts/sync-programmes.mjs"
+    "check": "node --check speech-research.js && node --check speech-research-app.js && node --check member-insights.js && node --check scripts/member-profiles.mjs && node --check app.js && node --check civic-apps.js && node --check budget-app.js && node --check budget-utils.js && node --check programmes-app.js && node --check scripts/sync-programmes.mjs && node --check scripts/parliament-members.mjs && node --check collection-tools.js && node --check scripts/sync-data.mjs && node --check scripts/sync-civic-data.mjs && node --test tests/*.test.mjs && node scripts/validate-data.mjs",
+    "sync:programmes": "node scripts/sync-programmes.mjs",
+    "sync:profiles": "node scripts/member-profiles.mjs"
   },
   "devDependencies": {
     "axe-core": "^4.13.0",
