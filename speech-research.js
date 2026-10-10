@@ -2,8 +2,8 @@ import { normalizeSpeechSearchText } from './app-utils.js';
 import { LANGUAGE_STOPWORDS } from './speech-stopwords.js';
 
 // Curated function words in both transcript languages and parliamentary salutations.
-// Versioned with the code; political subject words are deliberately retained.
-export const STOPWORD_VERSION = 'fi-sv-1';
+// Versioned with the code; policy subject words are deliberately retained.
+export const STOPWORD_VERSION = 'fi-sv-2';
 export const STOPWORDS = new Set(`
 ai aivan alla alle aluksi aina ainakin ainoa ainoastaan aikana aikaisemmin aikoo aikovat
 alas alueella asti asia asiaa asian asioita arvoisa arvoisat arvoisan
@@ -62,8 +62,30 @@ export function speechTokens(text) {
   return String(text || '').normalize('NFC').toLocaleLowerCase('fi').match(/\p{L}+/gu) || [];
 }
 
+// Country names and institutional boilerplate add little to a personal vocabulary.
+// Explicit forms avoid stripping meaningful compounds such as hallitusohjelma.
+export const PARLIAMENT_GENERIC_WORDS = new Set(`
+suomi suomen suomea suomessa suomesta suomeen suomella suomelle suomelta
+suomalainen suomalaisen suomalaista suomalaiset suomalaisten suomalaisia suomalaisille
+hallitus hallituksen hallitusta hallituksessa hallituksesta hallitukseen hallituksella hallitukselle hallitukselta
+hallitukset hallitusten hallituksia hallituksissa hallituksista hallituksiin hallituksille
+eduskunta eduskunnan eduskuntaa eduskunnassa eduskunnasta eduskuntaan eduskunnalle
+valiokunta valiokunnan valiokuntaa valiokunnassa valiokunnasta valiokuntaan valiokunnalle valiokunnat valiokuntien
+ministeri ministerin ministeriä ministerille ministerit ministereiden ministerien
+esitys esityksen esitystä esityksessä esityksestä esitykseen esityksiä esitysten
+mietintö mietinnön mietintöä mietinnössä mietinnöstä
+finland finlands finländsk finländska finländskt finländare
+regering regeringen regeringens regeringar regeringarna regeringarnas
+riksdag riksdagen riksdagens utskott utskottet utskottets utskotten utskottens
+minister ministern ministerns ministrar ministrarna proposition propositionen propositionens propositioner
+betänkande betänkandet betänkandets
+`.trim().split(/\s+/u));
+for (const word of 'tehdä tekee tekevät teemme teette tehdään tekemään tekemässä tekeminen tehnyt tehneet tehty tehtiin tehtävä tehtävät tehtävän tehtävää tehdyt tee teen tehdäänkin tekevän tekevä tekevämme tosi hyvinkin tosiaankin ylipäätänsä samaan aikaan eteen liikkeelle kaikkemme kysyi kysyn kysymys kysymyksen kysymykseen kysymystä vastaus vastauksessa vastauksessani kysymykset kysymyksiä tarkoittaa tarkoitan tarkoitti tarkoittavat tärkeätä tärkeät tärkeän tärkeässä keskeinen keskeistä keskeisen olennaista olennaisen tietoa toivon toivomme toivotaan uskon uskomme ajattelen ajattelemme näkisin pitäisin tuoda tuodaan tuon tuomme otetaan otan otamme ottamaan tullut tulemme tullaan hetkellä kyse osin osa enää vuonna vuoden vuosina vuotta tänä tälle tällähän toisaalta toisaalla nimittäin tietty tietyllä varsinainen varsinaisesti lähtökohtaisesti tavallaan sinänsä ylipäätään ylipäänsä ensinnäkin toiseksi kolmanneksi todeta totean totesi todetaan tiedämme tiedetään näkökulmasta tilanteessa tapauksessa varmasti eräänlainen eräänlaisia arvon ärendet ärende gäller enligt gällande tillfälle förslag förslaget förslagets'.split(' ')) STOPWORDS.add(word);
+
 export function buildWordClouds(speeches, limit = 60, memberIds = []) {
   const members = new Map(memberIds.map(id=>[String(id),{speeches:0,words:0,filteredWords:0,terms:new Map()}]));
+  const totals = new Map();
+  let corpusWords = 0;
   for (const speech of speeches) {
     const id = String(speech.mpId || '');
     if (!id) continue;
@@ -72,18 +94,34 @@ export function buildWordClouds(speeches, limit = 60, memberIds = []) {
     bucket.speeches++; bucket.words += tokens.length;
     const seen = new Set();
     for (const word of tokens) {
-      if ((word.length < 3 && !['eu','yk','fn'].includes(word)) || STOPWORDS.has(word)) continue;
-      bucket.filteredWords++;
+      if ((word.length < 3 && !['eu','yk','fn'].includes(word)) || STOPWORDS.has(word) || PARLIAMENT_GENERIC_WORDS.has(word)) continue;
+      bucket.filteredWords++; corpusWords++;
+      totals.set(word,(totals.get(word)||0)+1);
       const term = bucket.terms.get(word) || { word, count: 0, speeches: 0 };
       term.count++; if (!seen.has(word)) term.speeches++;
       seen.add(word); bucket.terms.set(word, term);
     }
   }
   return {
-    method: { stopwords: STOPWORD_VERSION, languages: ['fi', 'sv'], lemmatized: false, bracketedAnnotations: 'excluded', minLength: 3, shortExceptions: ['eu','yk','fn'], limit },
-    members: Object.fromEntries([...members].map(([id, bucket]) => [id, {
-      ...bucket, terms: [...bucket.terms.values()].sort((a,b) => b.count-a.count || a.word.localeCompare(b.word,'fi')).slice(0,limit)
-    }]))
+    method: {
+      stopwords: STOPWORD_VERSION, languages: ['fi', 'sv'], lemmatized: false,
+      bracketedAnnotations: 'excluded', minLength: 3, shortExceptions: ['eu','yk','fn'], limit,
+      ranking: 'sqrt-count-log2-relative-frequency', reference: 'other-mps', smoothing: 0.5,
+      minimumRelativeFrequency: 1.25, repeatThreshold: { fromSpeeches: 5, occurrences: 3, speeches: 2 },
+      corpusWords, corpusSpeakers: [...members.values()].filter(bucket=>bucket.filteredWords).length
+    },
+    members: Object.fromEntries([...members].map(([id, bucket]) => {
+      const otherWords = corpusWords-bucket.filteredWords;
+      const terms = [...bucket.terms.values()].filter(term=>bucket.speeches<5 || (term.count>=3 && term.speeches>=2)).map(term=>{
+        // Compare rates, not totals, so different amounts of speech do not imply specificity.
+        const corpusCount = totals.get(term.word);
+        const relativeFrequency = otherWords ? ((term.count+0.5)/(bucket.filteredWords+1))/((corpusCount-term.count+0.5)/(otherWords+1)) : 1;
+        const score = otherWords ? Math.sqrt(term.count)*Math.log2(relativeFrequency) : Math.sqrt(term.count);
+        return {...term,corpusCount,relativeFrequency,score};
+      }).filter(term=>!otherWords || term.relativeFrequency>=1.25)
+        .sort((a,b)=>b.score-a.score || b.count-a.count || a.word.localeCompare(b.word,'fi')).slice(0,limit);
+      return [id, {...bucket,terms}];
+    }))
   };
 }
 

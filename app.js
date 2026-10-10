@@ -23,7 +23,7 @@ const state = {
 let speechSearchTexts;
 let speechSearchPromise = null;
 let speechAnalyticsPromise = null;
-const PAGE = { votes: 50, speeches: 20, legislation: 50, memberVotes: 30, memberSpeeches: 10 };
+const PAGE = { votes: 50, speeches: 20, legislation: 50, memberVotes: 10, memberSpeeches: 5 };
 const partyNames = {
   kok:{fi:'Kansallinen Kokoomus',sv:'Samlingspartiet'}, ps:{fi:'Perussuomalaiset',sv:'Sannfinländarna'}, sd:{fi:'Suomen Sosialidemokraattinen Puolue',sv:'Finlands Socialdemokratiska Parti'}, kesk:{fi:'Suomen Keskusta',sv:'Centern i Finland'}, vihr:{fi:'Vihreä liitto',sv:'Gröna förbundet'}, vas:{fi:'Vasemmistoliitto',sv:'Vänsterförbundet'}, r:{fi:'Ruotsalainen kansanpuolue',sv:'Svenska folkpartiet'}, kd:{fi:'Suomen Kristillisdemokraatit',sv:'Kristdemokraterna i Finland'}, liik:{fi:'Liike Nyt',sv:'Rörelse Nu'}, sit:{fi:'Sitoutumaton',sv:'Obunden'}
 };
@@ -161,8 +161,32 @@ function memberDetail(m){if(!m)return notFound();if(activeMemberId!==m.id){state
   const voteState=toolState(`member-votes-${m.id}`,'date','desc'),speechState=toolState(`member-speeches-${m.id}`,'date','desc');
   const voteConfig=voteTools(votes),speechConfig={...speechTools(speechesForMember),search:speech=>[speech.agenda,speech.agendaSv,speech.type]};
   voteConfig.facets.push(facet('choice',t('howVoted'),votes,vote=>ballots.find(ballot=>ballot.voteId===vote.id)?.choice,choice));
-  root.innerHTML=`<div class="page">${header(titleFor(m.party),memberName(m),t('mpActivity'))}<div class="detail-grid"><div><h2>${t('recentVotes')}</h2><div data-member-vote-tools></div><div class="data-actions">${exportButtons('member-votes',lang)}</div><p role="status" data-member-vote-count></p><div data-member-votes></div><div data-member-votes-more></div><section class="section"><h2>${t('mpSpeeches')}</h2><div data-member-speech-tools></div><div class="data-actions">${exportButtons('member-speeches',lang)}</div><p role="status" data-member-speech-count></p><div data-member-speeches></div><div data-member-speeches-more></div></section></div><aside class="aside">${memberPortrait(m,true)}<p class="portrait-credit">${label('Kuva: Eduskunta','Foto: Riksdagen')}</p><h2>${label('Toimintaluvut','Aktivitetsmått')}</h2><dl><dt>${t('participation')}</dt><dd>${m.stats.participation}%</dd><dt>${t('partyLine')}</dt><dd>${m.stats.loyalty}%</dd><dt>${t('votes')}</dt><dd>${m.stats.yes} ${t('yes')} · ${m.stats.no} ${t('no')} · ${m.stats.abstain} ${t('abstain')}</dd><dt>${t('speeches')}</dt><dd>${m.stats.speeches}</dd></dl><p class="sub">${e(participationInfo())}</p><a class="interest-link" href="${href('influence',m.id)}">${label('Näytä sidonnaisuudet ja lahjat','Visa bindningar och gåvor')} →</a></aside></div></div>`;
-  const insightRoot=document.createElement('div');insightRoot.className='member-insights';root.querySelector('.detail-grid').before(insightRoot);mountMemberInsights(insightRoot,m,lang);
+  root.innerHTML=`<div class="page member-page">
+    <header class="member-cover">
+      <div class="member-cover-banner" aria-hidden="true"></div>
+      <div class="member-identity">
+        <div class="member-avatar">${memberPortrait(m,true)}</div>
+        <div class="member-identity-text"><span class="eyebrow">${t('parliament')}</span><h1>${e(memberName(m))}</h1><a class="member-party-link" href="${href('parties',m.party)}">${e(titleFor(m.party))}</a><p class="sub">${t('mpActivity')}</p></div>
+        <p class="portrait-credit">${label('Kuva: Eduskunta','Foto: Riksdagen')}</p>
+      </div>
+      <nav class="member-tabs" aria-label="${label('Edustajan profiili','Ledamotens profil')}"><button type="button" data-member-jump="member-activity">${label('Toiminta','Aktivitet')}</button><button type="button" data-member-jump="member-about">${label('Tietoja','Om ledamoten')}</button><button type="button" data-member-jump="member-vocabulary">${label('Sanasto','Ordförråd')}</button><a href="${href('influence',m.id)}">${label('Sidonnaisuudet ja lahjat','Bindningar och gåvor')}</a></nav>
+    </header>
+    <div class="member-columns">
+      <div class="member-feed" id="member-activity" tabindex="-1">
+        <section class="member-feed-card"><h2>${t('recentVotes')}</h2><div data-member-vote-tools></div><div class="data-actions">${exportButtons('member-votes',lang)}</div><p role="status" data-member-vote-count></p><div data-member-votes></div><div data-member-votes-more></div></section>
+        <section class="member-feed-card"><h2>${t('mpSpeeches')}</h2><div data-member-speech-tools></div><div class="data-actions">${exportButtons('member-speeches',lang)}</div><p role="status" data-member-speech-count></p><div data-member-speeches></div><div data-member-speeches-more></div></section>
+      </div>
+      <aside class="member-sidebar" aria-label="${label('Edustajan tiedot','Uppgifter om ledamoten')}">
+        <section class="member-summary"><h2>${label('Toimintaluvut','Aktivitetsmått')}</h2><dl class="member-metrics"><div><dt>${t('participation')}</dt><dd>${m.stats.participation}%</dd></div><div><dt>${t('partyLine')}</dt><dd>${m.stats.loyalty}%</dd></div><div><dt>${t('speeches')}</dt><dd>${m.stats.speeches.toLocaleString(lang)}</dd></div><div><dt>${t('votes')}</dt><dd>${m.stats.votes.toLocaleString(lang)}</dd></div></dl><p class="sub">${m.stats.yes} ${t('yes')} · ${m.stats.no} ${t('no')} · ${m.stats.abstain} ${t('abstain')}</p><details class="member-stats-note"><summary>${label('Miten luvut lasketaan?','Hur beräknas måtten?')}</summary><p class="sub">${e(participationInfo())}</p></details></section>
+        <div class="member-insights"></div>
+      </aside>
+    </div>
+  </div>`;
+  mountMemberInsights(root.querySelector('.member-insights'),m,lang);
+  root.querySelectorAll('[data-member-jump]').forEach(button=>button.onclick=()=>{
+    const target=document.getElementById(button.dataset.memberJump);if(!target)return;
+    target.focus({preventScroll:true});target.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth',block:'start'});
+  });
   const memberSpeechList=$('[data-member-speeches]');
   let filteredVotes=[],filteredSpeeches=[],version=0;
   const redrawVotes=()=>{filteredVotes=applyCollection(votes,voteState,voteConfig,lang);$('[data-member-vote-count]').textContent=`${filteredVotes.length} ${t('votes').toLocaleLowerCase(lang)}`;$('[data-member-votes]').innerHTML=table([t('day'),t('matter'),t('result')],voteRows(pageSlice(filteredVotes,state.memberVotes,PAGE.memberVotes),m.id));$('[data-member-votes-more]').innerHTML=pagination('memberVotes',filteredVotes.length);bindPagination('memberVotes',redrawVotes)};

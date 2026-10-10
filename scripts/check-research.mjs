@@ -13,6 +13,26 @@ export async function checkResearch(page,navigate,data,audit) {
   assert.equal(await page.locator('.wordcloud a').count(),clouds.members[member.id].terms.length);
   assert.ok((await page.locator('.member-profile').innerText()).includes(profiles.members[member.id].occupation.fi));
   assert.equal(await page.locator('.member-profile a[href="'+profiles.members[member.id].pageUrl+'"]').count(),1);
+  assert.ok(await page.locator('.member-avatar img').isVisible());
+  const cloudBox=await page.locator('[data-wordcloud]').boundingBox(),summaryBox=await page.locator('.member-summary').boundingBox();
+  assert.ok(cloudBox.width<=340 && cloudBox.y>=summaryBox.y+summaryBox.height,'Vocabulary is a compact card below the activity summary');
+  assert.equal(await page.locator('.wordcloud li:not([hidden])').count(),Math.min(24,clouds.members[member.id].terms.length));
+  if(clouds.members[member.id].terms.length>24){
+    await page.locator('[data-cloud-expand]').click();
+    assert.equal(await page.locator('.wordcloud li:not([hidden])').count(),clouds.members[member.id].terms.length);
+    await page.locator('[data-cloud-expand]').click();
+    assert.equal(await page.locator('.wordcloud li:not([hidden])').count(),24);
+  }
+  await page.locator('[data-member-jump="member-about"]').click();
+  assert.equal(await page.locator('#member-about').evaluate(el=>el===document.activeElement),true);
+  assert.ok(page.url().endsWith('#/members/'+member.id));
+  await page.locator('[data-wordcloud] details summary').click();
+  const wordDownloadPromise=page.waitForEvent('download');
+  await page.locator('[data-export-key="wordcloud"][data-export-format="json"]').click();
+  const wordDownload=await wordDownloadPromise,wordRows=JSON.parse(await readFile(await wordDownload.path(),'utf8'));
+  assert.equal(wordRows.length,clouds.members[member.id].terms.length);
+  assert.ok(wordRows.every(term=>term.count>0&&term.score>0&&term.relativeFrequency>=1.25&&term.ranking===clouds.method.ranking));
+  await page.locator('[data-wordcloud] details summary').click();
   const firstTerm=clouds.members[member.id].terms[0];
   await page.locator('.wordcloud a').first().click();
   await page.waitForFunction(()=>document.querySelector('[data-speech-member]')?.value&&document.querySelector('[data-filter]')?.getAttribute('aria-busy')==='false'&&document.querySelector('[data-research-summary] h2'));
@@ -53,6 +73,10 @@ export async function checkResearch(page,navigate,data,audit) {
   await navigate('members/'+member.id);
   await page.locator('[data-member-profile][aria-busy="false"]').waitFor();
   await page.locator('[data-wordcloud][aria-busy="false"]').waitFor();
+  const feedBox=await page.locator('.member-feed').boundingBox(),sidebarBox=await page.locator('.member-sidebar').boundingBox();
+  assert.ok(sidebarBox.y>=feedBox.y+feedBox.height,'On phones activity appears before the supporting cards');
+  await page.locator('[data-member-jump="member-vocabulary"]').click();
+  assert.equal(await page.locator('#member-vocabulary').evaluate(el=>el===document.activeElement),true);
   await audit('fi / MP insights / 320px');
   await page.setViewportSize({width:1440,height:1000});
   await page.locator('.language-button').click();

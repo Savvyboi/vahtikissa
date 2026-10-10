@@ -4,18 +4,21 @@ import { buildWordClouds, matchRanges, filterResearchSpeeches, concordance, rese
 import { normalizeMemberProfile, buildMemberProfiles } from '../scripts/member-profiles.mjs';
 import { routeFromHash } from '../app-utils.js';
 
-test('word clouds remove Finnish/Swedish function words and salutations, preserving subject terms',()=>{
-  const output=buildWordClouds([{mpId:'1',text:'Arvoisa puhemies! Tämä on ja että. Värderade talman, och det är. Ilmasto ilmasto klimat. Hallitus.'}]);
-  assert.deepEqual(output.members['1'].terms,[{word:'ilmasto',count:2,speeches:1},{word:'hallitus',count:1,speeches:1},{word:'klimat',count:1,speeches:1}]);
+test('word clouds remove Finnish/Swedish function words and institutional boilerplate, preserving policy terms',()=>{
+  const output=buildWordClouds([{mpId:'1',text:'Arvoisa puhemies! Tämä on ja että. Värderade talman, och det är. Ilmasto ilmasto klimat. Hallitus hallituksen Suomen suomessa regeringen Finlands.'}]);
+  assert.deepEqual(output.members['1'].terms.map(({word,count,speeches})=>({word,count,speeches})),[{word:'ilmasto',count:2,speeches:1},{word:'klimat',count:1,speeches:1}]);
+  assert.ok(output.members['1'].terms.every(term=>Number.isFinite(term.score)&&term.score>0));
   assert.equal(output.method.lemmatized,false);
 });
 test('clouds count occurrences and distinct speeches separately, isolate MPs and update on new speeches',()=>{
   const speeches=[{mpId:'1',text:'Koulutus koulutus koulutuksen'},{mpId:'2',text:'Talous'}];
   const first=buildWordClouds(speeches).members;
   const second=buildWordClouds([...speeches,{mpId:'1',text:'koulutus'}]).members;
-  assert.deepEqual(first['1'].terms[0],{word:'koulutus',count:2,speeches:1});
-  assert.deepEqual(second['1'].terms[0],{word:'koulutus',count:3,speeches:2});
-  assert.deepEqual(first['2'],second['2']);
+  assert.equal(first['1'].terms.find(term=>term.word==='koulutus').count,2);
+  const updated=second['1'].terms.find(term=>term.word==='koulutus');
+  assert.equal(updated.count,3);assert.equal(updated.speeches,2);assert.equal(updated.corpusCount,3);
+  assert.deepEqual(first['2'].terms.map(({word,count,speeches})=>({word,count,speeches})),second['2'].terms.map(({word,count,speeches})=>({word,count,speeches})));
+  assert.notEqual(first['2'].terms[0].score,second['2'].terms[0].score); // the reference corpus updates too
   assert.ok(first['1'].terms.some(term=>term.word==='koulutuksen'));
 });
 test('MPs without recorded speeches have an explicit empty cloud',()=>{
@@ -74,4 +77,29 @@ test('clouds filter inflected pronouns and common conjunctions, and omit bracket
 
 test('rejected partial-word matches do not hide overlapping valid exact phrases',()=>{
   assert.equal(matchRanges('epätalous talous talous','talous talous','phrase').length,1);
+});
+
+
+test('clouds rank recurring distinctive words using normalized usage in the other MPs, with a repeat threshold',()=>{
+  const speeches=[];
+  for(let i=0;i<6;i++){
+    speeches.push({mpId:'specialist',text:'energia energia energia metsäkato metsäkato'+(i===0?' kertamaininta':'')});
+    speeches.push({mpId:'other',text:'energia '.repeat(8)+'terveys '.repeat(6)});
+    speeches.push({mpId:'third',text:'energia '.repeat(8)+'koulutus '.repeat(6)});
+  }
+  const output=buildWordClouds(speeches),cloud=output.members.specialist;
+  assert.deepEqual(cloud.terms.map(term=>term.word),['metsäkato']);
+  const term=cloud.terms[0];assert.equal(term.count,12);assert.equal(term.speeches,6);assert.equal(term.corpusCount,12);
+  const relative=((12+.5)/(31+1))/((0+.5)/(168+1));
+  assert.equal(term.relativeFrequency,relative);assert.equal(term.score,Math.sqrt(12)*Math.log2(relative));
+  assert.equal(output.method.ranking,'sqrt-count-log2-relative-frequency');
+  assert.equal(output.method.reference,'other-mps');
+  assert.ok(!cloud.terms.some(term=>term.word==='kertamaininta'));
+  assert.deepEqual(buildWordClouds(speeches,1).members.specialist.terms,cloud.terms);
+});
+
+test('empty reference text and institutional-only speeches do not produce invalid scores',()=>{
+  const clouds=buildWordClouds([{mpId:'1',text:'ilmasto ilmasto'},{mpId:'2',text:'Suomen hallitus, regeringens proposition.'}],60,['3']).members;
+  assert.equal(clouds['1'].terms[0].score,Math.sqrt(2));
+  assert.deepEqual(clouds['2'].terms,[]);assert.deepEqual(clouds['3'].terms,[]);
 });
