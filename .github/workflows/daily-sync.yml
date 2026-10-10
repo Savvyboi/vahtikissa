@@ -3,7 +3,7 @@ name: Daily Eduskunta data sync
 on:
   push:
     branches: [main]
-    paths: ['scripts/sync-data.mjs', 'scripts/lib.mjs', 'scripts/parliament-members.mjs', 'scripts/member-profiles.mjs', 'speech-research.js', 'speech-stopwords.js', 'app-utils.js', '.github/workflows/daily-sync.yml']
+    paths: ['scripts/sync-data.mjs', 'scripts/lib.mjs', 'scripts/parliament-members.mjs', 'scripts/member-profiles.mjs', 'scripts/sync-member-contacts.mjs', 'speech-research.js', 'speech-stopwords.js', 'app-utils.js', '.github/workflows/daily-sync.yml']
   schedule:
     - cron: '17 2 * * *'
   workflow_dispatch:
@@ -29,6 +29,10 @@ jobs:
           node-version: 22
       - run: npm test
       - run: npm run sync
+      - name: Refresh official directory contacts
+        id: contacts
+        continue-on-error: true
+        run: npm run sync:contacts
       - name: Check for missing member portraits
         id: portraits
         run: |
@@ -55,4 +59,9 @@ jobs:
             git rebase --abort 2>/dev/null || true
             sleep $((attempt * 5))
           done
+          exit 1
+      - name: Report directory contact refresh failure
+        if: steps.contacts.outcome == 'failure'
+        run: |
+          echo "The MP directory could not be refreshed. The previous contact snapshot was retained."
           exit 1

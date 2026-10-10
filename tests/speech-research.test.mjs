@@ -19,7 +19,7 @@ test('clouds count occurrences and distinct speeches separately, isolate MPs and
   assert.equal(updated.count,3);assert.equal(updated.speeches,2);assert.equal(updated.corpusCount,3);
   assert.deepEqual(first['2'].terms.map(({word,count,speeches})=>({word,count,speeches})),second['2'].terms.map(({word,count,speeches})=>({word,count,speeches})));
   assert.notEqual(first['2'].terms[0].score,second['2'].terms[0].score); // the reference corpus updates too
-  assert.ok(first['1'].terms.some(term=>term.word==='koulutuksen'));
+  assert.ok(!first['1'].terms.some(term=>term.word==='koulutuksen')); // one common inflection is selected; counts are not merged
 });
 test('MPs without recorded speeches have an explicit empty cloud',()=>{
   assert.deepEqual(buildWordClouds([],60,['no-speeches']).members['no-speeches'],{speeches:0,words:0,filteredWords:0,terms:[]});
@@ -91,8 +91,9 @@ test('clouds rank recurring distinctive words using normalized usage in the othe
   assert.deepEqual(cloud.terms.map(term=>term.word),['metsäkato']);
   const term=cloud.terms[0];assert.equal(term.count,12);assert.equal(term.speeches,6);assert.equal(term.corpusCount,12);
   const relative=((12+.5)/(31+1))/((0+.5)/(168+1));
-  assert.equal(term.relativeFrequency,relative);assert.equal(term.score,Math.sqrt(12)*Math.log2(relative));
-  assert.equal(output.method.ranking,'sqrt-count-log2-relative-frequency');
+  assert.equal(term.relativeFrequency,relative);assert.equal(term.score,Math.sqrt(12)*Math.log2(relative)*Math.log2(4));
+  assert.equal(term.corpusSpeakers,1);assert.equal(term.specificity,2);
+  assert.equal(output.method.ranking,'sqrt-count-log2-relative-frequency-speaker-specificity');
   assert.equal(output.method.reference,'other-mps');
   assert.ok(!cloud.terms.some(term=>term.word==='kertamaininta'));
   assert.deepEqual(buildWordClouds(speeches,1).members.specialist.terms,cloud.terms);

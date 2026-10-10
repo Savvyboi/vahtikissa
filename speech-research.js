@@ -3,7 +3,7 @@ import { LANGUAGE_STOPWORDS } from './speech-stopwords.js';
 
 // Curated function words in both transcript languages and parliamentary salutations.
 // Versioned with the code; policy subject words are deliberately retained.
-export const STOPWORD_VERSION = 'fi-sv-2';
+export const STOPWORD_VERSION = 'fi-sv-3';
 export const STOPWORDS = new Set(`
 ai aivan alla alle aluksi aina ainakin ainoa ainoastaan aikana aikaisemmin aikoo aikovat
 alas alueella asti asia asiaa asian asioita arvoisa arvoisat arvoisan
@@ -82,44 +82,86 @@ betänkande betänkandet betänkandets
 `.trim().split(/\s+/u));
 for (const word of 'tehdä tekee tekevät teemme teette tehdään tekemään tekemässä tekeminen tehnyt tehneet tehty tehtiin tehtävä tehtävät tehtävän tehtävää tehdyt tee teen tehdäänkin tekevän tekevä tekevämme tosi hyvinkin tosiaankin ylipäätänsä samaan aikaan eteen liikkeelle kaikkemme kysyi kysyn kysymys kysymyksen kysymykseen kysymystä vastaus vastauksessa vastauksessani kysymykset kysymyksiä tarkoittaa tarkoitan tarkoitti tarkoittavat tärkeätä tärkeät tärkeän tärkeässä keskeinen keskeistä keskeisen olennaista olennaisen tietoa toivon toivomme toivotaan uskon uskomme ajattelen ajattelemme näkisin pitäisin tuoda tuodaan tuon tuomme otetaan otan otamme ottamaan tullut tulemme tullaan hetkellä kyse osin osa enää vuonna vuoden vuosina vuotta tänä tälle tällähän toisaalta toisaalla nimittäin tietty tietyllä varsinainen varsinaisesti lähtökohtaisesti tavallaan sinänsä ylipäätään ylipäänsä ensinnäkin toiseksi kolmanneksi todeta totean totesi todetaan tiedämme tiedetään näkökulmasta tilanteessa tapauksessa varmasti eräänlainen eräänlaisia arvon ärendet ärende gäller enligt gällande tillfälle förslag förslaget förslagets'.split(' ')) STOPWORDS.add(word);
 
-export function buildWordClouds(speeches, limit = 60, memberIds = []) {
+// Conversational fillers and procedural language found in the published clouds.
+for (const word of `esille kiitoksia kiitän kiittää kiitämme kiitokset tosiaan todellakin hiukan aidosti
+elikkä oikeasti asiassa asioiden asioihin kunnioitettu kunnioitetut näitten vaikkapa semmoinen
+semmoisia semmoisen semmoista semmoiset äärettömän ensi ehdotetaan kysynyt kysyisin kysyitte
+kysyä halunnut haluaisivat haluaisin toivottavasti toivottu näyttäisi näyttää näyttääkin
+käytämme haemme lähtenyt lähtivät verrattuna vastaavasti yleisesti nytkin juurikin
+normaalijärjestyksessä puheenvuorossaan puheenvuorossani puheenvuoroja puheenvuorossa
+puhemiehet puhemiestä pääministeri pääministerin pääministerille pääministeriltä
+valtiovarainministeri valtiovarainministerin valtiovarainministerille vaalikaudella
+oppositio opposition oppositiolle oppositiosta hallituspuolueiden hallituspuolueet
+miljoona miljoonaa miljoonan miljoonia miljoonien miljardi miljardia miljardin miljardeja
+miljardien tusen miljon miljoner miljard miljarder tackar precis faktiskt nämligen
+juuri pitäisi yleensä keneenkään meinaatte meinaatteko heräämme perustamme kokoonnutaan käteemme syliimme perehtykää käytännönkin takaan itseemme tippaakaan kuittaa voitteko kolleganne aiotteko hallituksenne lukemattomia`.trim().split(/\s+/u)) STOPWORDS.add(word);
+
+// Only transparent suffix variants are suppressed in selection. Counts remain
+// exact-token counts; this is deliberately not a Finnish/Swedish lemmatizer.
+export function cloudWordVariants(a, b) {
+  const [short, long] = a.length <= b.length ? [a,b] : [b,a];
+  if (short.length>=5 && short.endsWith('us') && ['uksen','usta','uksessa','uksesta','ukseen','ukselle'].some(suffix=>long===short.slice(0,-2)+suffix)) return true;
+  if (short.length>=5 && short.endsWith('set') && long===short.slice(0,-3)+'sten') return true;
+  return short === long || (short.length >= 4 && long.startsWith(short) &&
+    /^(?:n|a|ä|t|ssa|ssä|sta|stä|lla|llä|lta|ltä|lle|ksi|na|nä|tta|ttä|kin|kaan|kään|s|en|et|er|erna)$/.test(long.slice(short.length)));
+}
+
+export function buildWordClouds(speeches, limit = 60, memberIds = [], memberNames = []) {
+  const names = new Set(memberNames.flatMap(name => speechTokens(name)));
+  const nameForms = new Set([...names].flatMap(name=>['','n','a','ä','lle','lta','ltä','lla','llä','sta','stä','ssa','ssä','in','en'].map(suffix=>name+suffix)));
+  for (const name of names) if(name.endsWith('nen')) {
+    const stem=name.slice(0,-3);
+    for (const suffix of ['sen','selle','seltä','sella','sessä','sestä','stä','sta']) nameForms.add(stem+suffix);
+  }
+  const isName = word => nameForms.has(word);
   const members = new Map(memberIds.map(id=>[String(id),{speeches:0,words:0,filteredWords:0,terms:new Map()}]));
-  const totals = new Map();
+  const totals = new Map(), speakers = new Map();
   let corpusWords = 0;
   for (const speech of speeches) {
     const id = String(speech.mpId || '');
     if (!id) continue;
     if (!members.has(id)) members.set(id, { speeches: 0, words: 0, filteredWords: 0, terms: new Map() });
-    const bucket = members.get(id), tokens = speechTokens(String(speech.text||'').replace(/\[[^\]]*\]/gu,' '));
+    const bucket = members.get(id), tokens = String(speech.text||'').replace(/\[[^\]]*\]/gu,' ').normalize('NFC').toLocaleLowerCase('fi').match(/\p{L}+(?:[-‑]\p{L}+)*-?/gu) || [];
     bucket.speeches++; bucket.words += tokens.length;
     const seen = new Set();
     for (const word of tokens) {
-      if ((word.length < 3 && !['eu','yk','fn'].includes(word)) || STOPWORDS.has(word) || PARLIAMENT_GENERIC_WORDS.has(word)) continue;
+      if ((word.length < 3 && !['eu','yk','fn'].includes(word)) || STOPWORDS.has(word) || PARLIAMENT_GENERIC_WORDS.has(word) || word.split(/[-‑]/u).some(isName) || word.endsWith('-')) continue;
       bucket.filteredWords++; corpusWords++;
       totals.set(word,(totals.get(word)||0)+1);
-      const term = bucket.terms.get(word) || { word, count: 0, speeches: 0 };
+      const term = bucket.terms.get(word) || { word, count: 0, speeches: 0, dates: new Set() };
+      if (speech.date) term.dates.add(speech.date.slice(0,10));
       term.count++; if (!seen.has(word)) term.speeches++;
+      if (!speakers.has(word)) speakers.set(word,new Set());
+      speakers.get(word).add(id);
       seen.add(word); bucket.terms.set(word, term);
     }
   }
+  const corpusSpeakers = [...members.values()].filter(bucket=>bucket.filteredWords).length;
   return {
     method: {
       stopwords: STOPWORD_VERSION, languages: ['fi', 'sv'], lemmatized: false,
       bracketedAnnotations: 'excluded', minLength: 3, shortExceptions: ['eu','yk','fn'], limit,
-      ranking: 'sqrt-count-log2-relative-frequency', reference: 'other-mps', smoothing: 0.5,
-      minimumRelativeFrequency: 1.25, repeatThreshold: { fromSpeeches: 5, occurrences: 3, speeches: 2 },
-      corpusWords, corpusSpeakers: [...members.values()].filter(bucket=>bucket.filteredWords).length
+      ranking: 'sqrt-count-log2-relative-frequency-speaker-specificity', specificity:'log2(1+speakers/speakers-with-word)', reference: 'other-mps', smoothing: 0.5,
+      minimumRelativeFrequency: 1.5, nameFiltering: 'recorded-mp-surnames', variantSelection: 'transparent-suffixes', hyphenatedCompounds: true, repeatThreshold: { fromSpeeches: 5, occurrences: 3, speeches: 2 }, establishedThreshold: { fromSpeeches: 20, occurrences: 5, speeches: 3, days: 3 },
+      corpusWords, corpusSpeakers
     },
     members: Object.fromEntries([...members].map(([id, bucket]) => {
       const otherWords = corpusWords-bucket.filteredWords;
-      const terms = [...bucket.terms.values()].filter(term=>bucket.speeches<5 || (term.count>=3 && term.speeches>=2)).map(term=>{
+      const candidates = [...bucket.terms.values()].filter(term=>bucket.speeches<5 || (bucket.speeches<20 ? term.count>=3 && term.speeches>=2 : term.count>=5 && term.speeches>=3 && term.dates.size>=3)).map(({dates,...term})=>{
         // Compare rates, not totals, so different amounts of speech do not imply specificity.
         const corpusCount = totals.get(term.word);
         const relativeFrequency = otherWords ? ((term.count+0.5)/(bucket.filteredWords+1))/((corpusCount-term.count+0.5)/(otherWords+1)) : 1;
-        const score = otherWords ? Math.sqrt(term.count)*Math.log2(relativeFrequency) : Math.sqrt(term.count);
-        return {...term,corpusCount,relativeFrequency,score};
-      }).filter(term=>!otherWords || term.relativeFrequency>=1.25)
-        .sort((a,b)=>b.score-a.score || b.count-a.count || a.word.localeCompare(b.word,'fi')).slice(0,limit);
+        const corpusSpeakersWithWord = speakers.get(term.word).size;
+        const specificity = otherWords ? Math.log2(1+corpusSpeakers/corpusSpeakersWithWord) : 1;
+        const score = otherWords ? Math.sqrt(term.count)*Math.log2(relativeFrequency)*specificity : Math.sqrt(term.count);
+        return {...term,days:dates.size,corpusCount,corpusSpeakers:corpusSpeakersWithWord,specificity,relativeFrequency,score};
+      }).filter(term=>!otherWords || term.relativeFrequency>=1.5)
+        .sort((a,b)=>b.score-a.score || b.count-a.count || a.word.localeCompare(b.word,'fi'));
+      const terms=[];
+      for (const term of candidates) {
+        if (!terms.some(selected=>cloudWordVariants(selected.word,term.word))) terms.push(term);
+        if (terms.length>=limit) break;
+      }
       return [id, {...bucket,terms}];
     }))
   };

@@ -234,7 +234,7 @@ export async function sync() {
   await writeFile(new URL('parliament.json', OUT), `${JSON.stringify(data)}\n`);
   await Promise.all(speechTextChunks.map((chunk, index) => writeFile(new URL(`speech-texts-${index}.json`, OUT), `${JSON.stringify(chunk)}\n`)));
   await writeFile(new URL('speech-search.json', OUT), JSON.stringify(speechSearchIndex));
-  await writeFile(new URL('speech-wordclouds.json', OUT), `${JSON.stringify({generatedAt:metadata.generatedAt,...buildWordClouds(completeSpeeches,60,members.map(member=>member.id))})}\n`);
+  await writeFile(new URL('speech-wordclouds.json', OUT), `${JSON.stringify({generatedAt:metadata.generatedAt,...buildWordClouds(completeSpeeches,60,members.map(member=>member.id),members.map(member=>member.lastName))})}\n`);
   await writeFile(new URL('member-profiles.json', OUT), `${JSON.stringify(memberProfiles)}\n`);
   await writeFile(new URL('speech-analytics.json', OUT), `${JSON.stringify(speechAnalytics)}\n`);
   await writeFile(new URL('committee-index.json', OUT), `${JSON.stringify(committeeIndex)}\n`);

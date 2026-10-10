@@ -12,7 +12,7 @@ export async function checkResearch(page,navigate,data,audit) {
   await page.locator('[data-member-profile][aria-busy="false"]').waitFor();
   assert.equal(await page.locator('.wordcloud a').count(),clouds.members[member.id].terms.length);
   assert.ok((await page.locator('.member-profile').innerText()).includes(profiles.members[member.id].occupation.fi));
-  assert.equal(await page.locator('.member-profile a[href="'+profiles.members[member.id].pageUrl+'"]').count(),1);
+  assert.equal(await page.locator('.member-profile .section-head a[href="'+profiles.members[member.id].pageUrl+'"]').count(),1);
   assert.ok(await page.locator('.member-avatar img').isVisible());
   const cloudBox=await page.locator('[data-wordcloud]').boundingBox(),summaryBox=await page.locator('.member-summary').boundingBox();
   assert.ok(cloudBox.width<=340 && cloudBox.y>=summaryBox.y+summaryBox.height,'Vocabulary is a compact card below the activity summary');

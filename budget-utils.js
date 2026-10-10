@@ -35,3 +35,24 @@ export function budgetTreemap(items, value = item => item.budget, width = 100, h
   split(entries,0,0,width,height);
   return rectangles;
 }
+
+// Flatten paths so search can reach moments without knowing their ministry first.
+export function budgetEntries(year, type) {
+  const result=[];
+  function visit(items, codes=[], ancestors=[]) {
+    for (const item of items || []) {
+      const path=[...codes,item.code];
+      result.push({...item,path,ancestors});
+      visit(item.children,path,[...ancestors,item]);
+    }
+  }
+  visit(year?.[type]);
+  return result;
+}
+export function searchBudgetEntries(entries, query) {
+  const words=String(query||'').normalize('NFC').toLocaleLowerCase('fi').trim().split(/\s+/u).filter(Boolean);
+  return entries.filter(item=>{
+    const names=[item,...(item.ancestors||[])].flatMap(node=>[node.name?.fi,node.name?.sv]).filter(Boolean).join(' ').toLocaleLowerCase('fi');
+    return words.every(word=>names.includes(word)||item.code.includes(word.replace(/\./g,'')));
+  });
+}

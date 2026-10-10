@@ -2,7 +2,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import { fetchParliamentMembers } from './parliament-members.mjs';
 
-const text = value => typeof value === 'string' ? value.trim() : '';
+const text = value => typeof value === 'string' ? value.normalize('NFC').replace(/\s+/gu,' ').replace(/\/(?=\))/g,'').trim() : '';
 const bilingual = value => typeof value === 'string' ? {fi:text(value),sv:''} : {fi:text(value?.fi),sv:text(value?.sv)};
 const period = row => ({from:text(row.alkupvm),to:text(row.loppupvm)});
 export function normalizeMemberProfile(member) {
@@ -10,14 +10,14 @@ export function normalizeMemberProfile(member) {
   if (!id) throw new Error('Official profile has no member ID');
   return {
     id, sourceUrl:'https://api.eduskunta.fi/api/v1/kansanedustajat/'+encodeURIComponent(id),
-    pageUrl:'https://www.eduskunta.fi/kansanedustajat-ja-toimielimet/kansanedustajat/'+encodeURIComponent(id),
+    pageUrl:'https://www.eduskunta.fi/fi/kansanedustajat-ja-toimielimet/kansanedustajat/'+encodeURIComponent(id),
     status:text(member.edustajantoimenTila), municipality:text(member.kotikunta),
     birthYear:member.syntymavuosi || null, birthPlace:text(member.syntymapaikka),
     occupation:bilingual(member.ammatti), district:bilingual(member.viimeisinVaalipiiri?.nimi),
     email:text(member.sahkoposti), phone:text(member.puhelinnumero),
-    terms:(member.edustajatoimet || []).map(period),
+    terms:(member.edustajatoimet || []).map(row=>({...period(row),to:text(row.loppupvm || (member.edustajantoimenTila==='Entinen' ? member.kansanedustajuusPaattynytPvm : ''))})),
     interruptions:(member.edustajatoimiKeskeytynyt || []).map(row=>({...period(row),reason:bilingual(row.selite)})),
-    education:(member.koulutukset || []).map(row=>({year:row.vuosi || null,degree:bilingual(row.nimi),institution:bilingual(row.oppilaitos)})),
+    education:(member.koulutukset || []).map(row=>({year:row.vuosi || null,degree:bilingual(row.nimi),institution:bilingual(row.oppilaitos)})).filter(row=>row.degree.fi||row.degree.sv||row.institution.fi||row.institution.sv),
     career:Object.fromEntries(['fi','sv'].map(language=>[language,(member.tyoura?.[language] || []).map(row=>({title:text(row.tyopaikka),period:text(row.aikajakso)}))])),
     committees:(member.valiokuntajasenyydet || []).map(row=>({id:text(row.valiokuntaTunnus),name:bilingual(row.valiokuntaNimi),role:bilingual(row.rooli),...period(row)})),
     // Keep language-specific histories independently: upstream ordering differs by language.

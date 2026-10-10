@@ -50,11 +50,18 @@ console.log('Validated '+programmes.parties.length+' parliamentary programme lis
 
 const wordclouds = JSON.parse(await readFile(new URL('../data/speech-wordclouds.json',import.meta.url),'utf8'));
 const profiles = JSON.parse(await readFile(new URL('../data/member-profiles.json',import.meta.url),'utf8'));
-if(wordclouds.generatedAt!==data.metadata.generatedAt || wordclouds.method?.stopwords!==STOPWORD_VERSION || wordclouds.method?.ranking!=='sqrt-count-log2-relative-frequency')throw new Error('Word clouds do not match the speech snapshot or stopword version');
+if(wordclouds.generatedAt!==data.metadata.generatedAt || wordclouds.method?.stopwords!==STOPWORD_VERSION || wordclouds.method?.ranking!=='sqrt-count-log2-relative-frequency-speaker-specificity')throw new Error('Word clouds do not match the speech snapshot or stopword version');
 for(const member of data.members){
   const cloud=wordclouds.members?.[member.id],profile=profiles.members?.[member.id];
-  if(!cloud || cloud.speeches!==data.speeches.filter(speech=>speech.mpId===member.id).length || !Array.isArray(cloud.terms) || cloud.terms.some(term=>!term.word || !Number.isInteger(term.count) || term.count<1 || term.speeches<1 || term.speeches>cloud.speeches || term.count<term.speeches || STOPWORDS.has(term.word) || PARLIAMENT_GENERIC_WORDS.has(term.word) || !Number.isFinite(term.score) || term.score<=0 || !Number.isFinite(term.relativeFrequency) || term.corpusCount<term.count || (cloud.speeches>=5 && (term.count<3 || term.speeches<2))))throw new Error('Invalid MP word cloud: '+member.id);
+  if(!cloud || cloud.speeches!==data.speeches.filter(speech=>speech.mpId===member.id).length || !Array.isArray(cloud.terms) || cloud.terms.some(term=>!term.word || !Number.isInteger(term.count) || term.count<1 || term.speeches<1 || term.speeches>cloud.speeches || term.count<term.speeches || !Number.isInteger(term.days) || term.days<1 || term.days>term.speeches || STOPWORDS.has(term.word) || PARLIAMENT_GENERIC_WORDS.has(term.word) || !Number.isFinite(term.score) || term.score<=0 || !Number.isFinite(term.relativeFrequency) || term.corpusCount<term.count || (cloud.speeches>=5 && (term.count<3 || term.speeches<2)) || (cloud.speeches>=20 && (term.count<5 || term.speeches<3 || term.days<3))))throw new Error('Invalid MP word cloud: '+member.id);
   if(!profile || profile.id!==member.id || profile.sourceUrl!=='https://api.eduskunta.fi/api/v1/kansanedustajat/'+encodeURIComponent(member.id) || !Array.isArray(profile.education) || !Array.isArray(profile.committees))throw new Error('Missing or invalid official MP profile: '+member.id);
 }
 if(!profiles.metadata?.generatedAt || !Object.values(profiles.members).some(p=>p.education.length && p.committees.length))throw new Error('Official MP profile source metadata or content is missing');
 console.log('Validated '+data.members.length+' official MP profiles and synchronized word clouds.');
+
+const contacts=JSON.parse(await readFile(new URL('../data/member-contacts.json',import.meta.url),'utf8'));
+if(!contacts.metadata?.generatedAt || !Object.keys(contacts.members||{}).length)throw new Error('Official directory contact metadata is missing');
+for(const [id,contact] of Object.entries(contacts.members)){
+  if(contact.pageUrl!=='https://www.eduskunta.fi/fi/kansanedustajat-ja-toimielimet/kansanedustajat/'+encodeURIComponent(id) || !Array.isArray(contact.assistants) || contact.assistants.some(a=>!a.name || typeof a.email!=='string' || typeof a.phone!=='string' || typeof a.mobile!=='string'))throw new Error('Invalid directory contacts: '+id);
+}
+console.log('Validated official directory contacts for '+Object.keys(contacts.members).length+' MPs.');
