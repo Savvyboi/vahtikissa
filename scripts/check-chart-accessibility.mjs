@@ -1,3 +1,4 @@
+import { openFilterPanels } from './browser-filter-checks.mjs';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
@@ -50,6 +51,7 @@ try {
   const electionViolations = await page.evaluate(async () => (await axe.run(document.querySelector('.election-page'))).violations);
   assert.deepEqual(electionViolations, [], 'The complete election page must have valid accessible chart semantics');
   const district = election.districts[0];
+  await openFilterPanels(page);
   await page.locator('[data-election-district]').selectOption(district.code);
   await assertElectionTable(election.districtResults.filter(item => item.locationCode === district.code).map(item => ({
     name: item.party, votes: item.votes, share: item.share,
