@@ -159,3 +159,13 @@ The profile view separates published background information, current committee/b
 The budget supports whole-year search across ministries, chapters and moments, including dotted codes such as 33.10.54, plus a current-level search option. Search results preserve their full drill-down paths and ancestor names; overlapping levels are not summed. Map, bar and table views share filtering and sorting. Exact euro amounts appear in the table and at the selected moment, alongside original/current/actual figures. Tables become labelled cards on phones, while breadcrumbs and a back link retain the browsing context. Year comparisons retain monetary amounts in charts and show percentage changes separately; missing prior-year items and incompatible actual periods have no percentage comparison.
 
 Release checks also cover malformed links, blocked browser storage, collapsed filter panels and spreadsheet-safe CSV exports. Run `npm run test:release` for the focused browser regression audit. CSV text that could be interpreted as a formula is prefixed with an apostrophe; numeric amounts and JSON exports retain their original values.
+
+## Browser performance
+
+`npm run build:data` derives a small Parliament entry point and separate vote, MP, speech and legislation payloads from the validated source snapshot. The development server prepares these automatically; GitHub Pages and Netlify prepare them during deployment. Generated `data/parliament/` files are ignored by Git and must be rebuilt after a snapshot changes. Other static hosts should run `npm run check && npm run build:data` before publishing the repository root.
+
+The home page and ordinary vote/MP lists avoid downloading or expanding the complete ballot and speech collections. A vote detail loads only its ballots and related matters; an MP detail loads only that MP’s ballots and speech metadata. The simple vote list uses precomputed party totals. Reading modes and civic modules load when used. Full speech metadata and the full-text search index are requested only when their views or search need them. Original snapshots, transcripts and exports remain complete.
+
+A small back-to-top arrow appears after scrolling down. It works in both reading views, has Finnish/Swedish/English labels, supports keyboard input and respects reduced-motion preferences.
+
+Run `npm run test:performance` for browser payload budgets, scoped-detail loading and back-to-top interaction checks on desktop and mobile.

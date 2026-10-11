@@ -9,7 +9,7 @@ const url = process.env.BROWSER_TEST_URL || `http://localhost:${port}`;
 const server = process.env.BROWSER_TEST_URL ? null : spawn(process.execPath, ['server.mjs'], {
   cwd: new URL('..', import.meta.url), env: { ...process.env, PORT: port }, stdio: 'ignore', windowsHide: true
 });
-const parliamentPath = fileURLToPath(new URL('../data/parliament.json', import.meta.url));
+const parliamentPath = fileURLToPath(new URL('../data/parliament/core.json', import.meta.url));
 const programmes = await readFile(new URL('../data/programmes.json', import.meta.url), 'utf8');
 let browser;
 try {
@@ -23,7 +23,7 @@ try {
     try {
       const page = await context.newPage();
       let held;
-      await page.route('**/data/parliament.json', route => { held = route; });
+      await page.route('**/data/parliament/core.json', route => { held = route; });
       await page.goto(url, { waitUntil: 'domcontentloaded' });
       await page.locator('.search-button').click();
       await page.locator('#global-search').fill('Orpo');

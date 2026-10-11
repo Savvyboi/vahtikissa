@@ -309,7 +309,7 @@ export function formatDate(value, locale = 'fi-FI') {
   return Number.isNaN(date.valueOf()) ? value : new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'long', year: 'numeric' }).format(date);
 }
 
-export async function fetchJSONWithTimeout(url, { timeout = 10000, fetchImpl = globalThis.fetch } = {}) {
+export async function fetchJSONWithTimeout(url, { timeout = 10000, fetchImpl = globalThis.fetch, cache = 'default' } = {}) {
   if (typeof fetchImpl !== 'function') throw new TypeError('Fetch is not available');
   const controller = new AbortController();
   let timer;
@@ -324,7 +324,7 @@ export async function fetchJSONWithTimeout(url, { timeout = 10000, fetchImpl = g
   });
   try {
     return await Promise.race([deadline, (async () => {
-      const response = await fetchImpl(url, { signal: controller.signal });
+      const response = await fetchImpl(url, { signal: controller.signal, cache });
       if (!response.ok) throw new Error('HTTP '+response.status);
       return await response.json();
     })()]);

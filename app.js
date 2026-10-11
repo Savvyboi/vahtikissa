@@ -1,8 +1,7 @@
 import { readingMode, readingModeURL } from './reading-mode.js';
-import { renderSimple } from './simple-mode.js';
-import { filterItems, percent, routeFromHash, hydrateBallots, pageSlice, choiceLabel, formatDate, escapeHTML, localizedSearchFields, memberMatchesQuery, parliamentMatterUrl, isLongSpeech, filterBallots, voteOutcome, filterVotes, filterAndSortMembers, paginationItems, searchSpeeches, voteAlternatives, brandName, decodeSpeechSearchIndex, filterAndSortLegislation, legislationMatterType, legislationStatusTone, legislationPhase, speechParagraphs, filterSpeechesBySpeaker, fetchJSONWithTimeout, policyTopicKeys, policyTopicLabel, policyTopicOptions, committeeOptions } from './app-utils.js';
-import { renderBudget, renderElections, renderInfluence } from './civic-apps.js';
-import { renderProgrammes } from './programmes-app.js';
+import { createParliamentLoader } from './parliament-data.js';
+import { setupBackToTop } from './back-to-top.js';
+import { filterItems, percent, routeFromHash, pageSlice, choiceLabel, formatDate, escapeHTML, localizedSearchFields, memberMatchesQuery, parliamentMatterUrl, isLongSpeech, filterBallots, voteOutcome, filterVotes, filterAndSortMembers, paginationItems, searchSpeeches, voteAlternatives, brandName, decodeSpeechSearchIndex, filterAndSortLegislation, legislationMatterType, legislationStatusTone, legislationPhase, speechParagraphs, filterSpeechesBySpeaker, fetchJSONWithTimeout, policyTopicKeys, policyTopicLabel, policyTopicOptions, committeeOptions } from './app-utils.js';
 import { mountMemberInsights } from './member-insights.js';
 import { mountResearchControls } from './speech-research-app.js';
 import { filterResearchSpeeches, matchRanges } from './speech-research.js';
@@ -14,6 +13,14 @@ const $ = selector => document.querySelector(selector);
 const root = $('#content');
 const e = escapeHTML;
 let data;
+const parliamentLoader = createParliamentLoader();
+let routeRenderSequence = 0;
+function loadViewModule(route, view) {
+  if (view === 'simple') return import('./simple-mode.js');
+  if (route.page === 'programmes') return import('./programmes-app.js');
+  if (['budget', 'elections', 'influence'].includes(route.page)) return import('./civic-apps.js');
+  return Promise.resolve(null);
+}
 // Preferences are optional: blocked storage must not prevent reading public data.
 const preferences = {
   get(key) { try { return localStorage.getItem(key); } catch { return null; } },
@@ -209,7 +216,7 @@ function members(id){
 }
 let activeMemberId=null;
 async function loadSpeechTexts(items){const chunks=[...new Set(items.map(item=>item.textChunk).filter(Number.isInteger))];await Promise.all(chunks.map(chunk=>{if(!speechTextPromises.has(chunk))speechTextPromises.set(chunk,fetchJSONWithTimeout(`./data/speech-texts-${chunk}.json`).then(value=>Object.assign(speechTexts,value)).catch(error=>{speechTextPromises.delete(chunk);throw error}));return speechTextPromises.get(chunk)}));return speechTexts}
-function loadSpeechSearchIndex(){if(!speechSearchPromise)speechSearchPromise=fetchJSONWithTimeout('./data/speech-search.json').then(decodeSpeechSearchIndex).then(index=>{if(index.length!==data.speeches.length)throw new Error('Speech search index does not match speech metadata');speechSearchTexts=index;return index}).catch(error=>{speechSearchPromise=null;throw error});return speechSearchPromise}
+function loadSpeechSearchIndex(){if(!speechSearchPromise)speechSearchPromise=Promise.all([fetchJSONWithTimeout('./data/speech-search.json').then(decodeSpeechSearchIndex),parliamentLoader.loadSpeeches()]).then(([index,metadata])=>{if(index.length!==metadata.length)throw new Error('Speech search index does not match speech metadata');speechSearchTexts=index;return index}).catch(error=>{speechSearchPromise=null;throw error});return speechSearchPromise}
 function loadSpeechAnalytics(){if(!speechAnalyticsPromise)speechAnalyticsPromise=fetchJSONWithTimeout('./data/speech-analytics.json').catch(error=>{speechAnalyticsPromise=null;throw error});return speechAnalyticsPromise}
 function speechAnalyticsView(analytics,topic='all'){
   const bucket=analytics?.topics?.[topic]||analytics?.topics?.all||{members:[],parties:[]};
@@ -375,21 +382,28 @@ function decorateCards(page){
 }
 function render(position){
   if(!data)return;
-  return preservePageScroll(root,()=>{
+  const sequence=++routeRenderSequence,r=routeFromHash(location.hash),routeKey=location.hash,renderLanguage=lang,view=readingView;
+  const current=()=>sequence===routeRenderSequence&&location.hash===routeKey&&lang===renderLanguage&&readingView===view;
+  return preservePageScroll(root,async()=>{
+  try {
+  if(!parliamentLoader.routeReady(r,view))loadingView();
+  const [routeData,viewModule]=await Promise.all([parliamentLoader.loadRoute(r,view),loadViewModule(r,view)]);
+  if(!current())return;
+  data=routeData;
   applyViewChrome();
   const previousView=root.dataset.route;
   root.dataset.route=location.hash;
-  const r=routeFromHash(location.hash),routeKey=location.hash,renderLanguage=lang;root.setAttribute('aria-busy','true');document.querySelectorAll('.nav a').forEach(a=>{const active=a.dataset.page===r.page;a.classList.toggle('active',active);if(active)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current')});
+  root.setAttribute('aria-busy','true');document.querySelectorAll('.nav a').forEach(a=>{const active=a.dataset.page===r.page;a.classList.toggle('active',active);if(active)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current')});
   if(readingView==='simple'){
-    const pending=renderSimple(root,{data,lang,route:r,loadSpeechTexts,speechTexts,titleFor});
+    const pending=viewModule.renderSimple(root,{data,lang,route:r,loadSpeechTexts,speechTexts,titleFor});
     if(previousView!==undefined&&previousView!==routeKey)root.focus({preventScroll:true});
     const finish=()=>{if(location.hash===routeKey&&lang===renderLanguage&&readingView==='simple')updateRouteContext(r)};
-    if(pending?.then)return pending.finally(finish);
+    if(pending?.then)return await pending.finally(finish);
     finish();return;
   }
   let html,pending=null;
   if(r.page==='overview')html=overview();else if(r.page==='votes')html=r.id?voteDetail(r.id):null;else if(r.page==='members')html=members(r.id);else if(r.page==='parties')html=parties(r.id);else if(r.page==='speeches')html=null;else if(r.page==='legislation')html=legislation(r.id);else if(r.page==='sessions')html=sessions(r.id);else if(r.page==='programmes')html=null;else if(r.page==='budget')html=null;else if(r.page==='elections')html=null;else if(r.page==='influence')html=null;else if(r.page==='about')html=about();else html=notFound();
-  if(r.page==='votes'&&!r.id)voteList();else if(r.page==='speeches')speeches(r.id,{scrollToTarget:position===undefined&&previousView!==routeKey});else if(r.page==='programmes')pending=renderProgrammes(root,lang,e);else if(r.page==='budget')pending=renderBudget(root,lang,r.id,e);else if(r.page==='elections')pending=renderElections(root,lang,e);else if(r.page==='influence')pending=renderInfluence(root,lang,e,data.members,r.id);else if(typeof html==='string')root.innerHTML=html;
+  if(r.page==='votes'&&!r.id)voteList();else if(r.page==='speeches')speeches(r.id,{scrollToTarget:position===undefined&&previousView!==routeKey});else if(r.page==='programmes')pending=viewModule.renderProgrammes(root,lang,e);else if(r.page==='budget')pending=viewModule.renderBudget(root,lang,r.id,e);else if(r.page==='elections')pending=viewModule.renderElections(root,lang,e);else if(r.page==='influence')pending=viewModule.renderInfluence(root,lang,e,data.members,r.id);else if(typeof html==='string')root.innerHTML=html;
   if(r.page==='votes'&&r.id)bindVoteFilters(r.id);
   if(r.page==='legislation'&&r.id){const item=data.legislation.find(matter=>matter.id===r.id);if(item)decorateLegislationDetail(item)}
   if(r.page==='overview')decorateTableCollection('overview-votes',data.votes,voteTools(data.votes),items=>table([t('day'),t('matter'),t('result')],voteRows(items)),voteExportRows,'vahtikissa-uusimmat-aanestykset',8);
@@ -397,16 +411,18 @@ function render(position){
   if(r.page==='parties'&&r.id){const items=data.members.filter(member=>member.party===r.id);decorateTableCollection('party-members',items,memberTools(items),items=>table([t('members'),t('participation'),t('partyLine'),t('speeches')],memberRows(items)),items=>items.map(member=>({id:member.id,name:memberName(member),party:titleFor(member.party),...member.stats})),`vahtikissa-${r.id}-kansanedustajat`)}
   if(['sessions','parties'].includes(r.page)&&!r.id)decorateCards(r.page);
   if(previousView!==undefined&&previousView!==routeKey)root.focus({preventScroll:true});
-  if(pending)return pending.finally(()=>{if(location.hash===routeKey&&lang===renderLanguage&&readingView==='full')updateRouteContext(r)});
+  if(pending)return await pending.finally(()=>{if(location.hash===routeKey&&lang===renderLanguage&&readingView==='full')updateRouteContext(r)});
   updateRouteContext(r);
+  } catch(error) { if(current()){root.dataset.route=routeKey;loadError(error)} }
   },position);
 }
 document.addEventListener('click',event=>{if(event.defaultPrevented||event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;const link=event.target.closest('a[href^="#/"]');if(!link||link.hasAttribute('download')||(link.target&&link.target!=='_self'))return;event.preventDefault();if(pushRoute(link.getAttribute('href')))render();if(data)root.focus({preventScroll:true})});
-function setupSearch(onOpen=()=>{}){const panel=$('.search-panel'),button=$('.search-button'),input=$('#global-search'),results=$('.search-results'),status=$('.search-status');button.setAttribute('aria-expanded','false');button.setAttribute('aria-controls','site-search');panel.id='site-search';const close=()=>{const restore=panel.contains(document.activeElement);panel.hidden=true;button.setAttribute('aria-expanded','false');if(restore)button.focus({preventScroll:true})};const open=()=>{onOpen();panel.hidden=false;button.setAttribute('aria-expanded','true');input.focus({preventScroll:true});renderResults()};const renderResults=async()=>{const query=input.value.trim();if(!query){results.innerHTML='';status.textContent='';return}if(!data){status.textContent=lastLoadError?ui('Haku on käytettävissä, kun tiedot on ladattu.','Sökningen blir tillgänglig när uppgifterna har laddats.','Search will be available once the data has loaded.'):t('loading');return}status.textContent=ui('Ladataan puheiden hakuindeksi…','Sökindexet laddas…','Loading the speech search index…');try{await loadSpeechSearchIndex();if(panel.hidden||query!==input.value.trim())return;const members=data.members.filter(member=>memberMatchesQuery(member,query,partyNames)).slice(0,5),votes=filterItems(data.votes,query,localizedSearchFields(['title','question','document'])).slice(0,5),speeches=searchSpeeches(data.speeches,query,speechSearchTexts).slice(0,10);const rows=[...members.map(item=>({href:href('members',item.id),title:memberName(item),type:t('members')})),...votes.map(item=>({href:href('votes',item.id),title:voteText(item,'title')||voteText(item,'question'),type:t('votes')})),...speeches.map(item=>({href:href('speeches',item.id),title:(lang==='sv'&&item.agendaSv)||item.agenda,type:t('speeches')}))];status.textContent=ui('Näytetään '+rows.length+' tulosta',rows.length+' resultat visas',rows.length+' results shown');results.innerHTML=rows.length?`<ul>${rows.map(row=>`<li><a href="${row.href}"><strong>${e(row.title)}</strong><span>${e(row.type)}</span></a></li>`).join('')}</ul>`:`<p class="empty">${t('noData')}</p>`}catch{status.textContent=ui('Hakua ei voitu ladata.','Sökningen kunde inte laddas.','Search could not be loaded. Please try again.')}};let timer;input.oninput=()=>{clearTimeout(timer);timer=setTimeout(renderResults,250)};button.onclick=()=>panel.hidden?open():close();$('.search-close').onclick=close;panel.onclick=event=>event.stopPropagation();document.addEventListener('click',event=>{if(!panel.hidden&&!panel.contains(event.target)&&!button.contains(event.target))close()});document.addEventListener('keydown',event=>{if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='k'){event.preventDefault();open()}if(event.key==='Escape'&&!panel.hidden){close();button.focus({preventScroll:true})}});results.onclick=event=>{if(event.target.closest('a'))close()};return close}
+function setupSearch(onOpen=()=>{}){const panel=$('.search-panel'),button=$('.search-button'),input=$('#global-search'),results=$('.search-results'),status=$('.search-status');button.setAttribute('aria-expanded','false');button.setAttribute('aria-controls','site-search');panel.id='site-search';const close=()=>{const restore=panel.contains(document.activeElement);panel.hidden=true;button.setAttribute('aria-expanded','false');if(restore)button.focus({preventScroll:true})};const open=()=>{onOpen();panel.hidden=false;button.setAttribute('aria-expanded','true');input.focus({preventScroll:true});renderResults()};const renderResults=async()=>{const query=input.value.trim();if(!query){results.innerHTML='';status.textContent='';return}if(!data){status.textContent=lastLoadError?ui('Haku on käytettävissä, kun tiedot on ladattu.','Sökningen blir tillgänglig när uppgifterna har laddats.','Search will be available once the data has loaded.'):t('loading');return}status.textContent=ui('Ladataan puheiden hakuindeksi…','Sökindexet laddas…','Loading the speech search index…');try{await loadSpeechSearchIndex();if(panel.hidden||query!==input.value.trim())return;const allSpeeches=await parliamentLoader.loadSpeeches();if(panel.hidden||query!==input.value.trim())return;const members=data.members.filter(member=>memberMatchesQuery(member,query,partyNames)).slice(0,5),votes=filterItems(data.votes,query,localizedSearchFields(['title','question','document'])).slice(0,5),speeches=searchSpeeches(allSpeeches,query,speechSearchTexts).slice(0,10);const rows=[...members.map(item=>({href:href('members',item.id),title:memberName(item),type:t('members')})),...votes.map(item=>({href:href('votes',item.id),title:voteText(item,'title')||voteText(item,'question'),type:t('votes')})),...speeches.map(item=>({href:href('speeches',item.id),title:(lang==='sv'&&item.agendaSv)||item.agenda,type:t('speeches')}))];status.textContent=ui('Näytetään '+rows.length+' tulosta',rows.length+' resultat visas',rows.length+' results shown');results.innerHTML=rows.length?`<ul>${rows.map(row=>`<li><a href="${row.href}"><strong>${e(row.title)}</strong><span>${e(row.type)}</span></a></li>`).join('')}</ul>`:`<p class="empty">${t('noData')}</p>`}catch{status.textContent=ui('Hakua ei voitu ladata.','Sökningen kunde inte laddas.','Search could not be loaded. Please try again.')}};let timer;input.oninput=()=>{clearTimeout(timer);timer=setTimeout(renderResults,250)};button.onclick=()=>panel.hidden?open():close();$('.search-close').onclick=close;panel.onclick=event=>event.stopPropagation();document.addEventListener('click',event=>{if(!panel.hidden&&!panel.contains(event.target)&&!button.contains(event.target))close()});document.addEventListener('keydown',event=>{if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='k'){event.preventDefault();open()}if(event.key==='Escape'&&!panel.hidden){close();button.focus({preventScroll:true})}});results.onclick=event=>{if(event.target.closest('a'))close()};return close}
 function setup(){
   const menu=$('.menu-button'),nav=$('.nav');
   const closeMenu=(restore=false)=>{nav.classList.remove('open');menu.setAttribute('aria-expanded','false');menu.setAttribute('aria-label',ui('Avaa valikko','Öppna meny','Open menu'));menu.textContent=t('menu');document.body.classList.remove('menu-open');if(restore)menu.focus({preventScroll:true})};
   trackScrollHistory();
+  setupBackToTop(document.querySelector('.back-to-top'),root);
   new ResizeObserver(()=>document.documentElement.style.setProperty('--site-header-height',document.querySelector('.site-header').offsetHeight+'px')).observe(document.querySelector('.site-header'));
   if(readingView==='simple'&&!new URLSearchParams(location.search).has('view'))history.replaceState(history.state,'',readingModeURL(location.href,readingView));
   applyChrome();applyViewChrome();applyLocalizedExtras();applyTheme();const closeSearch=setupSearch(()=>closeMenu());
@@ -426,4 +442,4 @@ function setup(){
 let setupComplete=false,lastLoadError=null;
 function loadingView(){root.setAttribute('aria-busy','true');root.innerHTML=`<section class="loading" role="status"><span class="spinner" aria-hidden="true"></span><p>${t('loading')}</p></section>`}
 function loadError(error){lastLoadError=error;const timeout=error?.name==='TimeoutError';root.setAttribute('aria-busy','false');root.innerHTML=`<div class="page"><section class="load-error" role="alert"><span class="eyebrow">${ui('Latausvirhe','Laddningsfel','Loading error')}</span><h1>${ui('Tietoja ei voitu ladata','Uppgifterna kunde inte laddas','The data could not be loaded')}</h1><p>${lang==='en'?(timeout?'Loading took too long. Check your connection and try again.':'Check your connection and try again.'):lang==='sv'?(timeout?'Laddningen tog för lång tid. Kontrollera anslutningen och försök igen.':'Kontrollera anslutningen och försök igen.'):(timeout?'Lataus kesti liian kauan. Tarkista verkkoyhteys ja yritä uudelleen.':'Tarkista verkkoyhteys ja yritä uudelleen.')}</p><details><summary>${ui('Tekniset tiedot','Tekniska detaljer','Technical details')}</summary><code>${e(error?.message||'Unknown error')}</code></details><button type="button" data-retry>${ui('Yritä uudelleen','Försök igen','Try again')}</button></section></div>`;root.querySelector('[data-retry]').onclick=boot;if(!$('.search-panel').hidden)$('#global-search').dispatchEvent(new Event('input'));updateRouteContext({page:'overview'})}
-async function boot(){lastLoadError=null;if(!setupComplete){setup();setupComplete=true}applyChrome();applyViewChrome();applyLocalizedExtras();applyTheme();loadingView();try{const [parliament,committeeIndex]=await Promise.all([fetchJSONWithTimeout('./data/parliament.json'),fetchJSONWithTimeout('./data/committee-index.json').catch(()=>({matters:{}}))]);data=parliament;for(const matter of data.legislation||[])matter.committees=committeeIndex.matters?.[matter.id]||[];for(const vote of data.votes||[])vote.committees=committeeIndex.matters?.[vote.document]||[];data.ballots=hydrateBallots(data.ballots||[],data.members||[]);if(!setupComplete){setup();setupComplete=true}else{applyChrome();applyViewChrome();applyLocalizedExtras()}updateFooterTimestamp();render(savedScrollPosition());if(!$('.search-panel').hidden)$('#global-search').dispatchEvent(new Event('input'))}catch(error){loadError(error)}}boot();
+async function boot(){const retrying=!!lastLoadError;lastLoadError=null;if(retrying)parliamentLoader.clear();if(!setupComplete){setup();setupComplete=true}applyChrome();applyViewChrome();applyLocalizedExtras();applyTheme();loadingView();try{data=await parliamentLoader.loadCore();applyChrome();applyViewChrome();applyLocalizedExtras();updateFooterTimestamp();await render(savedScrollPosition());if(!$('.search-panel').hidden)$('#global-search').dispatchEvent(new Event('input'))}catch(error){loadError(error)}}boot();

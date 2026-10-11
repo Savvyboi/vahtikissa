@@ -32,3 +32,12 @@
 html{scroll-padding-top:0}
 .site-header a,.site-header button,.site-header input,.site-header select{scroll-margin:0}
 #content,#member-activity,#member-about,#member-vocabulary,.speech[id]{scroll-margin-top:calc(var(--site-header-height,70px) + 16px)}
+
+/* A compact control with a comfortable touch target, clear in every colour theme. */
+.back-to-top{position:fixed;right:max(1rem,env(safe-area-inset-right));bottom:max(1rem,env(safe-area-inset-bottom));z-index:40;display:grid;place-items:center;width:44px;height:44px;padding:0;border:1px solid var(--line);border-radius:50%;background:var(--blue);color:var(--white);box-shadow:var(--shadow);cursor:pointer}
+.back-to-top[hidden]{display:none}
+.back-to-top:hover{filter:brightness(1.15)}
+.back-to-top:focus-visible{outline:3px solid var(--ink);outline-offset:4px}
+.back-to-top-marker{position:absolute;top:480px;left:0;width:1px;height:1px;pointer-events:none}
+body.menu-open .back-to-top{visibility:hidden}
+@media print{.back-to-top{display:none}}

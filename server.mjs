@@ -1,4 +1,6 @@
 import { createServer } from 'node:http';
+import { buildParliamentData } from './scripts/build-parliament-data.mjs';
+await buildParliamentData();
 import { readFile, stat } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 const root = new URL('.', import.meta.url).pathname.replace(/^\/(.:)/, '$1');
