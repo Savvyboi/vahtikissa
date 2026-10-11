@@ -8,8 +8,23 @@ export function budgetLevel(year, type, codes = []) {
   }
   return { node, items, valid: true };
 }
+// Keep the deepest available context when classifications change between years.
+export function budgetClosestPath(year, type, codes = []) {
+  const result = [];
+  let items = year?.[type] || [];
+  for (const code of codes) {
+    const item = items.find(item => item.code === code);
+    if (!item) break;
+    result.push(code);
+    items = item.children || [];
+  }
+  return result;
+}
+export function budgetShare(value, total) {
+  return Number.isFinite(value) && Number.isFinite(total) && total !== 0 ? value / total * 100 : null;
+}
 export function budgetChange(value, previous) {
-  if (!Number.isFinite(previous) || previous === 0) return null;
+  if (!Number.isFinite(value) || !Number.isFinite(previous) || previous === 0) return null;
   return (value - previous) / Math.abs(previous) * 100;
 }
 export function budgetTotals(year, metric = 'budget') {
@@ -18,9 +33,10 @@ export function budgetTotals(year, metric = 'budget') {
   const borrowing = (year?.income || []).filter(item => item.code === '15').reduce((total, item) => total + (Number(item[metric]) || 0), 0);
   return { income, expense, borrowing, revenue: income - borrowing, balance: income - borrowing - expense };
 }
-// A balanced binary treemap preserves area ratios without chart dependencies.
+// A balanced binary treemap preserves positive area ratios without chart dependencies.
 export function budgetTreemap(items, value = item => item.budget, width = 100, height = 65) {
-  const entries = items.map(item => ({ item, value: Math.max(0, Number(value(item)) || 0) })).filter(item => item.value > 0).sort((a,b) => b.value - a.value);
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return [];
+  const entries = items.map(item => ({ item, value: Number(value(item)) })).filter(item => Number.isFinite(item.value) && item.value > 0).sort((a,b) => b.value - a.value);
   const rectangles = [];
   function split(group, x, y, w, h) {
     if (!group.length) return;
@@ -52,7 +68,7 @@ export function budgetEntries(year, type) {
 export function searchBudgetEntries(entries, query) {
   const words=String(query||'').normalize('NFC').toLocaleLowerCase('fi').trim().split(/\s+/u).filter(Boolean);
   return entries.filter(item=>{
-    const names=[item,...(item.ancestors||[])].flatMap(node=>[node.name?.fi,node.name?.sv]).filter(Boolean).join(' ').toLocaleLowerCase('fi');
+    const names=[item,...(item.ancestors||[])].flatMap(node=>[node.name?.fi,node.name?.sv,node.name?.en]).filter(Boolean).join(' ').toLocaleLowerCase('fi');
     return words.every(word=>names.includes(word)||item.code.includes(word.replace(/\./g,'')));
   });
 }

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { followPrimaryNavigation } from './browser-navigation-checks.mjs';
 
 export async function checkUI(page, navigate, data) {
   let fields = 0, links = 0;
@@ -67,26 +68,11 @@ export async function checkUI(page, navigate, data) {
   });
   assert.deepEqual(broken,[]);
 
-  // Follow each primary menu link at phone, tablet and landscape sizes in both languages.
-  for(const language of ['fi','sv']) {
-    if(await page.locator('html').getAttribute('lang')!==language)await page.locator('.language-button').click();
-    for(const viewport of [{width:320,height:568},{width:375,height:667},{width:390,height:844},{width:844,height:390},{width:1180,height:820}]) {
-      await page.setViewportSize(viewport);
-      await page.locator('.menu-button').click();
-      const boxes=await page.locator('.nav a').evaluateAll(elements=>elements.map(e=>{
-        const b=e.getBoundingClientRect();return {text:e.textContent,left:b.left,right:b.right,top:b.top,bottom:b.bottom};
-      }));
-      assert.equal(boxes.length,11);
-      for(const box of boxes)assert.ok(box.left>=0&&box.right<=viewport.width+1&&box.top>=0&&box.bottom<=viewport.height,`Menu item outside ${viewport.width}×${viewport.height}: ${box.text}`);
-      await page.keyboard.press('Escape');assert.equal(await page.locator('.menu-button').getAttribute('aria-expanded'),'false');
-      for(const route of routes.slice(0,11)) {
-        await page.locator('.menu-button').click();await page.locator(`.nav [data-page="${route}"]`).click();
-        assert.equal(await page.locator('.menu-button').getAttribute('aria-expanded'),'false');
-        assert.equal(await page.locator('main').getAttribute('data-route'),`#/${route}`);
-      }
-    }
-  }
+  await checkPrimaryNavigation(page);
   await page.setViewportSize({width:1440,height:1000});
+  assert.ok(await page.locator('.search-button').isVisible());
+  assert.match(await page.locator('.search-button').getAttribute('aria-keyshortcuts'), /Control\+k/);
+  assert.ok(await page.locator('.search-button kbd').isVisible());
   await page.keyboard.press('Control+k');
   await page.locator('#global-search').fill(data.members[0].lastName);
   await page.locator('.search-results a').first().waitFor();
@@ -99,7 +85,58 @@ export async function checkUI(page, navigate, data) {
   }
   await page.reload();await page.locator('main[aria-busy="false"] h1').waitFor();
   assert.equal(await page.locator('html').getAttribute('data-theme'),'contrast');
-  assert.equal(await page.locator('html').getAttribute('lang'),'sv');
-  await page.locator('.theme-select').selectOption('light');await page.locator('.language-button').click();
-  console.log(`${fields} filter interactions; ${links} rendered links; ${data.members.length} decoded portraits; all 11 menu links at 5 mobile/tablet sizes in Finnish and Swedish passed.`);
+  assert.equal(await page.locator('html').getAttribute('lang'),'en');
+  await page.locator('.theme-select').selectOption('light');await page.locator('.language-select').selectOption('fi');
+  console.log(`${fields} filter interactions; ${links} rendered links; ${data.members.length} decoded portraits; all 11 flat menu routes at 10 phone/tablet/desktop sizes in Finnish, Swedish and English passed.`);
+}
+
+/** Exercise flat navigation independently of the longer collection/filter checks. */
+export async function checkPrimaryNavigation(page) {
+  const primaryRoutes=['overview','sessions','votes','members','parties','programmes','speeches','legislation','budget','elections','influence'];
+  const viewports=[{width:320,height:568},{width:375,height:667},{width:390,height:844},
+    {width:844,height:390},{width:1024,height:768},{width:1180,height:820},
+    {width:1280,height:800},{width:1400,height:900},{width:1440,height:1000},{width:1920,height:1080}];
+  for(const language of ['fi','sv','en']) {
+    await page.locator('.language-select').selectOption(language);
+    assert.equal(await page.locator('html').getAttribute('lang'),language);
+    for(const viewport of viewports) {
+      await page.setViewportSize(viewport);
+      const menu=page.locator('.menu-button'),mobile=await menu.isVisible();
+      if(mobile){
+        await menu.focus();await page.keyboard.press('Enter');
+        assert.equal(await menu.getAttribute('aria-expanded'),'true');
+        assert.equal(await page.locator('.nav > a').first().evaluate(element=>element===document.activeElement),true);
+      }
+      assert.equal(await page.locator('.nav > a').count(),11,'Every view has a direct menu link');
+      assert.equal(await page.locator('.nav details').count(),0,'The menu uses the original flat structure');
+      const boxes=await page.locator('.nav > a').evaluateAll(elements=>elements.map(element=>{
+        const box=element.getBoundingClientRect();return {text:element.textContent,left:box.left,right:box.right,top:box.top,bottom:box.bottom};
+      }));
+      for(const box of boxes)assert.ok(box.left>=0&&box.right<=viewport.width+1&&box.top>=0&&box.bottom<=viewport.height,
+        `Menu link outside ${language} ${viewport.width}x${viewport.height}: ${box.text}`);
+      if(mobile){
+        await page.keyboard.press('Escape');
+        assert.equal(await menu.getAttribute('aria-expanded'),'false');
+        assert.equal(await menu.evaluate(element=>element===document.activeElement),true);
+        await menu.focus();await page.keyboard.press('Enter');
+      }
+      await page.locator('.nav [data-page="members"]').focus();await page.keyboard.press('Enter');
+      await page.waitForFunction(()=>document.querySelector('main')?.dataset.route==='#/members'&&document.querySelector('main')?.getAttribute('aria-busy')==='false');
+      assert.equal(await page.locator('main').evaluate(element=>element===document.activeElement),true);
+      assert.equal(await menu.getAttribute('aria-expanded'),'false');
+      for(const route of primaryRoutes) {
+        if(route==='votes'){
+          await page.evaluate(()=>window.scrollTo(0,document.body.scrollHeight));
+          assert.ok(await page.evaluate(()=>scrollY>0),'The previous long page can be scrolled');
+        }
+        await followPrimaryNavigation(page,route);
+        assert.equal(await menu.getAttribute('aria-expanded'),'false');
+        assert.equal(await page.locator('main').getAttribute('data-route'),`#/${route}`);
+        assert.equal(await page.locator(`.nav > [data-page="${route}"][aria-current="page"]`).count(),1);
+        assert.equal(await page.evaluate(()=>scrollY),0,`${route} opens at the top of the page`);
+        assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);
+      }
+      console.log(`Flat menu passed: ${language} / ${viewport.width}x${viewport.height} / ${mobile?'menu button':'desktop links'}`);
+    }
+  }
 }

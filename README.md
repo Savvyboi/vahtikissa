@@ -1,6 +1,6 @@
 # Eduskunta-vahti
 
-A static, privacy-friendly Finnish civic dashboard. It combines Parliament data from **2 April 2023 onward** with the state budget since 2020, the official 2023 parliamentary election results, MPs' financial-interest and gift disclosures, and declared lobbying contacts in a searchable Finnish and Swedish interface.
+A static, privacy-friendly Finnish civic dashboard. It combines Parliament data from **2 April 2023 onward** with the state budget since 2020, the official 2023 parliamentary election results, MPs' financial-interest and gift disclosures, and declared lobbying contacts in a searchable Finnish and Swedish interface, with English navigation, key guidance and budget controls.
 
 The visual and information hierarchy is inspired by the public-facing `mijnkamer.be` service, but this repository contains an original implementation and visual system. The separate GitHub repository currently found at `GustaveCurtil/mijn_kamer` has no declared license, so none of its code or assets are included here. The live `mijnkamer.be` service appears to be a different implementation than that repository; this project only borrows its general civic-information structure.
 
@@ -21,7 +21,10 @@ The visual and information hierarchy is inspired by the public-facing `mijnkamer
 - Parliamentary party programmes from Pohtiva’s 2023 election collection, with document type/language search, verified current representation and original source links
 - Official 2023 parliamentary election results by party, district and elected candidate
 - Searchable MP financial interests, outside income declarations, gift disclosures and lobbying contacts
-- Keyboard-accessible global search (`Ctrl/Cmd + K`)
+- Original flat navigation with direct links to all eleven views, a compact mobile grid and a persistent FI / SV / EN selector
+- Keyboard-accessible global search with a visible shortcut (`Ctrl/Cmd + K`)
+- Ten-second data-loading deadline with retry, including stalled response bodies
+- Budget navigation beside the results, always-readable item lists, plain-language hierarchy and reset controls
 - Responsive layout, keyboard focus retention, named controls, screen-reader announcements, reduced-motion support and readable light/dark/high-contrast themes
 - Automated browser interaction and axe accessibility checks
 - Daily Parliament, budget, election, gift, lobbying and party-programme ingestion via GitHub Actions
@@ -41,7 +44,7 @@ The additional applications use these official sources:
 - FSD / Tampere University’s Pohtiva collection at https://www.fsd.tuni.fi/pohtiva/vaalit/6 for parliamentary party programmes
 - The Finnish Transparency Register's public API for self-reported lobbying activities and targets
 
-Lobbying entries are grouped by declaration topic in the interface while preserving all reported targets. A contact in this dataset means a contact declared by the reporting organisation; it is not an independently verified finding. Policy domains are broad keyword-based discovery tags, while committee filters use the official committee names associated with a matter by Parliament's API. Speech word totals are derived from published transcript text. Detailed budget classifications currently follow the source's Finnish terminology, while all application controls, explanations and top-level budget classes are available in Finnish and Swedish.
+Lobbying entries are grouped by declaration topic in the interface while preserving all reported targets. A contact in this dataset means a contact declared by the reporting organisation; it is not an independently verified finding. Policy domains are broad keyword-based discovery tags, while committee filters use the official committee names associated with a matter by Parliament's API. Speech word totals are derived from published transcript text. Detailed budget classifications currently follow the source's Finnish terminology, while controls and top-level guidance are available in Finnish and Swedish. English covers navigation, key page guidance and budget controls; original records and some detailed controls retain their source language.
 
 “Amendment” is a transparent heuristic: a vote is marked as an amendment when its Finnish title includes terms such as `ehdotus`, `vastalause` or `lausuma`. This is useful for discovery, but not a legal classification. Participation and party-line scores are descriptive and should not be interpreted as measures of political quality.
 

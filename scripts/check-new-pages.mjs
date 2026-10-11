@@ -10,11 +10,34 @@ export async function checkNewPages(page,navigate) {
   await page.locator('[data-budget-view="map"]').click();
   await page.locator('[data-budget-search]').fill('');
   await page.locator('[data-budget-year]').selectOption(String(latest.year));
+  const refine=page.locator('[data-budget-refine]');
+  if(!await refine.evaluate(element=>element.open))await refine.locator(':scope > summary').click();
   await page.locator('[data-collection="budget"] [data-tool-clear]').click();
+  async function checkVisibleBudgetNames(items,prefix) {
+    assert.equal(await page.locator('.budget-map-key li').count(),items.length);
+    for(const item of items) {
+      const label=page.locator(`.budget-map-key a[href="${prefix}/${item.code}"] strong`);
+      assert.equal((await label.innerText()).toLocaleLowerCase('fi'),item.name.fi.toLocaleLowerCase('fi'));
+      assert.equal(await label.evaluate(element=>{const style=getComputedStyle(element);return style.textOverflow!=='ellipsis'&&style.webkitLineClamp==='none'}),true,'Full item names remain readable without hover');
+    }
+  }
+  await checkVisibleBudgetNames(latest.expense,`#/budget/${latest.year}/${type}`);
+  const compactHref=await page.locator('.budget-tile.compact').first().getAttribute('href');
+  assert.ok(compactHref,'The fixture includes a tiny budget item');
+  const compactName=page.locator(`.budget-map-key a[href="${compactHref}"]`);
+  await compactName.focus();await page.keyboard.press('Enter');
+  assert.equal(await page.locator('main').getAttribute('data-route'),compactHref);
+  assert.equal(await page.locator('#budget-explorer-title').evaluate(element=>element===document.activeElement),true);
+  await page.locator('.budget-back').first().click();
   const main=latest.expense.find(x=>x.children?.some(y=>y.children?.length));
   const chapter=main.children.find(x=>x.children?.length),moment=chapter.children[0];
   await page.locator(`a.budget-tile[href="#/budget/${latest.year}/${type}/${main.code}"]`).click();
   assert.equal(await page.locator('main').getAttribute('data-route'),`#/budget/${latest.year}/${type}/${main.code}`);
+  assert.equal(await page.locator('#budget-explorer-title').evaluate(element=>element===document.activeElement),true);
+  const localBack=page.locator('.budget-results-navigation:not(.budget-bottom-navigation) .budget-back');
+  const backBox=await localBack.boundingBox(),mapBox=await page.locator('.budget-map-layout').boundingBox();
+  assert.ok(backBox&&mapBox&&mapBox.y-(backBox.y+backBox.height)<80,'Back navigation is directly beside the budget chart');
+  await checkVisibleBudgetNames(main.children,`#/budget/${latest.year}/${type}/${main.code}`);
   await page.locator('[data-budget-table] > summary').click();
   await page.locator(`.budget-detail-table a[href="#/budget/${latest.year}/${type}/${main.code}/${chapter.code}"]`).click();
   await page.locator('[data-budget-table] > summary').click();
@@ -22,7 +45,9 @@ export async function checkNewPages(page,navigate) {
   assert.equal((await page.locator('.budget-explorer-head h2').innerText()).toLocaleLowerCase('fi'),moment.name.fi.toLocaleLowerCase('fi'));
   assert.match(await page.locator('.budget-explorer-head').innerText(),/tarkin taso/);
   assert.equal(await page.locator('.budget-item-metrics > div').count(),3);
-  await page.locator('.budget-back').click();
+  assert.equal(await page.locator('[data-budget-view], [data-budget-refine], [data-budget-compare]').count(),0,'Leaf items show their figures without irrelevant chart controls');
+  assert.ok(await page.locator('[data-budget-search]').isVisible());
+  await page.locator('.budget-back').first().click();
   assert.equal(await page.locator('main').getAttribute('data-route'),`#/budget/${latest.year}/${type}/${main.code}/${chapter.code}`);
   await page.goBack();assert.match(page.url(),new RegExp(`${moment.code}$`));
   await navigate(`budget/${latest.year}/expense/missing`);assert.match(await page.locator('.empty').innerText(),/ei löytynyt/);
@@ -47,13 +72,27 @@ export async function checkNewPages(page,navigate) {
   const result=JSON.parse(await readFile(await (await budgetDownload).path(),'utf8'));
   assert.equal(result[0].path,[main.code,chapter.code,moment.code].join('/'));
   assert.equal(result[0].budget,moment.budget);assert.equal(result[0].actualThroughMonth,latest.latestMonth);
+  await page.locator('[data-budget-clear-search]').click();
+  assert.equal(await page.locator('[data-budget-search]').inputValue(),'');
+  assert.equal(await page.locator('[data-budget-search]').evaluate(element=>element===document.activeElement),true);
+  await page.locator('[data-budget-search]').fill('zzzz-no-matching-budget-item');
+  assert.ok(await page.locator('.empty').isVisible());
+  await page.locator('[data-budget-reset]').first().click();
+  assert.equal(await page.locator('[data-budget-search]').inputValue(),'');
+  assert.equal(await page.locator('.budget-detail-table tbody tr').count(),latest.expense.length);
+  await page.locator('[data-budget-search]').fill(dotted);
+  await page.locator('[data-budget-search]').press('Escape');
+  assert.equal(await page.locator('[data-budget-search]').inputValue(),'');
+  await page.locator('[data-budget-search]').fill(dotted);
   await page.setViewportSize({width:320,height:740});
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);
   await page.locator('.budget-detail-table a').click();
   assert.equal(await page.locator('.budget-item-metrics > div').count(),3);
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);
-  await page.setViewportSize({width:1440,height:1000});
   await navigate('budget');await page.locator('[data-budget-view="map"]').click();
+  await checkVisibleBudgetNames(latest.expense,`#/budget/${latest.year}/${type}`);
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);
+  await page.setViewportSize({width:1440,height:1000});
   await navigate('programmes');assert.equal(await page.locator('.programme-card').count(),programmes.parties.length);
   await page.locator('[data-programme-language]').selectOption('SV');
   assert.equal(await page.locator('.programme-card li').count(),programmes.parties.flatMap(p=>p.programmes).filter(p=>p.language==='SV').length);
@@ -62,5 +101,5 @@ export async function checkNewPages(page,navigate) {
   await page.locator('[data-programme-type]').selectOption('vaaliohjelma');
   assert.equal(await page.locator('.programme-card li').count(),programmes.parties.flatMap(p=>p.programmes).filter(p=>p.type==='vaaliohjelma').length);
   await page.locator('[data-programme-type]').selectOption('all');
-  console.log('Budget treemap, all drill-down levels, history, bars, actual-period safeguards and programme filters passed.');
+  console.log('Budget visible names, tiny-item keyboard navigation, nearby back control, all drill-down levels, history, search resets, bars, actual-period safeguards and programme filters passed.');
 }

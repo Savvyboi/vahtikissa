@@ -79,17 +79,17 @@ export async function checkResearch(page,navigate,data,audit) {
   assert.equal(await page.locator('#member-vocabulary').evaluate(el=>el===document.activeElement),true);
   await audit('fi / MP insights / 320px');
   await page.setViewportSize({width:1440,height:1000});
-  await page.locator('.language-button').click();
+  await page.locator('.language-select').selectOption('sv');
   await page.locator('[data-member-profile][aria-busy="false"]').waitFor();
   assert.match(await page.locator('.member-profile').innerText(),/Utbildning/);
   await audit('sv / MP insights / desktop');
-  await page.locator('.language-button').click();
+  await page.locator('.language-select').selectOption('fi');
   await navigate('budget');
   const budget=JSON.parse(await readFile(new URL('../data/budget.json',import.meta.url),'utf8')),latest=budget.years.at(-1);
   assert.equal(await page.locator('.budget-map-key li').count(),latest.expense.length);
   const main=latest.expense.find(item=>item.children?.length);
   await page.locator('.budget-map-key a[href="#/budget/'+latest.year+'/expense/'+main.code+'"]').click();
-  assert.ok(await page.locator('.budget-chart-navigation .budget-back').isVisible());
+  assert.ok(await page.locator('.budget-results-navigation:not(.budget-bottom-navigation) .budget-back').isVisible());
   assert.equal(await page.locator('.budget-map-key li').count(),main.children.length);
   const noSpeeches=data.members.find(m=>!clouds.members[m.id].speeches);
   if(noSpeeches){await navigate('members/'+noSpeeches.id);await page.locator('[data-wordcloud][aria-busy="false"]').waitFor();assert.equal(await page.locator('.wordcloud a').count(),0);}

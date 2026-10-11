@@ -44,7 +44,7 @@ export function downloadRows(rows, filename, format = 'csv') {
 }
 
 export function exportButtons(key, lang = 'fi') {
-  const label = lang === 'sv' ? 'Ladda ner data' : 'Lataa data';
+  const label = lang === 'en' ? 'Download data' : lang === 'sv' ? 'Ladda ner data' : 'Lataa data';
   return `<div class="export-tools" aria-label="${label}"><span>${label}</span><button type="button" data-export-key="${key}" data-export-format="csv">.csv</button><button type="button" data-export-key="${key}" data-export-format="json">.json</button></div>`;
 }
 
@@ -54,7 +54,7 @@ export function bindExportButtons(container, key, getRows, filename) {
       button.disabled = true;button.setAttribute('aria-busy','true');
       const errorKey=key+'-export-error';container.querySelector('[data-export-error="'+errorKey+'"]')?.remove();
       try { const rows = await getRows();downloadRows(rows, typeof filename === 'function' ? filename() : filename, button.dataset.exportFormat); }
-      catch { const error=document.createElement('p');error.dataset.exportError=errorKey;error.setAttribute('role','alert');error.textContent=document.documentElement.lang==='sv'?'Exporten misslyckades. Försök igen.':'Vienti epäonnistui. Yritä uudelleen.';button.parentElement.after(error); }
+      catch { const error=document.createElement('p');error.dataset.exportError=errorKey;error.setAttribute('role','alert');error.textContent=document.documentElement.lang==='en'?'Export failed. Please try again.':document.documentElement.lang==='sv'?'Exporten misslyckades. Försök igen.':'Vienti epäonnistui. Yritä uudelleen.';button.parentElement.after(error); }
       finally {button.disabled=false;button.setAttribute('aria-busy','false');}
     };
   });

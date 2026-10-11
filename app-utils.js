@@ -13,6 +13,7 @@ export function percent(part, total) {
 
 export function routeFromHash(hash) {
   const parts = String(hash || '').split('?')[0].replace(/^#\/?/, '').split('/').filter(Boolean);
+  if (parts.length === 1 && parts[0] === 'content') return { page: 'overview', id: null };
   return { page: parts[0] || 'overview', id: parts[1] ? decodeURIComponent(parts.slice(1).join('/')) : null };
 }
 
@@ -294,7 +295,8 @@ export function filterAndSortMembers(members, { query = '', party = 'all', sort 
 export function choiceLabel(choice, lang = 'fi') {
   const labels = {
     fi: { yes: 'jaa', no: 'ei', abstain: 'tyhjää', absent: 'poissa', other: 'muu' },
-    sv: { yes: 'ja', no: 'nej', abstain: 'blankt', absent: 'frånvarande', other: 'övrigt' }
+    sv: { yes: 'ja', no: 'nej', abstain: 'blankt', absent: 'frånvarande', other: 'övrigt' },
+    en: { yes: 'yes', no: 'no', abstain: 'abstained', absent: 'absent', other: 'other' }
   };
   return labels[lang]?.[choice] || labels.fi[choice] || String(choice || '');
 }
@@ -305,21 +307,25 @@ export function formatDate(value, locale = 'fi-FI') {
   return Number.isNaN(date.valueOf()) ? value : new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'long', year: 'numeric' }).format(date);
 }
 
-export async function fetchJSONWithTimeout(url, { timeout = 15000, fetchImpl = globalThis.fetch } = {}) {
+export async function fetchJSONWithTimeout(url, { timeout = 10000, fetchImpl = globalThis.fetch } = {}) {
   if (typeof fetchImpl !== 'function') throw new TypeError('Fetch is not available');
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(new DOMException('Request timed out', 'TimeoutError')), timeout);
+  let timer;
+  const deadline = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      const error = new Error('Request timed out after '+timeout+' ms');
+      error.name = 'TimeoutError';
+      // Reject even if a fetch implementation or response body ignores abort.
+      reject(error);
+      controller.abort(error);
+    }, timeout);
+  });
   try {
-    const response = await fetchImpl(url, { signal: controller.signal });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    return await response.json();
-  } catch (error) {
-    if (controller.signal.aborted) {
-      const timeoutError = new Error(`Request timed out after ${timeout} ms`);
-      timeoutError.name = 'TimeoutError';
-      throw timeoutError;
-    }
-    throw error;
+    return await Promise.race([deadline, (async () => {
+      const response = await fetchImpl(url, { signal: controller.signal });
+      if (!response.ok) throw new Error('HTTP '+response.status);
+      return await response.json();
+    })()]);
   } finally {
     clearTimeout(timer);
   }

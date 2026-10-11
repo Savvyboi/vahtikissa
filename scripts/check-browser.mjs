@@ -4,6 +4,7 @@ import { spawn } from 'node:child_process';
 import { chromium } from 'playwright';
 import { createRequire } from 'node:module';
 import { checkUI } from './browser-ui-checks.mjs';
+import { checkStartupRecovery, followPrimaryNavigation } from './browser-navigation-checks.mjs';
 import { checkNewPages } from './check-new-pages.mjs';
 import { checkResearch } from './check-research.mjs';
 
@@ -20,6 +21,7 @@ try {
     await new Promise(resolve=>setTimeout(resolve,100));
   }
   browser=await chromium.launch({headless:true,...(process.env.BROWSER_CHANNEL?{channel:process.env.BROWSER_CHANNEL}:{})});
+  await checkStartupRecovery(browser,url);
   const page=await browser.newPage({viewport:{width:1440,height:1000}});
   page.on('pageerror',error=>{const finding=`JavaScript (${page.url()}): ${error.stack||error.message}`;failures.push(finding);console.error(finding)});
   await page.goto(url);
@@ -30,9 +32,11 @@ try {
     await page.waitForFunction(route=>{const main=document.querySelector('main');return main?.dataset.route===`#/${route}`&&main.getAttribute('aria-busy')==='false'&&main.querySelector('h1');},route);
     await page.locator('main[aria-busy="false"] h1').waitFor();
     assert.equal(await page.locator('.share-tools, [data-share]').count(),0);
+    const brand=await page.locator('html').getAttribute('lang')==='sv'?'Vaktkatt':'Vahtikissa';
+    assert.ok((await page.title()).endsWith(' | '+brand),'The document title identifies the current view and localized brand');
   }
   async function audit(label) {
-    // Navigation preserves scroll position; audit each view from a consistent origin.
+    // Start each independent accessibility audit at the page top.
     await page.evaluate(()=>window.scrollTo(0,0));
     await page.addScriptTag({path:require.resolve('axe-core/axe.min.js')});
     const violations=await page.evaluate(async()=>{
@@ -48,6 +52,12 @@ try {
   await navigate('influence');
   for(const tab of ['interests','lobbying']) {await page.locator(`[data-influence-tab="${tab}"]`).click();await audit(`fi / influence / ${tab}`);}
   await navigate('elections');await page.locator('[data-election-tab="candidates"]').click();await audit('fi / elections / candidates');
+
+  // Changing routes from a long page returns to the top and focuses the main region.
+  await navigate('members');await page.evaluate(()=>window.scrollTo(0,document.body.scrollHeight));
+  assert.ok(await page.evaluate(()=>scrollY>0));
+  await navigate('votes');await page.waitForFunction(()=>scrollY===0);
+  assert.equal(await page.locator('main').evaluate(element=>element===document.activeElement),true);
 
   // Real interactions exercise filtering, sorting, pagination and focus retention.
   await navigate('members');
@@ -72,12 +82,19 @@ try {
   assert.equal(exported[0].id,expected.id);
   await navigate('votes');await page.locator('[data-pagination="votes"] [data-page="2"]').first().click();
   assert.equal(await page.locator('[data-pagination="votes"] [aria-current="page"]').innerText(),'2');
-  await page.locator('.nav [data-page="members"]').click();assert.match(page.url(),/#\/members$/);
+  await followPrimaryNavigation(page,'members');assert.match(page.url(),/#\/members$/);
   assert.equal(await page.locator('main').evaluate(element=>element===document.activeElement),true);
   await page.locator('.search-button').click();await page.locator('.search-close').click();
   assert.equal(await page.locator('.search-button').evaluate(element=>element===document.activeElement),true);
   await navigate('budget');
-  await page.locator('[data-collection="budget"] [data-tool="direction"]').selectOption('asc');
+  const refine=page.locator('[data-budget-refine]');
+  if(await refine.evaluate(element=>element.open))await refine.locator(':scope > summary').click();
+  await refine.evaluate(element=>{
+    element.querySelector(':scope > summary').click();
+    const direction=element.querySelector('[data-tool="direction"]');
+    direction.value='asc';direction.dispatchEvent(new Event('change',{bubbles:true}));
+  });
+  assert.equal(await refine.evaluate(element=>element.open),true,'Sorting preserves the open filter controls');
   const budgetAdvanced=page.locator('[data-collection="budget"] [data-advanced]');await budgetAdvanced.locator(':scope > summary').click();
   const budgetFacet=page.locator('[data-collection="budget"] [data-facet="code"]');await budgetFacet.locator('summary').click();
   const budgetInclude=budgetFacet.locator('[data-selection="include"]').first();const budgetCode=await budgetInclude.inputValue();await budgetInclude.check();
@@ -92,13 +109,21 @@ try {
   assert.equal(await page.locator(`[data-collection="influence"] [data-facet="year"] [data-selection="include"][value="${year}"]`).evaluate(element=>element===document.activeElement),true);
 
   await checkNewPages(page,navigate);
+  await navigate('budget');await page.locator('.budget-map-key a').first().click();
+  assert.notEqual(await page.locator('main').getAttribute('data-route'),'#/budget');
+  await page.evaluate(()=>window.scrollTo(0,document.body.scrollHeight));
+  assert.ok(await page.evaluate(()=>scrollY>0));
+  await followPrimaryNavigation(page,'budget');await page.waitForFunction(()=>scrollY===0);
+  assert.equal(await page.locator('main').getAttribute('data-route'),'#/budget');
   await checkResearch(page,navigate,data,audit);
   await checkUI(page,navigate,data);
   await page.setViewportSize({width:320,height:740});
   for(const route of ['overview','votes','members','sessions','speeches','legislation','budget','programmes','elections','influence']) {await navigate(route);await audit(`fi / 320px / ${route}`);}
   await page.locator('.menu-button').click();await audit('fi / 320px / open menu');await page.keyboard.press('Escape');
   await page.setViewportSize({width:1440,height:1000});
-  await page.locator('.language-button').click();
+  await page.locator('.language-select').selectOption('en');
+  for(const route of ['overview','members','sessions','votes','budget']) {await navigate(route);await audit(`en / desktop / ${route}`);}
+  await page.locator('.language-select').selectOption('sv');
   for(const route of ['votes','speeches','legislation','budget','programmes','elections','influence']) {await navigate(route);await audit(`sv / desktop / ${route}`);}
   for(const theme of ['dark','contrast']) {
     await page.locator('.theme-select').selectOption(theme);

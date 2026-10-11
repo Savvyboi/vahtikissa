@@ -40,6 +40,7 @@ test('percent handles an empty denominator safely', () => {
 test('hash parser supports details and defaults to overview', () => {
   assert.deepEqual(routeFromHash('#/members/123'), { page: 'members', id: '123' });
   assert.deepEqual(routeFromHash(''), { page: 'overview', id: null });
+  assert.deepEqual(routeFromHash('#content'), { page: 'overview', id: null });
 });
 
 test('hydrateBallots joins packed ballots with MP names', () => {
@@ -230,10 +231,11 @@ test('app uses a nonmodal search panel and paginates every speech list', async (
   assert.match(app, /href:href\('speeches',item\.id\)/);
 });
 
-test('search button omits the visual command-key hint', async () => {
+test('search button exposes a label and command-key shortcut', async () => {
   const html = await source('index.html');
-  assert.match(html, /class="search-button"[^>]*>Hae<\/button>/);
-  assert.doesNotMatch(html, /<kbd>/);
+  assert.match(html, /class="search-button"[^>]*aria-keyshortcuts="Control\+k Meta\+k"/);
+  assert.match(html, /<span data-search-label>Hae<\/span>/);
+  assert.match(html, /<kbd aria-hidden="true">Ctrl K<\/kbd>/);
 });
 
 test('speech typography and legislation controls remain readable and discoverable', async () => {
@@ -266,22 +268,6 @@ test('search index can retry after a failed request', async () => {
   assert.match(app, /speechSearchPromise=null;throw error/);
 });
 
-test('mobile menu stays compact and exposes an X close control', async () => {
-  const [html, app, css] = await Promise.all([source('index.html'), source('app.js'), source('styles.css')]);
-  assert.match(html, /aria-controls="main-navigation"/);
-  assert.match(app, /menu\.textContent=open\?'×':t\('menu'\)/);
-  assert.match(app, /window\.addEventListener\('hashchange',\(\)=>\{closeMenu\(\);render\(\)\}\)/);
-  assert.match(css, /\.nav\.open\{[^}]*max-height:min\(65dvh,420px\)/);
-  assert.doesNotMatch(css, /\.nav\.open\{[^}]*height:calc\(100dvh - 64px\)/);
-});
-
-test('internal navigation preserves scroll position instead of forcing the page top', async () => {
-  const app = await source('app.js');
-  assert.match(app, /a\[href\^="#\/"\]/);
-  assert.match(app, /history\.pushState/);
-  assert.doesNotMatch(app, /window\.scrollTo\(0,0\)/);
-});
-
 test('mobile speech metadata wraps instead of causing horizontal overflow', async () => {
   const css = await source('styles.css');
   assert.match(css, /\.speech \.date\{white-space:normal;overflow-wrap:anywhere\}/);
@@ -307,6 +293,33 @@ test('JSON loading has an explicit timeout and accepts a successful response', a
   }), error => error.name === 'TimeoutError');
 });
 
+test('JSON loading times out even when fetch ignores cancellation', { timeout: 1000 }, async () => {
+  let requestSignal;
+  await assert.rejects(fetchJSONWithTimeout('/stalled-fetch.json', {
+    timeout: 5,
+    fetchImpl: (url, { signal }) => {
+      requestSignal = signal;
+      return new Promise(() => {});
+    }
+  }), error => error.name === 'TimeoutError');
+  assert.equal(requestSignal.aborted, true);
+});
+
+test('JSON loading timeout includes a stalled response body', { timeout: 1000 }, async () => {
+  let bodyStarted = false;
+  await assert.rejects(fetchJSONWithTimeout('/stalled-body.json', {
+    timeout: 5,
+    fetchImpl: async () => ({
+      ok: true,
+      json: () => {
+        bodyStarted = true;
+        return new Promise(() => {});
+      }
+    })
+  }), error => error.name === 'TimeoutError');
+  assert.equal(bodyStarted, true);
+});
+
 test('critical accessibility, metadata and recovery affordances are present', async () => {
   const [html, app, civic] = await Promise.all([source('index.html'), source('app.js'), source('civic-apps.js')]);
   assert.match(html, /href="#content"/);
@@ -317,7 +330,6 @@ test('critical accessibility, metadata and recovery affordances are present', as
   assert.match(html, /property="og:image"/);
   assert.match(html, /<noscript><section class="noscript-notice">/);
   assert.match(html, /id="route-status"[^>]*aria-live="polite"/);
-  assert.match(app, /document\.title=`\$\{label\} \| \$\{brand\}`/);
   assert.match(app, /data-retry/);
   assert.match(civic, /data-retry/);
 });

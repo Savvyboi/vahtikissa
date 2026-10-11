@@ -1,6 +1,7 @@
 import { escapeHTML as e } from './app-utils.js';
 
 const copy = {
+  en: { tools:'Filter and sort',search:'Search this list',sort:'Sort by',direction:'Order',asc:'Ascending (A–Z / lowest first)',desc:'Descending (Z–A / highest first)',include:'Include',exclude:'Exclude',help:'An empty inclusion shows everything. Choices within one group use OR; different groups use AND. Exclusions take priority.',from:'From',to:'To',min:'At least',max:'At most',clear:'Clear advanced filters',options:'Find an option',active:'active filters',results:'results' },
   fi: { tools: 'Rajaa ja järjestä', search: 'Hae tästä listasta', sort: 'Järjestä', direction: 'Suunta', asc: 'Nouseva (A–Ö / pienin ensin)', desc: 'Laskeva (Ö–A / suurin ensin)', include: 'Sisällytä', exclude: 'Sulje pois', help: 'Tyhjä sisällytys näyttää kaikki. Saman ryhmän valinnat yhdistetään TAI-ehdolla, eri ryhmät JA-ehdolla. Poissulkeminen on ensisijainen.', from: 'Alkaen', to: 'Asti', min: 'Vähintään', max: 'Enintään', clear: 'Tyhjennä lisärajaukset', options: 'Hae vaihtoehtoa', active: 'aktiivista rajausta', results: 'tulosta' },
   sv: { tools: 'Avgränsa och sortera', search: 'Sök i denna lista', sort: 'Sortera', direction: 'Riktning', asc: 'Stigande (A–Ö / minsta först)', desc: 'Fallande (Ö–A / största först)', include: 'Inkludera', exclude: 'Uteslut', help: 'Tom inkludering visar alla. Val inom en grupp kombineras med ELLER, olika grupper med OCH. Uteslutning har företräde.', from: 'Från', to: 'Till', min: 'Minst', max: 'Högst', clear: 'Rensa extra avgränsningar', options: 'Sök alternativ', active: 'aktiva avgränsningar', results: 'resultat' }
 };
@@ -62,7 +63,7 @@ export function mountCollectionTools(parent, key, state, config, lang, onChange)
   panel.dataset.collection = key;
   panel.setAttribute('aria-label', `${config.label || ''}: ${c.tools}`);
   const control = (label, content) => `<label class="filter-control"><span>${e(label)}</span>${content}</label>`;
-  const advanced = lang === 'sv' ? 'Inkludera, uteslut och avgränsa' : 'Sisällytä, sulje pois ja rajaa';
+  const advanced = lang === 'en' ? 'Include, exclude and refine' : lang === 'sv' ? 'Inkludera, uteslut och avgränsa' : 'Sisällytä, sulje pois ja rajaa';
   panel.innerHTML = `<div class="collection-order">
     ${config.search ? control(c.search, `<input type="search" data-tool="query" value="${e(state.query)}">`) : ''}
     ${control(c.sort, `<select data-tool="sort">${config.sorts.map(sort => `<option value="${e(sort.key)}" ${state.sort === sort.key ? 'selected' : ''}>${e(sort.label)}</option>`).join('')}</select>`)}
@@ -127,7 +128,7 @@ export function collapseQuickFilters(root, lang) {
     const controls=[...toolbar.children].filter(element=>element.tagName==='LABEL'||element.tagName==='SELECT');
     if (!controls.length) return;
     const details=document.createElement('details');details.className='quick-filters';
-    const summary=document.createElement('summary');summary.textContent=lang==='sv'?'Välj en snabbavgränsning':'Valitse pikarajaus';details.append(summary);
+    const summary=document.createElement('summary');summary.textContent=lang==='en'?'Choose a quick filter':lang==='sv'?'Välj en snabbavgränsning':'Valitse pikarajaus';details.append(summary);
     const fields=document.createElement('div');fields.className='quick-filter-fields';fields.append(...controls);details.append(fields);toolbar.append(details);
   });
 }

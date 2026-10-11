@@ -23,6 +23,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,600;6..72,700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="navigation.css">
+  <link rel="stylesheet" href="budget.css">
   <script type="module" src="app.js"></script>
 </head>
 <body>
@@ -34,8 +36,8 @@
       <a data-page="overview" href="#/overview">Yleiskuva</a><a data-page="sessions" href="#/sessions">Istunnot</a><a data-page="votes" href="#/votes">Äänestykset</a><a data-page="members" href="#/members">Kansanedustajat</a><a data-page="parties" href="#/parties">Puolueet</a><a data-page="programmes" href="#/programmes">Puolueohjelmat</a><a data-page="speeches" href="#/speeches">Puheet</a><a data-page="legislation" href="#/legislation">Lakiasiat</a><a class="nav-civic nav-new-section" data-page="budget" href="#/budget">Budjetti</a><a class="nav-civic" data-page="elections" href="#/elections">Vaalit 2023</a><a class="nav-civic" data-page="influence" href="#/influence">Sidonnaisuudet</a>
     </nav>
     <label class="theme-control"><span class="theme-icon" aria-hidden="true">☀</span><span class="sr-only">Väriteema</span><select class="theme-select" aria-label="Väriteema" title="Väriteema"><option value="light">Vaalea</option><option value="dark">Tumma</option><option value="contrast">Korkea kontrasti</option></select></label>
-    <button class="language-button" type="button">På svenska</button>
-    <button class="search-button" type="button" aria-label="Avaa haku">Hae</button>
+    <label class="language-control"><span class="sr-only">Kieli</span><select class="language-select" aria-label="Kieli"><option value="fi" lang="fi">Suomi</option><option value="sv" lang="sv">Svenska</option><option value="en" lang="en">English</option></select></label>
+    <button class="search-button" type="button" aria-label="Avaa haku" aria-keyshortcuts="Control+k Meta+k"><span data-search-label>Hae</span><kbd aria-hidden="true">Ctrl K</kbd></button>
   </header>
   <p id="route-status" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></p>
   <main id="content" tabindex="-1" aria-busy="true"><section class="loading"><span class="spinner" aria-hidden="true"></span><p>Ladataan eduskunnan avointa dataa…</p></section></main>
