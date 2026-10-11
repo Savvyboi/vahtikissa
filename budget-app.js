@@ -1,5 +1,6 @@
 import { budgetLevel, budgetClosestPath, budgetShare, budgetChange, budgetTotals, budgetTreemap, budgetEntries, searchBudgetEntries } from './budget-utils.js';
 import { fetchJSONWithTimeout } from './app-utils.js';
+import { preservePageScroll, pushRoute } from './navigation.js';
 import { exportButtons, bindExportButtons } from './data-tools.js';
 import { collectionState, activeFilterCount, applyCollection, facetOptions, mountCollectionTools, preserveFocus } from './collection-tools.js';
 
@@ -24,12 +25,12 @@ export async function renderBudget(root,lang,routeId,escapeHTML) {
   try {
     if (!snapshot) snapshot = await fetchJSONWithTimeout('./data/budget.json');
     if (!Array.isArray(snapshot.years) || !snapshot.years.length) throw new Error('Empty budget snapshot');
-    if (requested!==location.hash || document.documentElement.lang!==lang) return;
+    if (requested!==location.hash || document.documentElement.lang!==lang || root.dataset.view==='simple') return;
     if (lastRoute!==requested) { state.query=''; state.notice=''; }
     draw(routeId);
     root.setAttribute('aria-busy','false');
   } catch (error) {
-    if (requested!==location.hash || document.documentElement.lang!==lang) return;
+    if (requested!==location.hash || document.documentElement.lang!==lang || root.dataset.view==='simple') return;
     root.setAttribute('aria-busy','false');
     root.innerHTML=`<div class="page"><section class="load-error" role="alert"><h1>${L('Budjettia ei voitu ladata','Budgeten kunde inte laddas','The budget could not be loaded')}</h1><p>${L('Tallennettua budjettiaineistoa ei saatu avattua. Tarkista verkkoyhteys ja yritä uudelleen.','Det sparade budgetmaterialet kunde inte öppnas. Kontrollera anslutningen och försök igen.','The saved budget data could not be opened. Check your connection and try again.')}</p><button data-budget-retry>${L('Yritä uudelleen','Försök igen','Try again')}</button></section></div>`;
     root.querySelector('[data-budget-retry]').onclick=()=>{root.setAttribute('aria-busy','true');snapshot=undefined;renderBudget(root,lang,routeId,e);};
@@ -114,16 +115,16 @@ export async function renderBudget(root,lang,routeId,escapeHTML) {
       <aside class="civic-note"><p>${L('Tulot sisältävät lainanoton. Tasapaino lasketaan ilman lainanottoa. Yksityiskohtaiset nimet ovat lähdeaineistossa suomeksi.','Inkomsterna omfattar upplåning. Balansen beräknas utan upplåning. Detaljerade benämningar är på finska i källmaterialet.','Income includes borrowing. The balance excludes borrowing. Budget item names follow the Finnish source; use Finnish names or item codes when searching.')}</p><div class="source-links"><a href="https://avoindata.tutkihallintoa.fi/" target="_blank" rel="noreferrer">${L('Valtiokonttori · lähde','Statskontoret · källa','State Treasury · source')} ↗</a></div></aside>
     </div>`;
     const focusExplorer=()=>root.querySelector('#budget-explorer-title')?.focus({preventScroll:true});
-    const navigate=(hash,{scroll=true,notice=''}={})=>{
-      state.query='';state.notice=notice;if(hash===location.hash){draw(hash.slice(9));focusExplorer();return;}history.pushState(null,'',hash);draw(hash.replace(/^#\/budget\/?/,''));focusExplorer();
-      if(scroll)root.querySelector('.budget-workspace')?.scrollIntoView({block:'start',behavior:'instant'});
+    const navigate=(hash,{notice=''}={})=>{
+      state.query='';state.notice=notice;pushRoute(hash);
+      preservePageScroll(root,()=>{draw(hash.replace(/^#\/budget\/?/,''));focusExplorer();});
       const status=document.querySelector('#route-status');if(status)status.textContent=root.querySelector('h2')?.textContent||'';
     };
     root.querySelectorAll('[data-budget-route]').forEach(a=>a.onclick=event=>{if(event.button!==0||event.ctrlKey||event.metaKey||event.shiftKey||event.altKey)return;event.preventDefault();navigate(a.getAttribute('href'));});
     root.querySelector('[data-budget-year]').onchange=event=>preserveFocus(root,()=>{
       const nextYear=years.find(value=>String(value.year)===event.target.value), nextCodes=budgetClosestPath(nextYear,type,codes);
       const notice=nextCodes.length<codes.length?L('Tätä kohtaa ei ole valitulla vuodella. Näytetään lähin käytettävissä oleva ylempi taso.','Posten finns inte för det valda året. Närmaste tillgängliga överordnade nivå visas.','This item is unavailable in the selected year. Showing its nearest available parent section.'):'';
-      navigate(path(event.target.value,type,nextCodes),{scroll:false,notice});
+      navigate(path(event.target.value,type,nextCodes),{notice});
     });
     const redraw=(preserveOpen=true)=>{
       const refine=root.querySelector('[data-budget-refine]');

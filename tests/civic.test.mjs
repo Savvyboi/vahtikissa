@@ -72,7 +72,8 @@ test('budget drill-down uses in-place history navigation and influence exposes a
   const app = await source('civic-apps.js');
   const budget = await source('budget-app.js');
   assert.match(budget, /data-budget-route/);
-  assert.match(budget, /history\.pushState/);
+  assert.match(budget, /pushRoute\(hash\)/);
+  assert.match(await source('navigation.js'), /history\.pushState/);
   assert.match(app, /data-influence-filter="mp"/);
   assert.match(app, /data-influence-filter="party"/);
   assert.match(app, /data-influence-filter="category"/);

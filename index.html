@@ -25,12 +25,14 @@
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="navigation.css">
   <link rel="stylesheet" href="budget.css">
+  <link rel="stylesheet" href="simple.css">
   <script type="module" src="app.js"></script>
 </head>
 <body>
   <a class="skip" href="#content">Siirry sisältöön</a>
   <header class="site-header">
     <a class="brand" href="#/overview" aria-label="Vahtikissan etusivu"><span class="brand-mark" aria-hidden="true"><img src="assets/cat-logo.svg" alt="" width="44" height="44"></span><span>Vahti<em>kissa</em></span></a>
+    <button class="view-toggle" type="button" role="switch" aria-checked="false" aria-label="Helppo näkymä"><span class="view-toggle-track" aria-hidden="true"></span><span data-view-label>Helppo näkymä</span></button>
     <button class="menu-button" aria-label="Avaa valikko" aria-expanded="false" aria-controls="main-navigation">Valikko</button>
     <nav class="nav" id="main-navigation" aria-label="Päänavigaatio">
       <a data-page="overview" href="#/overview">Yleiskuva</a><a data-page="sessions" href="#/sessions">Istunnot</a><a data-page="votes" href="#/votes">Äänestykset</a><a data-page="members" href="#/members">Kansanedustajat</a><a data-page="parties" href="#/parties">Puolueet</a><a data-page="programmes" href="#/programmes">Puolueohjelmat</a><a data-page="speeches" href="#/speeches">Puheet</a><a data-page="legislation" href="#/legislation">Lakiasiat</a><a class="nav-civic nav-new-section" data-page="budget" href="#/budget">Budjetti</a><a class="nav-civic" data-page="elections" href="#/elections">Vaalit 2023</a><a class="nav-civic" data-page="influence" href="#/influence">Sidonnaisuudet</a>

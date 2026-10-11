@@ -133,7 +133,6 @@ export async function checkPrimaryNavigation(page) {
         assert.equal(await menu.getAttribute('aria-expanded'),'false');
         assert.equal(await page.locator('main').getAttribute('data-route'),`#/${route}`);
         assert.equal(await page.locator(`.nav > [data-page="${route}"][aria-current="page"]`).count(),1);
-        assert.equal(await page.evaluate(()=>scrollY),0,`${route} opens at the top of the page`);
         assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);
       }
       console.log(`Flat menu passed: ${language} / ${viewport.width}x${viewport.height} / ${mobile?'menu button':'desktop links'}`);

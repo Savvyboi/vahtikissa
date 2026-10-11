@@ -48,6 +48,14 @@ Lobbying entries are grouped by declaration topic in the interface while preserv
 
 “Amendment” is a transparent heuristic: a vote is marked as an amendment when its Finnish title includes terms such as `ehdotus`, `vastalause` or `lausuma`. This is useful for discovery, but not a legal classification. Participation and party-line scores are descriptive and should not be interpreted as measures of political quality.
 
+## Simple reading mode
+
+The **Helppo näkymä / Enkel vy / Simple view** switch opens a separate, calmer presentation of the same local data. It offers question-led entry points, short explanations, searchable cards and smaller result pages for votes, MPs, speeches, proposals, the state budget, gifts and lobbying. Sessions, parties, programmes and election results remain available from the simple home page. Official vote alternatives, original titles, full speech transcripts, sources and snapshot dates remain available.
+
+The switch preserves the current route and remembers the choice in this browser. Share the [simple site](https://savvyboi.github.io/vahtikissa/?view=simple#/overview) or the [detailed site](https://savvyboi.github.io/vahtikissa/?view=full#/overview); an explicit URL takes precedence over the remembered setting. Each simple page also offers a button for its detailed view. Interface guidance is available in Finnish, Swedish and English; official records keep their published language.
+
+Route links and budget drill-downs preserve the current scroll position, within the available height of the destination. Back and Forward restore each history entry's saved position. Loading a dataset, changing filters, switching tabs and opening search do not force the reader to the top. The skip link and deliberate profile-section links still move to their requested content.
+
 ## Local development
 
 Requires Node.js 22 or newer.

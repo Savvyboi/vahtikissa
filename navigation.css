@@ -26,3 +26,9 @@
  .site-header .search-button kbd{display:none}
  .language-select{max-width:92px;font-size:.76rem}
 }
+
+/* Reserve header space only for deliberate content jumps. Global scroll padding makes
+   browsers scroll the document when a visible sticky menu control receives focus. */
+html{scroll-padding-top:0}
+.site-header a,.site-header button,.site-header input,.site-header select{scroll-margin:0}
+#content,#member-activity,#member-about,#member-vocabulary,.speech[id]{scroll-margin-top:calc(var(--site-header-height,70px) + 16px)}

@@ -142,7 +142,7 @@ function renderElectionContent(root,lang,escapeHTML,data) {
   setupViewButtons(root,'[data-election-tab]',lang);
   bindExportButtons(root,'election',()=>electionState.tab==='parties'?partyRows.map(party=>({district:districtName(selectedDistrict)||tr(lang,'wholeCountry'),party:localized(party.name,lang),votes:party.votes,sharePercent:party.share,seats:party.seats})):candidates.map(candidate=>({name:candidate.name,party:localized(candidate.party,lang),district:localized(candidate.district,lang).replace(/^VP\d+\s*/,''),votes:candidate.votes,comparison:candidate.comparison})),`vahtikissa-vaalit-2023-${electionState.tab}`);
   const district=root.querySelector('[data-election-district]');if(district)district.onchange=event=>{electionState.district=event.target.value;renderElectionContent(root,lang,escapeHTML,data)};
-  const query=root.querySelector('[data-candidate-search]');if(query)query.oninput=event=>{electionState.query=event.target.value;renderElectionContent(root,lang,escapeHTML,data);root.querySelector('[data-candidate-search]')?.focus()};
+  const query=root.querySelector('[data-candidate-search]');if(query)query.oninput=event=>{electionState.query=event.target.value;preserveFocus(root,()=>renderElectionContent(root,lang,escapeHTML,data))};
   const party=root.querySelector('[data-candidate-party]');if(party)party.onchange=event=>{electionState.party=event.target.value;renderElectionContent(root,lang,escapeHTML,data)};
   const candidateDistrict=root.querySelector('[data-candidate-district]');if(candidateDistrict)candidateDistrict.onchange=event=>{electionState.district=event.target.value;renderElectionContent(root,lang,escapeHTML,data)};
   root.querySelectorAll('[data-election-district], [data-candidate-party], [data-candidate-district]').forEach(control=>{const action=control.onchange;control.onchange=event=>preserveFocus(root,()=>action(event))});
@@ -150,8 +150,8 @@ function renderElectionContent(root,lang,escapeHTML,data) {
 
 export async function renderElections(root,lang,escapeHTML) {
   const requested=location.hash;loading(root,lang);
-  try { const data=await load('./data/elections-2023.json');if(location.hash===requested&&document.documentElement.lang===lang)renderElectionContent(root,lang,escapeHTML,data); }
-  catch(error){ if(location.hash===requested&&document.documentElement.lang===lang)errorView(root,lang,escapeHTML,error,()=>renderElections(root,lang,escapeHTML)); }
+  try { const data=await load('./data/elections-2023.json');if(location.hash===requested&&document.documentElement.lang===lang&&root.dataset.view!=='simple')renderElectionContent(root,lang,escapeHTML,data); }
+  catch(error){ if(location.hash===requested&&document.documentElement.lang===lang&&root.dataset.view!=='simple')errorView(root,lang,escapeHTML,error,()=>renderElections(root,lang,escapeHTML)); }
 }
 
 const methodNames={fi:{meeting:'Tapaaminen',phone:'Puhelu',mail:'Sähköposti',social_media:'Sosiaalinen media',event:'Tilaisuus',online:'Verkkotapaaminen',other:'Muu'},sv:{meeting:'Möte',phone:'Telefonsamtal',mail:'E-post',social_media:'Sociala medier',event:'Evenemang',online:'Distansmöte',other:'Övrigt'}};
@@ -252,6 +252,6 @@ export async function renderInfluence(root,lang,escapeHTML,members=[],memberId='
       const member=members.find(item=>String(item.id)===String(memberId));
       if(member){influenceState.mp=`${member.firstName||''} ${member.lastName||''}`.trim();influenceState.tab='interests';influenceState.limit=100;}
     }
-    if(location.hash===requested&&document.documentElement.lang===lang)renderInfluenceContent(root,lang,escapeHTML,data);
-  }catch(error){if(location.hash===requested&&document.documentElement.lang===lang)errorView(root,lang,escapeHTML,error,()=>renderInfluence(root,lang,escapeHTML,members))}
+    if(location.hash===requested&&document.documentElement.lang===lang&&root.dataset.view!=='simple')renderInfluenceContent(root,lang,escapeHTML,data);
+  }catch(error){if(location.hash===requested&&document.documentElement.lang===lang&&root.dataset.view!=='simple')errorView(root,lang,escapeHTML,error,()=>renderInfluence(root,lang,escapeHTML,members))}
 }

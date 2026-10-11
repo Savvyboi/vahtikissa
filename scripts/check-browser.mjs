@@ -1,10 +1,11 @@
+import { checkSimpleMode } from './browser-simple-checks.mjs';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import { chromium } from 'playwright';
 import { createRequire } from 'node:module';
 import { checkUI } from './browser-ui-checks.mjs';
-import { checkStartupRecovery, followPrimaryNavigation } from './browser-navigation-checks.mjs';
+import { checkStartupRecovery, checkSeamlessNavigation, followPrimaryNavigation } from './browser-navigation-checks.mjs';
 import { checkNewPages } from './check-new-pages.mjs';
 import { checkResearch } from './check-research.mjs';
 
@@ -22,6 +23,8 @@ try {
   }
   browser=await chromium.launch({headless:true,...(process.env.BROWSER_CHANNEL?{channel:process.env.BROWSER_CHANNEL}:{})});
   await checkStartupRecovery(browser,url);
+  await checkSimpleMode(browser,url);
+  await checkSeamlessNavigation(browser,url);
   const page=await browser.newPage({viewport:{width:1440,height:1000}});
   page.on('pageerror',error=>{const finding=`JavaScript (${page.url()}): ${error.stack||error.message}`;failures.push(finding);console.error(finding)});
   await page.goto(url);
@@ -53,10 +56,11 @@ try {
   for(const tab of ['interests','lobbying']) {await page.locator(`[data-influence-tab="${tab}"]`).click();await audit(`fi / influence / ${tab}`);}
   await navigate('elections');await page.locator('[data-election-tab="candidates"]').click();await audit('fi / elections / candidates');
 
-  // Changing routes from a long page returns to the top and focuses the main region.
-  await navigate('members');await page.evaluate(()=>window.scrollTo(0,document.body.scrollHeight));
-  assert.ok(await page.evaluate(()=>scrollY>0));
-  await navigate('votes');await page.waitForFunction(()=>scrollY===0);
+  // Changing routes retains the reader's place and focuses the main region.
+  await navigate('members');await page.evaluate(()=>window.scrollTo(0,650));
+  assert.equal(await page.evaluate(()=>scrollY),650);
+  await navigate('votes');
+  assert.equal(await page.evaluate(()=>scrollY),650);
   assert.equal(await page.locator('main').evaluate(element=>element===document.activeElement),true);
 
   // Real interactions exercise filtering, sorting, pagination and focus retention.
@@ -113,7 +117,7 @@ try {
   assert.notEqual(await page.locator('main').getAttribute('data-route'),'#/budget');
   await page.evaluate(()=>window.scrollTo(0,document.body.scrollHeight));
   assert.ok(await page.evaluate(()=>scrollY>0));
-  await followPrimaryNavigation(page,'budget');await page.waitForFunction(()=>scrollY===0);
+  await followPrimaryNavigation(page,'budget');
   assert.equal(await page.locator('main').getAttribute('data-route'),'#/budget');
   await checkResearch(page,navigate,data,audit);
   await checkUI(page,navigate,data);

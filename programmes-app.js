@@ -7,10 +7,10 @@ export async function renderProgrammes(root,lang,escapeHTML) {
   const requested=location.hash, L=(fi,sv)=>lang==='en'?(english[fi]||fi):lang==='sv'?sv:fi, e=escapeHTML;
   try {
     if(!data)data=await fetchJSONWithTimeout('./data/programmes.json');
-    if(requested!==location.hash||document.documentElement.lang!==lang)return;
+    if(requested!==location.hash||document.documentElement.lang!==lang||root.dataset.view==='simple')return;
     draw();root.setAttribute('aria-busy','false');
   } catch(error) {
-    if(requested!==location.hash||document.documentElement.lang!==lang)return;
+    if(requested!==location.hash||document.documentElement.lang!==lang||root.dataset.view==='simple')return;
     root.setAttribute('aria-busy','false');
     root.innerHTML=`<div class="page"><section class="load-error" role="alert"><h1>${L('Ohjelmia ei voitu ladata','Programmen kunde inte laddas')}</h1><p>${L('Tarkista verkkoyhteys ja yritä uudelleen.','Kontrollera anslutningen och försök igen.')}</p><button data-programme-retry>${L('Yritä uudelleen','Försök igen')}</button></section></div>`;
     root.querySelector('[data-programme-retry]').onclick=()=>{root.setAttribute('aria-busy','true');renderProgrammes(root,lang,e)};
