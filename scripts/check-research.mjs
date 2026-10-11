@@ -1,3 +1,4 @@
+import { openFilterPanels } from './browser-filter-checks.mjs';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {filterResearchSpeeches,researchSummary} from '../speech-research.js';
@@ -57,9 +58,11 @@ export async function checkResearch(page,navigate,data,audit) {
   const report=researchSummary(corpus,texts,firstTerm.word,'word');
   assert.equal(months.reduce((n,row)=>n+row.words,0),report.words);
   assert.equal(months.reduce((n,row)=>n+row.occurrences,0),report.occurrences);
+  await openFilterPanels(page);
   await page.locator('[data-research-link]').click();
   await page.waitForFunction(()=>document.querySelector('[data-filter]')?.getAttribute('aria-busy')==='false'&&document.querySelector('[data-research-summary] h2'));
   assert.equal(await page.locator('[data-speech-count]').innerText(),matches.length.toLocaleString('fi-FI')+' puheenvuoroa');
+  await openFilterPanels(page);
   await page.locator('[data-speech-exclude]').fill(firstTerm.word);
   await page.waitForFunction(()=>document.querySelector('[data-speech-count]')?.textContent==='0 puheenvuoroa');
   await page.locator('[data-speech-exclude]').fill('');

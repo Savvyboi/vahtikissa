@@ -14,7 +14,9 @@ export function percent(part, total) {
 export function routeFromHash(hash) {
   const parts = String(hash || '').split('?')[0].replace(/^#\/?/, '').split('/').filter(Boolean);
   if (parts.length === 1 && parts[0] === 'content') return { page: 'overview', id: null };
-  return { page: parts[0] || 'overview', id: parts[1] ? decodeURIComponent(parts.slice(1).join('/')) : null };
+  let id = parts[1] ? parts.slice(1).join('/') : null;
+  try { if (id) id = decodeURIComponent(id); } catch { /* Malformed links still render a recoverable not-found page. */ }
+  return { page: parts[0] || 'overview', id };
 }
 
 export function hydrateBallots(ballots, members) {

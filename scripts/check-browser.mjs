@@ -1,3 +1,4 @@
+import { openFilterPanels } from './browser-filter-checks.mjs';
 import { checkSimpleMode } from './browser-simple-checks.mjs';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
@@ -34,6 +35,7 @@ try {
     await page.evaluate(route=>{location.hash=`#/${route}`;},route);
     await page.waitForFunction(route=>{const main=document.querySelector('main');return main?.dataset.route===`#/${route}`&&main.getAttribute('aria-busy')==='false'&&main.querySelector('h1');},route);
     await page.locator('main[aria-busy="false"] h1').waitFor();
+    await openFilterPanels(page);
     assert.equal(await page.locator('.share-tools, [data-share]').count(),0);
     const brand=await page.locator('html').getAttribute('lang')==='sv'?'Vaktkatt':'Vahtikissa';
     assert.ok((await page.title()).endsWith(' | '+brand),'The document title identifies the current view and localized brand');

@@ -1,3 +1,4 @@
+import { foldFilterToolbars } from './filter-panels.js';
 import { budgetLevel, budgetClosestPath, budgetShare, budgetChange, budgetTotals, budgetTreemap, budgetEntries, searchBudgetEntries } from './budget-utils.js';
 import { fetchJSONWithTimeout } from './app-utils.js';
 import { preservePageScroll, pushRoute } from './navigation.js';
@@ -140,7 +141,7 @@ export async function renderBudget(root,lang,routeId,escapeHTML) {
     if(search){
       search.oninput=event=>{state.query=event.target.value;preserveFocus(root,redraw);};
       search.onkeydown=event=>{if(event.key==='Escape'&&state.query){event.preventDefault();state.query='';preserveFocus(root,redraw);}};
-      root.querySelector('[data-budget-clear-search]').onclick=()=>{state.query='';redraw();root.querySelector('[data-budget-search]')?.focus({preventScroll:true});};
+      root.querySelector('[data-budget-clear-search]').onclick=()=>{state.query='';preserveFocus(root,redraw);root.querySelector('[data-budget-search]')?.focus({preventScroll:true});};
       root.querySelector('[data-budget-search-scope]').onchange=event=>preserveFocus(root,()=>{state.searchScope=event.target.value;redraw();});
     }
     root.querySelectorAll('[data-budget-reset]').forEach(button=>button.onclick=()=>{
@@ -156,6 +157,7 @@ export async function renderBudget(root,lang,routeId,escapeHTML) {
       root.querySelector('[data-tool="direction"] option[value="asc"]').textContent=L('Nouseva','Stigande','Ascending');
       root.querySelector('[data-tool="direction"] option[value="desc"]').textContent=L('Laskeva','Fallande','Descending');
     }
+    foldFilterToolbars(root,lang);
     const exportItems=leaf?[{...level.node,path:codes}]:items;
     bindExportButtons(root,'budget',()=>exportItems.map(item=>({year:year.year,type,metric:state.metric,actualThroughMonth:year.latestMonth,code:item.code,path:item.path.join('/'),name:name(item,lang),budget:item.budget,original:item.original,actual:item.actual,sharePercent:budgetShare(amount(item),scope),changePercent:delta(item)})),`vahtikissa-budjetti-${year.year}-${type}`);
   }

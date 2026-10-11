@@ -14,11 +14,16 @@ const $ = selector => document.querySelector(selector);
 const root = $('#content');
 const e = escapeHTML;
 let data;
-let readingView = readingMode(location.search, localStorage.getItem('vahtikissa-view'));
+// Preferences are optional: blocked storage must not prevent reading public data.
+const preferences = {
+  get(key) { try { return localStorage.getItem(key); } catch { return null; } },
+  set(key, value) { try { localStorage.setItem(key, value); } catch {} }
+};
+let readingView = readingMode(location.search, preferences.get('vahtikissa-view'));
 const speechTexts = {};
 const speechTextPromises = new Map();
-let lang = ['fi','sv','en'].includes(localStorage.getItem('vahtikissa-lang')) ? localStorage.getItem('vahtikissa-lang') : 'fi';
-let theme = ['light','dark','contrast'].includes(localStorage.getItem('vahtikissa-theme')) ? localStorage.getItem('vahtikissa-theme') : 'light';
+let lang = ['fi','sv','en'].includes(preferences.get('vahtikissa-lang')) ? preferences.get('vahtikissa-lang') : 'fi';
+let theme = ['light','dark','contrast'].includes(preferences.get('vahtikissa-theme')) ? preferences.get('vahtikissa-theme') : 'light';
 const state = {
   votes: 1, speeches: 1, legislation: 1, memberVotes: 1, memberSpeeches: 1,
   voteFilters: { query: '', outcome: 'all', type: 'all', stage: 'all', topic: 'all', committee: 'all' },
@@ -139,7 +144,7 @@ function applyViewChrome(){
   document.querySelectorAll('.nav a').forEach(a=>a.textContent=simple&&names[a.dataset.page]||t(a.dataset.page));
 }
 function setReadingView(mode){
-  readingView=mode;localStorage.setItem('vahtikissa-view',mode);
+  readingView=mode;preferences.set('vahtikissa-view',mode);
   history.replaceState(history.state,'',readingModeURL(location.href,mode));
   applyViewChrome();
   if(data)render();else if(lastLoadError)loadError(lastLoadError);else loadingView();
@@ -407,8 +412,8 @@ function setup(){
   applyChrome();applyViewChrome();applyLocalizedExtras();applyTheme();const closeSearch=setupSearch(()=>closeMenu());
   $('.view-toggle').onclick=()=>{closeSearch();closeMenu();setReadingView(readingView==='simple'?'full':'simple')};
   root.addEventListener('click',event=>{if(event.target.closest('[data-full-view]')){closeSearch();closeMenu();setReadingView('full');root.focus({preventScroll:true})}});
-  $('.language-select').onchange=event=>{lang=event.target.value;localStorage.setItem('vahtikissa-lang',lang);applyChrome();applyViewChrome();applyLocalizedExtras();closeSearch();closeMenu();if(data)render();else if(lastLoadError)loadError(lastLoadError);else loadingView()};
-  $('.theme-select').onchange=event=>{theme=event.target.value;localStorage.setItem('vahtikissa-theme',theme);applyTheme()};
+  $('.language-select').onchange=event=>{lang=event.target.value;preferences.set('vahtikissa-lang',lang);applyChrome();applyViewChrome();applyLocalizedExtras();closeSearch();closeMenu();if(data)render();else if(lastLoadError)loadError(lastLoadError);else loadingView()};
+  $('.theme-select').onchange=event=>{theme=event.target.value;preferences.set('vahtikissa-theme',theme);applyTheme()};
   menu.onclick=()=>{closeSearch();const open=nav.classList.toggle('open');menu.setAttribute('aria-expanded',open);menu.setAttribute('aria-label',open?ui('Sulje valikko','Stäng meny','Close menu'):ui('Avaa valikko','Öppna meny','Open menu'));menu.textContent=open?'×':t('menu');document.body.classList.toggle('menu-open',open);if(open)nav.querySelector('a')?.focus({preventScroll:true});else menu.focus({preventScroll:true})};
   document.querySelectorAll('.nav a').forEach(link=>link.onclick=()=>{closeSearch();closeMenu()});
   document.addEventListener('click',event=>{if(!nav.contains(event.target)&&!menu.contains(event.target))closeMenu()});

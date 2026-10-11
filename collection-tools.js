@@ -1,3 +1,4 @@
+import { foldControls, foldFilterToolbars } from './filter-panels.js';
 import { escapeHTML as e } from './app-utils.js';
 
 const copy = {
@@ -119,18 +120,12 @@ export function mountCollectionTools(parent, key, state, config, lang, onChange)
     updateCount(); onChange();
   };
   updateCount();
+  if (!parent.closest('[data-budget-refine]')) foldControls(panel, lang, { key: `collection-${key}`, sort: true, state });
   return panel;
 }
 
 export function collapseQuickFilters(root, lang) {
-  root.querySelectorAll('.vote-filters,.member-filters,.legislation-controls,.speech-filters,.influence-filters,.election-filters').forEach(toolbar=>{
-    if (toolbar.querySelector('.quick-filters')) return;
-    const controls=[...toolbar.children].filter(element=>element.tagName==='LABEL'||element.tagName==='SELECT');
-    if (!controls.length) return;
-    const details=document.createElement('details');details.className='quick-filters';
-    const summary=document.createElement('summary');summary.textContent=lang==='en'?'Choose a quick filter':lang==='sv'?'Välj en snabbavgränsning':'Valitse pikarajaus';details.append(summary);
-    const fields=document.createElement('div');fields.className='quick-filter-fields';fields.append(...controls);details.append(fields);toolbar.append(details);
-  });
+  foldFilterToolbars(root, lang);
 }
 
 // Civic views rebuild their markup. Preserve the focused control and its caret.
@@ -142,9 +137,9 @@ export function preserveFocus(root, render) {
   const signature = active ? [...active.attributes].filter(attribute => attribute.name.startsWith('data-')).map(attribute => [attribute.name, attribute.value]) : [];
   const value = active?.value, position = active?.selectionStart;
   const collection = active?.closest('[data-collection]')?.dataset.collection;
-  const quickOpen=[...root.querySelectorAll('.quick-filters')].map(details=>details.open);
+  const panelOpen = new Map([...root.querySelectorAll('[data-filter-panel]')].map(panel => [panel.dataset.filterPanel, panel.open]));
   render();
-  root.querySelectorAll('.quick-filters').forEach((details,index)=>{details.open=quickOpen[index]||false;});
+  root.querySelectorAll('[data-filter-panel]').forEach(panel => { if (panelOpen.has(panel.dataset.filterPanel)) panel.open = panelOpen.get(panel.dataset.filterPanel); });
   const scope = collection ? [...root.querySelectorAll('[data-collection]')].find(panel => panel.dataset.collection === collection) : root;
   const candidates = [...(scope?.querySelectorAll('input, select, button, summary, a') || [])];
   const target = (id && document.getElementById(id)) || (signature.length ? candidates.find(input => signature.every(([name, content]) => input.getAttribute(name) === content) && (input.type !== 'checkbox' || input.value === value)) : null) || (!collection ? candidates[index] : null);

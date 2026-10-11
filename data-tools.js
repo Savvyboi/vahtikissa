@@ -6,7 +6,9 @@ function flatValue(value) {
 }
 
 function csvCell(value) {
-  const text = flatValue(value);
+  const raw = flatValue(value);
+  // Spreadsheet software must treat source-provided text as text, not a formula.
+  const text = typeof value === 'number' || !/^[\t\r\n]|^[\s\u0000-\u001f]*[=+@-]/u.test(raw) ? raw : "'" + raw;
   return /["\r\n,;]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
 }
 

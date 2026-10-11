@@ -1,3 +1,4 @@
+import { foldFilterToolbars } from './filter-panels.js';
 import { escapeHTML as e, fetchJSONWithTimeout } from './app-utils.js';
 import { budgetLevel, budgetClosestPath, budgetTotals, budgetEntries, searchBudgetEntries } from './budget-utils.js';
 import { filterElectionCandidates, filterInfluence } from './civic-utils.js';
@@ -58,6 +59,7 @@ function bindPages(root, state, draw) {
   root.querySelectorAll('[data-easy-page]').forEach(button => button.onclick = () => { state.page = Number(button.dataset.easyPage); preserveFocus(root, draw); });
 }
 function bindFilters(root, state, draw) {
+  foldFilterToolbars(root, document.documentElement.lang);
   root.querySelectorAll('[data-easy-filter]').forEach(control => {
     control.addEventListener(control.type === 'search' ? 'input' : 'change', () => {
       state[control.dataset.easyFilter] = control.value; state.page = 1; preserveFocus(root, draw);

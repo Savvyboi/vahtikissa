@@ -1,3 +1,4 @@
+import { openFilterPanels } from './browser-filter-checks.mjs';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 export async function checkNewPages(page,navigate) {
@@ -46,6 +47,7 @@ export async function checkNewPages(page,navigate) {
   assert.match(await page.locator('.budget-explorer-head').innerText(),/tarkin taso/);
   assert.equal(await page.locator('.budget-item-metrics > div').count(),3);
   assert.equal(await page.locator('[data-budget-view], [data-budget-refine], [data-budget-compare]').count(),0,'Leaf items show their figures without irrelevant chart controls');
+  await openFilterPanels(page);
   assert.ok(await page.locator('[data-budget-search]').isVisible());
   await page.locator('.budget-back').first().click();
   assert.equal(await page.locator('main').getAttribute('data-route'),`#/budget/${latest.year}/${type}/${main.code}/${chapter.code}`);
@@ -80,6 +82,7 @@ export async function checkNewPages(page,navigate) {
   await page.locator('[data-budget-reset]').first().click();
   assert.equal(await page.locator('[data-budget-search]').inputValue(),'');
   assert.equal(await page.locator('.budget-detail-table tbody tr').count(),latest.expense.length);
+  await openFilterPanels(page);
   await page.locator('[data-budget-search]').fill(dotted);
   await page.locator('[data-budget-search]').press('Escape');
   assert.equal(await page.locator('[data-budget-search]').inputValue(),'');

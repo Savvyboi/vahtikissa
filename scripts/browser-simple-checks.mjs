@@ -1,3 +1,4 @@
+import { openFilterPanels } from './browser-filter-checks.mjs';
 import assert from 'node:assert/strict';
 import { readFile, mkdir } from 'node:fs/promises';
 import { createRequire } from 'node:module';
@@ -14,6 +15,7 @@ export async function checkSimpleMode(browser,url){
       const main=document.querySelector('main');
       return main?.dataset.route===('#/'+route)&&main.dataset.view===view&&main.getAttribute('aria-busy')==='false'&&main.querySelector('h1');
     },{route,view});
+    await openFilterPanels(page);
     await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
   };
   const navigate=async route=>{await page.evaluate(route=>{location.hash='#/'+route},route);await ready(route)};

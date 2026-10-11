@@ -1,3 +1,4 @@
+import { openFilterPanels } from './browser-filter-checks.mjs';
 import assert from 'node:assert/strict';
 import { followPrimaryNavigation } from './browser-navigation-checks.mjs';
 
@@ -59,7 +60,7 @@ export async function checkUI(page, navigate, data) {
   for(const tab of ['gifts','interests','lobbying']){await navigate('influence');await page.locator(`[data-influence-tab="${tab}"]`).click();await inspectFields();}
 
   // Every member image must decode, including lazy images below the viewport.
-  await navigate('members');await page.locator('[data-member-query]').fill('');
+  await navigate('members');await openFilterPanels(page);await page.locator('[data-member-query]').fill('');
   if(!await page.locator('[data-member-party]').isVisible())await page.locator('[data-member-party]').evaluate(e=>e.closest('details').open=true);
   await page.locator('[data-member-party]').selectOption('all');
   assert.equal(await page.locator('.member-portrait').count(),data.members.length);

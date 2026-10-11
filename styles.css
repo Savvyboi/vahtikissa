@@ -395,3 +395,14 @@ html[data-theme="dark"] .nav a.nav-civic,html[data-theme="contrast"] .nav a.nav-
   .budget-detail-table td:first-child a{display:block;margin-bottom:.35rem}
   .budget-detail-table td:not(:first-child)::before{margin-right:.35rem}
 }
+/* Compact, keyboard-accessible search and sorting disclosures. */
+.filter-panel{min-width:0;margin:1rem 0;border:1px solid var(--line);border-radius:var(--radius);background:var(--white)}
+.filter-panel>summary{display:flex;align-items:center;gap:.65rem;min-height:48px;padding:.7rem 1rem;color:var(--ink);font-size:.9rem;font-weight:700;cursor:pointer;list-style:none;overflow-wrap:anywhere}
+.filter-panel>summary::-webkit-details-marker{display:none}
+.filter-panel>summary::after{content:"";width:.45rem;height:.45rem;flex:0 0 auto;margin-left:auto;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg)}
+.filter-panel[open]>summary::after{transform:rotate(225deg)}
+.filter-panel>summary:hover{background:var(--light-blue);border-radius:var(--radius)}
+.filter-panel-count{font-size:.75rem;font-weight:500;color:var(--muted)}
+.filter-panel>.collection-tools,.filter-panel>.filters,.filter-panel>.civic-toolbar,.filter-panel>.programme-filters,.filter-panel>.budget-search-controls,.filter-panel>.research-controls,.filter-panel>.easy-toolbar{margin:0;padding:1rem;border:0;border-top:1px solid var(--line);border-radius:0;background:transparent}
+.cat-paw{display:inline-block;width:20px;height:22px;flex:0 0 auto;color:var(--blue);background:radial-gradient(ellipse 6px 5px at 50% 75%,currentColor 96%,transparent),radial-gradient(ellipse 2.5px 3.5px at 13% 39%,currentColor 94%,transparent),radial-gradient(ellipse 2.5px 3.5px at 36% 19%,currentColor 94%,transparent),radial-gradient(ellipse 2.5px 3.5px at 65% 19%,currentColor 94%,transparent),radial-gradient(ellipse 2.5px 3.5px at 88% 39%,currentColor 94%,transparent)}
+@media(max-width:600px){.filter-panel>summary{flex-wrap:wrap;gap:.4rem .6rem;padding:.65rem .8rem}.filter-panel-count{font-size:.72rem}.filter-panel>.collection-tools,.filter-panel>.filters,.filter-panel>.easy-toolbar{padding:.8rem}}

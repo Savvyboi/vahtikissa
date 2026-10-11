@@ -85,3 +85,5 @@ html[data-theme="dark"] .easy-choices button[aria-pressed="true"],html[data-them
 .search-panel{top:calc(var(--site-header-height,70px) + 8px);max-height:min(680px,calc(100dvh - var(--site-header-height,70px) - 24px))}
 .easy-choices>div{flex:1 1 220px;min-width:0;padding:1rem;border:1px solid var(--line);border-radius:8px;background:var(--white)}
 .easy-choices dt{font-weight:700;color:var(--blue)}.easy-choices dd{margin:.4rem 0 0;overflow-wrap:anywhere}
+/* A tiny cat silhouette on the reading-mode switch. */
+.view-toggle-track::after{top:0;bottom:2px;border-radius:45%;clip-path:polygon(0 0,34% 22%,66% 22%,100% 0,100% 70%,85% 92%,50% 100%,15% 92%,0 70%)}

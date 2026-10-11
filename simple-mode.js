@@ -1,3 +1,4 @@
+import { foldFilterToolbars } from './filter-panels.js';
 import { escapeHTML as e, formatDate, policyTopicKeys, policyTopicOptions, voteOutcome, voteAlternatives, choiceLabel, legislationStatusTone, speechParagraphs, parliamentMatterUrl } from './app-utils.js';
 import { renderSimpleCivic } from './simple-civic.js';
 
@@ -141,6 +142,7 @@ function mountCollection(parent, view, { key, items, card, filter, controls = []
     const replacement = next ? pagination.querySelector('button:last-child') : pagination.querySelector('button:first-child');
     (replacement?.disabled ? pagination.querySelector('button:not(:disabled)') : replacement)?.focus({ preventScroll: true });
   });
+  foldFilterToolbars(parent, view.lang);
   redraw();
 }
 
