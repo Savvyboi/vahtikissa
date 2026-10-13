@@ -1,7 +1,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeSpeech, normalizeMatter, splitSpeeches, buildSpeechSearchIndex } from '../scripts/sync-data.mjs';
+import { normalizeSpeech, normalizeMatter, splitSpeeches, buildSpeechSearchIndex, buildSessions } from '../scripts/sync-data.mjs';
 import { decodeSpeechSearchIndex, searchSpeeches } from '../app-utils.js';
+
+test('sessions include debate-only days, combine votes and speeches, and stay in date order', () => {
+  const votes = [{id:'v1',year:'2026',sessionNumber:'94',date:'2026-10-07T14:02:00+03:00'},{id:'v2',year:'2026',sessionNumber:'94',date:'2026-10-07T14:05:00+03:00'},{id:'v3',year:'2026',sessionNumber:'92',date:'2026-10-02'}];
+  const speeches = [{session:'2026-96',date:'2026-10-09T10:20:00Z'},{session:'2026-95',date:'2026-10-09T00:30:00Z'},{session:'2026-95',date:'2026-10-08T20:00:00Z'},{session:'2026-94',date:'2026-10-07'},{session:'',date:'2026-10-09'},{session:'2023-1',date:'2023-03-01'}];
+  const sessions = buildSessions(votes, speeches);
+  assert.deepEqual(sessions.map(s=>[s.id,s.voteIds,s.speechCount]),[['2026-96',[],1],['2026-95',[],2],['2026-94',['v1','v2'],1],['2026-92',['v3'],0]]);
+  assert.equal(sessions[0].date,'2026-10-09');
+  assert.equal(sessions[1].date,'2026-10-08','An overnight debate keeps its opening day');
+  assert.equal(sessions[0].title,'Täysistunto 96/2026');
+  assert.equal(sessions[0].titleSv,'Plenum 96/2026');
+});
 
 test('speech normalization preserves the complete speech and Swedish metadata', () => {
   const longSpeech = `Början ${'x'.repeat(1500)} slut`;

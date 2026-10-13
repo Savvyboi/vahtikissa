@@ -12,6 +12,7 @@ export function parliamentChunks(data, committeeIndex = {}) {
   const legislation = data.legislation.map(matter => ({ ...matter, committees: committeeIndex.matters?.[matter.id] || [] }));
   const byVote = new Map(votes.map(vote => [vote.id, []]));
   const byMember = new Map(data.members.map(member => [String(member.id), { ballots: [], speeches: [] }]));
+  const bySession = new Map(data.sessions.map(session => [session.id, []]));
   const partyVotes = {};
   for (const ballot of data.ballots) {
     const [voteId, mpId, party, choice] = Array.isArray(ballot) ? ballot : [ballot.voteId, ballot.mpId, ballot.party, ballot.choice];
@@ -21,7 +22,10 @@ export function parliamentChunks(data, committeeIndex = {}) {
     tally[choice] = (tally[choice] || 0) + 1;
     tally.total++;
   }
-  for (const speech of data.speeches) byMember.get(String(speech.mpId))?.speeches.push(speech);
+  for (const speech of data.speeches) {
+    byMember.get(String(speech.mpId))?.speeches.push(speech);
+    bySession.get(speech.session)?.push(speech);
+  }
   const mattersByVote = new Map();
   for (const matter of legislation) for (const id of matter.voteIds || []) {
     if (!mattersByVote.has(id)) mattersByVote.set(id, []);
@@ -40,6 +44,7 @@ export function parliamentChunks(data, committeeIndex = {}) {
     legislation: mattersByVote.get(vote.id) || (mattersById.has(vote.document) ? [mattersById.get(vote.document)] : [])
   }));
   data.members.forEach((member, index) => chunks.set(`member-${index}.json`, { snapshot, ...byMember.get(String(member.id)) }));
+  data.sessions.forEach((session, index) => chunks.set('session-' + index + '.json', { snapshot, speeches: bySession.get(session.id) }));
   return chunks;
 }
 

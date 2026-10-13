@@ -1,3 +1,4 @@
+import { snapshotNote } from './data-freshness.js';
 import { readingMode, readingModeURL } from './reading-mode.js';
 import { createParliamentLoader } from './parliament-data.js';
 import { setupBackToTop } from './back-to-top.js';
@@ -100,7 +101,7 @@ function addTools(before, key, state, config, change) {
 function updateFooterTimestamp(){if(!data?.metadata?.generatedAt)return;$('.footer-updated').textContent=ui('Eduskunnan data synkronoitu viimeksi','Riksdagens data senast synkroniserad','Parliamentary snapshot last updated')+' '+fmtDate(data.metadata.generatedAt)}
 const englishGuides = {
   overview:'Follow the Finnish Parliament through votes, speeches and legislation. Choose a section in the navigation or search for an MP.',
-  sessions:'Open a plenary session to see its votes. Dates and vote counts help you find the session you need.',
+  sessions:'Open a plenary session to see its votes and speeches. Sessions without recorded votes are included.',
   votes:'Search a topic or document number, then open a vote to see the alternatives and each MP’s recorded vote.',
   members:'Search for an MP by name or party. Open their profile to explore voting, participation and speeches.',
   parties:'Open a party to explore its members and parliamentary activity.',
@@ -122,6 +123,11 @@ function updateRouteContext(route,{announce=true}={}){
     // Preserve the latest reader position before asynchronous route rendering finishes.
     const position=currentScrollPosition();
     (root.querySelector('.page')||root).prepend(note);
+    window.scrollTo({left:position.x,top:position.y,behavior:'instant'});
+  }
+  if(['overview','votes','sessions','speeches'].includes(route.page) && !root.querySelector('.load-error,.data-freshness')) {
+    const page=root.querySelector('.page,.easy-page'),position=currentScrollPosition();
+    page?.querySelector('.hero,.page-head,.easy-hero')?.insertAdjacentHTML('afterend',snapshotNote(data.metadata,lang));
     window.scrollTo({left:position.x,top:position.y,behavior:'instant'});
   }
   if(announce){const status=$('#route-status');status.textContent='';requestAnimationFrame(()=>{status.textContent=ui(label+' avattu',label+' har öppnats',label+' opened')})}
@@ -339,7 +345,15 @@ function legislation(id){
 
 
 function parties(id){if(id){const p=data.parties.find(x=>x.code===id);if(!p)return notFound();const ms=data.members.filter(m=>m.party===id);return `<div class="page">${header(lang==='sv'?'Riksdagsgrupp':'Eduskuntaryhmä',titleFor(id))}<div class="detail-grid"><div>${table([t('members'),t('participation'),t('partyLine'),t('speeches')],memberRows(ms))}</div><aside class="aside"><h2>${lang==='sv'?'Gruppstatistik':'Ryhmäluvut'}</h2><dl><dt>${t('participation')}</dt><dd>${p.stats.participation}%</dd><dt>${t('votes')}</dt><dd>${p.stats.votes.toLocaleString(lang)}</dd><dt>${t('speeches')}</dt><dd>${p.stats.speeches.toLocaleString(lang)}</dd></dl></aside></div></div>`}return `<div class="page">${header(t('parliament'),t('parties'))}<div class="cards">${data.parties.map(p=>`<a class="card" href="${href('parties',p.code)}"><span class="pill">${e(p.code.toUpperCase())}</span><h3>${e(titleFor(p.code))}</h3><div class="big">${p.stats.participation}%</div></a>`).join('')}</div></div>`}
-function sessions(id){if(id){const s=data.sessions.find(x=>x.id===id);if(!s)return notFound();const ids=new Set(s.voteIds),title=lang==='sv'&&s.titleSv||s.title;return `<div class="page">${header(t('sessions'),title,fmtDate(s.date))}${table([t('day'),t('matter'),t('result')],voteRows(data.votes.filter(v=>ids.has(v.id))))}</div>`}return `<div class="page">${header(t('parliament'),t('sessions'))}<div class="cards">${data.sessions.map(s=>`<a class="card" href="${href('sessions',s.id)}"><div class="date">${fmtDate(s.date)}</div><h3>${e(lang==='sv'&&s.titleSv||s.title)}</h3><div class="big">${s.voteIds.length}</div><p>${t('votes').toLowerCase()}</p></a>`).join('')}</div></div>`}
+function sessions(id){
+  if(id){
+    const session=data.sessions.find(item=>item.id===id);if(!session)return notFound();
+    const ids=new Set(session.voteIds),votes=data.votes.filter(vote=>ids.has(vote.id));
+    const rows=data.speeches.map(speech=>'<tr><td>'+fmtDate(speech.date)+'</td><td><a href="'+href('members',speech.mpId)+'">'+e(memberName(speech))+'</a><span class="sub">'+e(titleFor(speech.party))+'</span></td><td><a href="'+href('speeches',speech.id)+'">'+e(lang==='sv'&&speech.agendaSv||speech.agenda||t('speeches'))+'</a></td></tr>').join('');
+    return '<div class="page">'+header(t('sessions'),lang==='sv'&&session.titleSv||session.title,fmtDate(session.date))+'<section class="section"><h2>'+t('votes')+'</h2>'+(votes.length?table([t('day'),t('matter'),t('result')],voteRows(votes)):'<p>'+ui('Istunnossa ei ole kirjattuja nimettyjä äänestyksiä.','Inga namnupprop är registrerade i detta plenum.','No recorded roll-call votes in this session.')+'</p>')+'</section><section class="section session-speeches"><h2>'+t('speeches')+' ('+data.speeches.length+')</h2>'+(rows?table([t('day'),t('members'),t('matter')],rows):'<p>'+t('noData')+'</p>')+'</section></div>';
+  }
+  return '<div class="page">'+header(t('parliament'),t('sessions'),ui('Istunnot, joissa on julkaistuja äänestyksiä tai puheenvuoroja.','Plenum med publicerade omröstningar eller anföranden.','Sessions with published votes or speeches.'))+'<div class="cards"></div></div>';
+}
 function about(){
   const fi=lang==='fi';
   const sections=fi?[
@@ -377,7 +391,7 @@ function decorateCards(page){
   const items=data[page],sessionsPage=page==='sessions';
   const config=sessionsPage?{label:t('sessions'),search:item=>[item.title,item.titleSv,item.id],date:item=>item.date,sorts:[{key:'date',label:t('day'),value:item=>item.date},{key:'votes',label:t('votes'),value:item=>item.voteIds.length},{key:'name',label:t('sessions'),value:item=>(lang==='sv'&&item.titleSv)||item.title}],number:{label:t('votes'),value:item=>item.voteIds.length},facets:[facet('year',label('Vuosi','År'),items,item=>item.year)]}:{label:t('parties'),search:item=>titleFor(item.code),sorts:[{key:'name',label:t('parties'),value:item=>titleFor(item.code)},...[['participation',t('participation')],['votes',t('votes')],['speeches',t('speeches')]].map(([key,label])=>({key,label,value:item=>item.stats[key]}))],facets:[facet('party',t('parties'),items,item=>item.code,titleFor)]};
   const extra=toolState(page,config.sorts[0].key,sessionsPage?'desc':'asc'),holder=document.createElement('div'),status=document.createElement('p');status.setAttribute('role','status');status.className='filter-summary';target.before(holder,status);
-  const redraw=()=>{const filtered=applyCollection(items,extra,config,lang);status.textContent=`${filtered.length} ${t(page).toLocaleLowerCase(lang)}`;target.innerHTML=filtered.map(item=>sessionsPage?`<a class="card" href="${href(page,item.id)}"><time class="date" datetime="${e(item.date)}">${fmtDate(item.date)}</time><h2>${e((lang==='sv'&&item.titleSv)||item.title)}</h2><div class="big">${item.voteIds.length}</div><p>${t('votes')}</p></a>`:`<a class="card" href="${href(page,item.code)}"><span class="pill">${e(item.code.toUpperCase())}</span><h2>${e(titleFor(item.code))}</h2><div class="big">${item.stats.participation}%</div><p>${t('participation')}</p></a>`).join('')||`<div class="empty">${t('noData')}</div>`};
+  const redraw=()=>{const filtered=applyCollection(items,extra,config,lang);status.textContent=`${filtered.length} ${t(page).toLocaleLowerCase(lang)}`;target.innerHTML=filtered.map(item=>sessionsPage?`<a class="card" href="${href(page,item.id)}"><time class="date" datetime="${e(item.date)}">${fmtDate(item.date)}</time><h2>${e((lang==='sv'&&item.titleSv)||item.title)}</h2><div class="big">${item.voteIds.length}</div><p>${t('votes')} · ${item.speechCount||0} ${t('speechTurns')}</p></a>`:`<a class="card" href="${href(page,item.code)}"><span class="pill">${e(item.code.toUpperCase())}</span><h2>${e(titleFor(item.code))}</h2><div class="big">${item.stats.participation}%</div><p>${t('participation')}</p></a>`).join('')||`<div class="empty">${t('noData')}</div>`};
   mountCollectionTools(holder,page,extra,config,lang,redraw);redraw();
 }
 function render(position){
@@ -386,6 +400,7 @@ function render(position){
   const current=()=>sequence===routeRenderSequence&&location.hash===routeKey&&lang===renderLanguage&&readingView===view;
   return preservePageScroll(root,async()=>{
   try {
+  root.setAttribute('aria-busy','true');
   if(!parliamentLoader.routeReady(r,view))loadingView();
   const [routeData,viewModule]=await Promise.all([parliamentLoader.loadRoute(r,view),loadViewModule(r,view)]);
   if(!current())return;
@@ -397,7 +412,7 @@ function render(position){
   if(readingView==='simple'){
     const pending=viewModule.renderSimple(root,{data,lang,route:r,loadSpeechTexts,speechTexts,titleFor});
     if(previousView!==undefined&&previousView!==routeKey)root.focus({preventScroll:true});
-    const finish=()=>{if(location.hash===routeKey&&lang===renderLanguage&&readingView==='simple')updateRouteContext(r)};
+    const finish=()=>{if(current())updateRouteContext(r)};
     if(pending?.then)return await pending.finally(finish);
     finish();return;
   }
@@ -407,11 +422,11 @@ function render(position){
   if(r.page==='votes'&&r.id)bindVoteFilters(r.id);
   if(r.page==='legislation'&&r.id){const item=data.legislation.find(matter=>matter.id===r.id);if(item)decorateLegislationDetail(item)}
   if(r.page==='overview')decorateTableCollection('overview-votes',data.votes,voteTools(data.votes),items=>table([t('day'),t('matter'),t('result')],voteRows(items)),voteExportRows,'vahtikissa-uusimmat-aanestykset',8);
-  if(r.page==='sessions'&&r.id){const session=data.sessions.find(item=>item.id===r.id),ids=new Set(session?.voteIds||[]);decorateTableCollection('session-votes',data.votes.filter(vote=>ids.has(vote.id)),voteTools(data.votes.filter(vote=>ids.has(vote.id))),items=>table([t('day'),t('matter'),t('result')],voteRows(items)),voteExportRows,`vahtikissa-istunto-${r.id}`)}
+  if(r.page==='sessions'&&r.id&&data.sessions.find(item=>item.id===r.id)?.voteIds.length){const session=data.sessions.find(item=>item.id===r.id),ids=new Set(session?.voteIds||[]);decorateTableCollection('session-votes',data.votes.filter(vote=>ids.has(vote.id)),voteTools(data.votes.filter(vote=>ids.has(vote.id))),items=>table([t('day'),t('matter'),t('result')],voteRows(items)),voteExportRows,`vahtikissa-istunto-${r.id}`)}
   if(r.page==='parties'&&r.id){const items=data.members.filter(member=>member.party===r.id);decorateTableCollection('party-members',items,memberTools(items),items=>table([t('members'),t('participation'),t('partyLine'),t('speeches')],memberRows(items)),items=>items.map(member=>({id:member.id,name:memberName(member),party:titleFor(member.party),...member.stats})),`vahtikissa-${r.id}-kansanedustajat`)}
   if(['sessions','parties'].includes(r.page)&&!r.id)decorateCards(r.page);
   if(previousView!==undefined&&previousView!==routeKey)root.focus({preventScroll:true});
-  if(pending)return await pending.finally(()=>{if(location.hash===routeKey&&lang===renderLanguage&&readingView==='full')updateRouteContext(r)});
+  if(pending)return await pending.finally(()=>{if(current())updateRouteContext(r)});
   updateRouteContext(r);
   } catch(error) { if(current()){root.dataset.route=routeKey;loadError(error)} }
   },position);

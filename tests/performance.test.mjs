@@ -7,9 +7,9 @@ const fixture = () => ({
   metadata: { generatedAt: '2026-10-11T20:00:00Z', counts: { speeches: 2, ballots: 3 } },
   votes: [{ id: 'v1', document: 'HE 1/2026 vp' }, { id: 'v2' }],
   ballots: [['v1', '1', 'kok', 'yes'], ['v1', '2', 'sd', 'no'], ['v2', '1', 'kok', 'absent']],
-  speeches: [{ id: 's1', mpId: '1' }, { id: 's2', mpId: '2' }],
+  speeches: [{ id: 's1', mpId: '1', session: '2026-96' }, { id: 's2', mpId: '2', session: '2026-94' }],
   members: [{ id: '1', firstName: 'A', lastName: 'One' }, { id: '2', firstName: 'B', lastName: 'Two' }],
-  sessions: [], parties: [], legislation: [{ id: 'HE 1/2026 vp', voteIds: ['v1'] }]
+  sessions: [{id:'2026-96',voteIds:[],speechCount:1},{id:'2026-94',voteIds:['v1'],speechCount:1}], parties: [], legislation: [{ id: 'HE 1/2026 vp', voteIds: ['v1'] }]
 });
 const committeeIndex = { matters: { 'HE 1/2026 vp': [{ id: 'VaV', name: 'Valtiovarainvaliokunta' }] } };
 function loaderFixture() {
@@ -50,12 +50,28 @@ test('startup and full lists avoid large collections; repeated and concurrent lo
   const member = await loader.loadRoute({ page: 'members', id: '1' }, 'full');
   assert.equal(member.ballots.length, 2);
   assert.equal(member.ballots[0].firstName, 'A');
-  assert.deepEqual(member.speeches, [{ id: 's1', mpId: '1' }]);
+  assert.deepEqual(member.speeches, [fixture().speeches[0]]);
   assert.equal(loader.routeReady({ page: 'members', id: '1' }, 'full'), true);
   await loader.loadRoute({ page: 'members', id: '1' }, 'simple');
   assert.equal(requests.length, 2);
   const overview = await loader.loadRoute({ page: 'overview' }, 'simple');
   assert.deepEqual(overview.ballots, [], 'Scoped data must not leak to another route');
+});
+
+test('a debate-only session loads only its own speech metadata in either reading view', async () => {
+  const { loader, requests } = loaderFixture();
+  const session = await loader.loadRoute({page:'sessions',id:'2026-96'},'full');
+  assert.deepEqual(session.speeches,[fixture().speeches[0]]);
+  assert.equal(loader.routeReady({page:'sessions',id:'2026-96'},'simple'),true);
+  assert.deepEqual(session.ballots,[]);
+  await loader.loadRoute({page:'sessions',id:'2026-96'},'simple');
+  assert.equal(requests.length,2);
+  assert.match(requests[1],/session-0.json/);
+  const other = await loader.loadRoute({page:'sessions',id:'2026-94'},'simple');
+  assert.deepEqual(other.speeches,[fixture().speeches[1]]);
+  const missing = await loader.loadRoute({page:'sessions',id:'missing'},'full');
+  assert.deepEqual(missing.speeches,[]);
+  assert.equal(requests.length,3);
 });
 
 test('simple party filters load aggregates and unknown detail links request no shards', async () => {

@@ -106,6 +106,28 @@ export function normalizeSpeech(wrapper) {
   };
 }
 
+// A debate-only plenary must remain visible even when it has no roll-call votes.
+export function buildSessions(votes, speeches) {
+  const sessions = new Map();
+  function ensure(id, date) {
+    if (!/^\d{4}-\d+$/.test(id) || !isInRange(date)) return;
+    const [year, number] = id.split('-');
+    if (!sessions.has(id)) sessions.set(id, {
+      id, year, number, date: String(date).slice(0, 10),
+      title: 'Täysistunto ' + number + '/' + year, titleSv: 'Plenum ' + number + '/' + year, voteIds: [], speechCount: 0
+    });
+    const session = sessions.get(id);
+    if (String(date).slice(0, 10) < session.date) session.date = String(date).slice(0, 10);
+    return session;
+  }
+  for (const vote of votes) ensure(vote.year + '-' + vote.sessionNumber, vote.date)?.voteIds.push(vote.id);
+  for (const speech of speeches) {
+    const session = ensure(speech.session, speech.date);
+    if (session) session.speechCount++;
+  }
+  return [...sessions.values()].sort((a, b) => b.date.localeCompare(a.date) || Number(b.number) - Number(a.number));
+}
+
 export function splitSpeeches(items, chunkSize = 1000) {
   const speechTextChunks = [];
   const speeches = items.map(({ text, ...speech }, index) => {
@@ -208,7 +230,7 @@ export async function sync() {
     return official ? { ...member, firstName: clean(official.kutsumanimi || official.etunimet), lastName: clean(official.sukunimi) } : member;
   });
   const groupBy = (items, key) => items.reduce((result, item) => ((result[key(item)] ||= []).push(item), result), {});
-  const sessions = Object.values(groupBy(votes, vote => `${vote.year}-${vote.sessionNumber}`)).map(group => ({ id: `${group[0].year}-${group[0].sessionNumber}`, year: group[0].year, number: group[0].sessionNumber, date: group[0].date, title: `Täysistunto ${group[0].sessionNumber}/${group[0].year}`, titleSv: `Plenum ${group[0].sessionNumber}/${group[0].year}`, voteIds: group.map(vote => vote.id) })).sort((a, b) => b.date.localeCompare(a.date));
+  const sessions = buildSessions(votes, speeches);
   const normalizedMatters = matterWrappers.map(normalizeMatter).filter(item => item.id && isInRange(item.firstDate));
   const committeeIndex = committeeSnapshot(normalizedMatters);
   const legislationById = new Map(normalizedMatters.map(item => {
@@ -227,7 +249,7 @@ export async function sync() {
   const legislation = [...legislationById.values()].sort((a, b) => b.latestDate.localeCompare(a.latestDate));
   const indexes = buildIndexes({ votes, ballots, speeches, members });
   const membersWithStats = members.map(member => ({ ...member, stats: indexes.members[member.id]?.stats || null }));
-  const metadata = { generatedAt: new Date().toISOString(), source: API, startDate: START_DATE, counts: { votes: votes.length, ballots: ballots.length, speeches: speeches.length, members: members.length, parties: Object.keys(indexes.parties).length, sessions: sessions.length, legislation: legislation.length, amendments: votes.filter(vote => vote.isAmendment).length } };
+  const metadata = { generatedAt: new Date().toISOString(), source: API, startDate: START_DATE, latest: { vote: votes[0]?.date || '', speech: speeches[0]?.date || '', session: sessions[0]?.date || '', matter: legislation[0]?.latestDate || '' }, counts: { votes: votes.length, ballots: ballots.length, speeches: speeches.length, members: members.length, parties: Object.keys(indexes.parties).length, sessions: sessions.length, legislation: legislation.length, amendments: votes.filter(vote => vote.isAmendment).length } };
   const packedBallots = ballots.map(ballot => [ballot.voteId, ballot.mpId, ballot.party, ballot.choice]);
   const data = { metadata, votes, ballots: packedBallots, speeches, members: membersWithStats, sessions, legislation, parties: Object.values(indexes.parties).sort((a, b) => b.stats.votes - a.stats.votes) };
   await mkdir(OUT, { recursive: true });

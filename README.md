@@ -16,7 +16,7 @@ The visual and information hierarchy is inspired by the public-facing `mijnkamer
 - Party comparison and party detail
 - Speech browser with topic filters plus MP and party frequency/word-count analytics
 - Parliamentary matter pages connecting matters, votes and amendments
-- Plenary session index
+- Plenary session index covering published votes and speeches, including sessions without roll-call votes
 - State budget explorer for 2020 onward, with clickable treemaps, bar charts, ministry/chapter/moment drill-down, original/current budgets, actuals and year comparisons
 - Parliamentary party programmes from Pohtiva’s 2023 election collection, with document type/language search, verified current representation and original source links
 - Official 2023 parliamentary election results by party, district and elected candidate
@@ -118,7 +118,7 @@ Connect the repository, use no framework preset, leave the build command empty (
 - `EDUSKUNTA_API` can override the API base URL for testing.
 - If the upstream API fails, the sync exits non-zero and does not replace the last valid dataset.
 
-Schedules are requested times, not guaranteed delivery times. GitHub can delay scheduled runs, and public-repository schedules are disabled after 60 days without activity; see [GitHub's schedule documentation](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule). Check the Actions tab after prolonged inactivity and re-enable workflows if needed. All refresh workflows also support manual execution. Source publication delays can mean there is no new data even after a successful daily refresh.
+Schedules are requested times, not guaranteed delivery times. GitHub can delay scheduled runs, and public-repository schedules are disabled after 60 days without activity; see [GitHub's schedule documentation](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule). Check the Actions tab after prolonged inactivity and re-enable workflows if needed. All refresh workflows also support manual execution. Source publication delays can mean there is no new data even after a successful daily refresh. The home, vote, speech and session pages show the last refresh separately from the latest recorded vote and speech dates. Session coverage is the union of published votes and speeches; sessions without either record are not inferred. Session details load only their own speech metadata. Validation rejects snapshots that omit a speech or vote from the session index.
 
 ## License
 

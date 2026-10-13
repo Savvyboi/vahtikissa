@@ -15,7 +15,11 @@ try {
   const context=await browser.newContext({viewport:{width:1440,height:1000}}),page=await context.newPage(),errors=[];
   page.on('pageerror',error=>errors.push(error.stack||error.message));
   const ready=()=>page.locator('main[aria-busy="false"] h1').waitFor();
-  const visit=async(route,view='full')=>{await page.goto(`${url}/?view=${view}#/${route}`);await ready();};
+  const visit=async(route,view='full')=>{
+    await page.goto(`${url}/?view=${view}#/${route}`);
+    await page.waitForFunction(({route,view})=>{const main=document.querySelector('main');return main?.dataset.route==='#/'+route&&main.dataset.view===view&&main.getAttribute('aria-busy')==='false'&&main.querySelector('h1');},{route,view});
+    assert.equal(await page.locator('.load-error').count(),0,view+' '+route+' loads successfully');
+  };
   const audit=async label=>{
     await page.addScriptTag({path:require.resolve('axe-core/axe.min.js')});
     const violations=await page.evaluate(async()=> (await axe.run(document,{runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21a','wcag21aa','wcag22aa','best-practice']}})).violations.map(v=>({id:v.id,nodes:v.nodes.map(n=>n.target)})));
@@ -33,6 +37,17 @@ try {
         for(const control of await panel.locator('input:not([type="hidden"]), select').all())assert.equal(await control.isVisible(),false,`${view} ${route} hides fields`);
       }
     }
+  }
+  const debate=data.sessions.find(session=>!session.voteIds.length&&session.speechCount);
+  assert.ok(debate,'Debate-only sessions must be present in the published snapshot');
+  for(const view of ['full','simple']) {
+    await visit('sessions/'+debate.id,view);
+    const speechLinks=page.locator('.session-speeches a[href^="#/speeches/"]');
+    assert.equal(await speechLinks.evaluateAll(links=>new Set(links.map(link=>link.hash)).size),view==='simple'?Math.min(20,debate.speechCount):debate.speechCount,'Session speeches remain accessible without votes');
+    assert.equal(await page.locator('.data-freshness time').count(),3,'Refresh, vote and speech dates are distinct');
+    const route=(await speechLinks.first().getAttribute('href')).slice(2);
+    await visit(route,view);
+    assert.ok(await page.locator(view==='simple'?'.easy-transcript':'.speech').count(),'A session speech opens successfully');
   }
   await mkdir(new URL('../.hermes-tmp.release/',import.meta.url),{recursive:true});
   for(const view of ['full','simple']) {

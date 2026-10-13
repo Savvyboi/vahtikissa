@@ -24,6 +24,16 @@ for (const key of ['votes', 'ballots', 'speeches', 'members', 'sessions', 'legis
 if (data.metadata?.startDate !== '2023-04-02') throw new Error('Unexpected data start date');
 if (data.votes.some(vote => String(vote.date).slice(0, 10) < data.metadata.startDate)) throw new Error('Vote before configured start date');
 if (data.metadata.counts.votes !== data.votes.length || data.metadata.counts.ballots !== data.ballots.length) throw new Error('Metadata counts do not match collections');
+for (const key of ['speeches','members','sessions','legislation','parties']) if (data.metadata.counts[key] !== data[key].length) throw new Error('Metadata count mismatch: ' + key);
+const sessions = new Map(data.sessions.map(session => [session.id, session]));
+const speechCounts = new Map();
+for (const speech of data.speeches) {
+  if (!sessions.has(speech.session)) throw new Error('Missing session for speech: ' + speech.id);
+  speechCounts.set(speech.session, (speechCounts.get(speech.session) || 0) + 1);
+}
+for (const session of data.sessions) if (session.speechCount !== (speechCounts.get(session.id) || 0)) throw new Error('Session speech count mismatch: ' + session.id);
+for (const vote of data.votes) if (!sessions.get(vote.year + '-' + vote.sessionNumber)?.voteIds.includes(vote.id)) throw new Error('Missing session for vote: ' + vote.id);
+if (data.metadata.latest?.vote !== data.votes[0]?.date || data.metadata.latest?.speech !== data.speeches[0]?.date) throw new Error('Latest record dates do not match the snapshot');
 const speechTexts = Object.assign({}, ...speechTextChunks);
 if (Object.keys(speechTexts).length !== data.speeches.length || data.speeches.some(speech => !(speech.id in speechTexts))) throw new Error('Full speech text collection does not match speech metadata');
 if (!Object.values(speechTexts).some(text => text.length > 1200)) throw new Error('Full speech texts are missing');

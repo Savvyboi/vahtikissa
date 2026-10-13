@@ -406,3 +406,10 @@ html[data-theme="dark"] .nav a.nav-civic,html[data-theme="contrast"] .nav a.nav-
 .filter-panel>.collection-tools,.filter-panel>.filters,.filter-panel>.civic-toolbar,.filter-panel>.programme-filters,.filter-panel>.budget-search-controls,.filter-panel>.research-controls,.filter-panel>.easy-toolbar{margin:0;padding:1rem;border:0;border-top:1px solid var(--line);border-radius:0;background:transparent}
 .cat-paw{display:inline-block;width:20px;height:22px;flex:0 0 auto;color:var(--blue);background:radial-gradient(ellipse 6px 5px at 50% 75%,currentColor 96%,transparent),radial-gradient(ellipse 2.5px 3.5px at 13% 39%,currentColor 94%,transparent),radial-gradient(ellipse 2.5px 3.5px at 36% 19%,currentColor 94%,transparent),radial-gradient(ellipse 2.5px 3.5px at 65% 19%,currentColor 94%,transparent),radial-gradient(ellipse 2.5px 3.5px at 88% 39%,currentColor 94%,transparent)}
 @media(max-width:600px){.filter-panel>summary{flex-wrap:wrap;gap:.4rem .6rem;padding:.65rem .8rem}.filter-panel-count{font-size:.72rem}.filter-panel>.collection-tools,.filter-panel>.filters,.filter-panel>.easy-toolbar{padding:.8rem}}
+
+/* Keep source freshness guidance readable in both reading views. */
+.data-freshness{font-size:.88rem;line-height:1.7;margin:1rem 0;max-width:80ch}
+
+/* Lobbying badges also need to fit narrow cards on tablets and landscape phones. */
+.influence-card-head>div{min-width:0;overflow-wrap:anywhere}
+.influence-card-head .pill{flex:0 1 45%;max-width:45%;white-space:normal;text-align:right;overflow-wrap:anywhere}

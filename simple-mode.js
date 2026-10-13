@@ -225,9 +225,9 @@ function listPage(root, view, page) {
     },
     sessions: {
       title: ui('Mitä istunnoissa tapahtui?', 'Vad hände i plenum?', 'What happened in the sessions?'),
-      lead: ui('Näissä täysistunnoissa on aineistoon tallennettuja nimettyjä äänestyksiä.', 'Dessa plenum har namnupprop registrerade i materialet.', 'These plenary sessions have recorded votes in this dataset.'),
+      lead: ui('Istunnot, joissa on julkaistuja äänestyksiä tai puheenvuoroja. Kaikissa istunnoissa ei äänestetä.', 'Plenum med publicerade omröstningar eller anföranden. Omröstningar hålls inte i varje plenum.', 'Sessions with published votes or speeches. Not every session includes a recorded vote.'),
       controls: [], items: newest(data.sessions || []),
-      card: item => `<article class="easy-card"><p class="easy-meta">${e(view.date(item.date))}</p><h3><a href="${href('sessions', item.id)}">${e(original(item, 'title', view.lang))}</a></h3><p>${view.number(item.voteIds?.length)} ${ui('äänestystä', 'omröstningar', 'votes')}</p><a class="easy-link" href="${href('sessions', item.id)}">${ui('Katso äänestykset', 'Se omröstningarna', 'See the votes')} →</a></article>`,
+      card: item => `<article class="easy-card"><p class="easy-meta">${e(view.date(item.date))}</p><h3><a href="${href('sessions', item.id)}">${e(original(item, 'title', view.lang))}</a></h3><p>${view.number(item.voteIds?.length)} ${ui('äänestystä', 'omröstningar', 'votes')} · ${view.number(item.speechCount)} ${ui('puheenvuoroa', 'anföranden', 'speeches')}</p><a class="easy-link" href="${href('sessions', item.id)}">${ui('Avaa istunto', 'Öppna plenum', 'Open session')} →</a></article>`,
       filter: (item, state) => matches(state.query, [item.title, item.titleSv, item.id, item.date]), queryLabel: ui('Hae istuntoa tai päivämäärää', 'Sök plenum eller datum', 'Search a session or date')
     },
     parties: {
@@ -339,8 +339,10 @@ function groupDetail(root, view, page, id) {
     const session = (data.sessions || []).find(item => item.id === id);
     if (!session) return notFound(root, view);
     const ids = new Set(session.voteIds || []);
-    root.innerHTML = `<div class="easy-page">${header(page, original(session, 'title', view.lang), view.date(session.date))}<section class="easy-section" data-easy-group-list></section>${view.languageNote()}<p>${view.fullButton()}</p></div>`;
-    mountCollection(root.querySelector('[data-easy-group-list]'), view, { key: `session-${id}`, title: ui('Istunnon äänestykset', 'Omröstningarna i plenum', 'Votes in this session'), items: newest((data.votes || []).filter(vote => ids.has(vote.id))), card: item => view.voteCard(item), controls: [control('topic', view.label.topic, view.topicOptions())], filter: (item, state) => (state.topic === 'all' || policyTopicKeys(item).includes(state.topic)) && matches(state.query, [item.title, item.titleSv, item.document]) });
+    root.innerHTML = `<div class="easy-page">${header(page, original(session, 'title', view.lang), view.date(session.date))}<section class="easy-section" data-easy-group-list></section><section class="easy-section session-speeches" data-easy-session-speeches></section>${view.languageNote()}<p>${view.fullButton()}</p></div>`;
+    if (session.voteIds.length) mountCollection(root.querySelector('[data-easy-group-list]'), view, { key: `session-${id}`, title: ui('Istunnon äänestykset', 'Omröstningarna i plenum', 'Votes in this session'), items: newest((data.votes || []).filter(vote => ids.has(vote.id))), card: item => view.voteCard(item), controls: [control('topic', view.label.topic, view.topicOptions())], filter: (item, state) => (state.topic === 'all' || policyTopicKeys(item).includes(state.topic)) && matches(state.query, [item.title, item.titleSv, item.document]) });
+    else root.querySelector('[data-easy-group-list]').innerHTML = '<h2>'+view.label.votes+'</h2><p>'+ui('Istunnossa ei ole kirjattuja nimettyjä äänestyksiä.', 'Inga namnupprop är registrerade i detta plenum.', 'No recorded roll-call votes in this session.')+'</p>';
+    mountCollection(root.querySelector('[data-easy-session-speeches]'), view, { key: 'session-speeches-' + id, title: ui('Istunnon puheenvuorot', 'Anföranden i plenum', 'Speeches in this session'), items: newest(data.speeches || []), card: view.speechCard, filter: (item, state) => matches(state.query, [item.firstName, item.lastName, item.agenda, item.agendaSv]) });
     return;
   }
   const party = (data.parties || []).find(item => item.code === id);
