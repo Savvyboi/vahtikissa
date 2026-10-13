@@ -12,7 +12,12 @@ export function mountResearchControls(root, settings, onChange) {
     +'<label class="filter-control"><span>'+L('Sulje pois sana / ilmaus puhetekstistä','Uteslut ord / fras ur anförandetext')+'</span><input type="search" data-speech-exclude value="'+e(settings.exclude)+'"></label></div>'
     +'<p class="research-note">'+L('Haku ei erottele kirjainkokoa tai välimerkkejä. Tarkka ilmaus hakee peräkkäiset kokonaiset sanat. Kokeile sanan osaa, kun haluat mukaan taivutusmuotoja. Avaa lisärajaukset valitaksesi päivämäärät, puhetyypit ja vuodet.','Sökningen bortser från versaler och skiljetecken. Exakt fras söker hela ord i följd. Använd en orddel för böjningsformer. Öppna fler avgränsningar för datum, anförandetyper och år.')+'</p>'
     +'<a data-research-link href="#/speeches">'+L('Linkki tähän hakuun','Länk till denna sökning')+'</a>';
-  root.querySelector('.speech-filters').after(controls);
+  // Keep basic and research search options in the same disclosure.
+  const searchControls=document.createElement('div');
+  searchControls.className='speech-search-controls';
+  const filters=root.querySelector('.speech-filters');
+  filters.before(searchControls);
+  searchControls.append(filters,controls);
   for(const key of ['match','scope']) {
     const field=controls.querySelector('[data-speech-'+key+']');
     field.value=settings[key==='match'?'mode':key];

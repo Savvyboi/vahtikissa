@@ -6,6 +6,7 @@ import { spawn } from 'node:child_process';
 import { chromium } from 'playwright';
 import { createRequire } from 'node:module';
 import { checkUI } from './browser-ui-checks.mjs';
+import { checkMobileLayouts } from './browser-mobile-checks.mjs';
 import { checkStartupRecovery, checkSeamlessNavigation, followPrimaryNavigation } from './browser-navigation-checks.mjs';
 import { checkNewPages } from './check-new-pages.mjs';
 import { checkResearch } from './check-research.mjs';
@@ -123,6 +124,7 @@ try {
   assert.equal(await page.locator('main').getAttribute('data-route'),'#/budget');
   await checkResearch(page,navigate,data,audit);
   await checkUI(page,navigate,data);
+  await checkMobileLayouts(page,navigate);
   await page.setViewportSize({width:320,height:740});
   for(const route of ['overview','votes','members','sessions','speeches','legislation','budget','programmes','elections','influence']) {await navigate(route);await audit(`fi / 320px / ${route}`);}
   await page.locator('.menu-button').click();await audit('fi / 320px / open menu');await page.keyboard.press('Escape');
