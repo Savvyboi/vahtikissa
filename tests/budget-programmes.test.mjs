@@ -56,18 +56,36 @@ test('invalid directories and failed individual requests reject the member impor
 });
 test('individual member requests stay bounded and results retain directory order',async()=>{
   const reference=Array.from({length:15},(_,id)=>({tunnus:String(id),aktiivinen:true}));
-  let inFlight=0,peak=0;
-  const result=await fetchParliamentMembers(async path=>{
+  const pending=[];
+  let inFlight=0,peak=0,firstBatchReady;
+  const firstBatch=new Promise(resolve=>{firstBatchReady=resolve;});
+  const resultPromise=fetchParliamentMembers(async path=>{
     if(path==='/reference-data/kansanedustajat')return reference;
     inFlight++;peak=Math.max(peak,inFlight);
     const id=path.split('/').at(-1);
-    await new Promise(resolve=>setTimeout(resolve,15-Number(id)));
+    if(Number(id)<6)await new Promise(resolve=>{
+      pending.push(resolve);
+      if(pending.length===6)firstBatchReady();
+    });
     inFlight--;
     return {henkilonro:id};
-  });
+  },{requestIntervalMs:0});
+  await firstBatch;
+  pending.reverse().forEach(resolve=>resolve());
+  const result=await resultPromise;
   assert.equal(peak,6);
   assert.equal(inFlight,0);
   assert.deepEqual(result.members.map(member=>member.henkilonro),reference.map(member=>member.tunnus));
+});
+test('default member pacing stays below the official 180 GET requests per minute limit',async()=>{
+  const starts=[];
+  await fetchParliamentMembers(async path=>{
+    if(path==='/reference-data/kansanedustajat')return [1,2,3].map(id=>({tunnus:id,aktiivinen:true}));
+    starts.push(performance.now());
+    return {henkilonro:path.split('/').at(-1)};
+  });
+  assert.equal(starts.length,3);
+  for(let i=1;i<starts.length;i++)assert.ok(starts[i]-starts[i-1]>=60000/180);
 });
 test('Pohtiva programmes retain metadata and exclude parties outside Parliament',()=>{
   const table=party=>`<h5>${party}</h5><table><tr><td><a href="https://www.fsd.tuni.fi/pohtiva/ohjelmalistat/KOK/1473">Testi &amp; ohjelma</a></td><td>${party}</td><td>2023</td><td>vaaliohjelma</td><td>FI</td></tr></table>`;
