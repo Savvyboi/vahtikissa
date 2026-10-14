@@ -23,16 +23,51 @@ test('treemap rectangles preserve areas and remain within the chart',()=>{
   assert.deepEqual(budgetTreemap([{budget:0},{budget:-1}]),[]);
   assert.equal(budgetChange(110,100),10);assert.equal(budgetChange(10,0),null);
 });
-test('truncated bulk responses are supplemented with active and tracked MPs',async()=>{
+test('member imports use the directory and individual records without the removed bulk route',async()=>{
   const requests=[];
-  const request=async path=>{requests.push(path);if(path==='/kansanedustajat')return {kansanedustajat:[{henkilonro:'old'}]};if(path==='/reference-data/kansanedustajat')return [{tunnus:'active',aktiivinen:true},{tunnus:'old',aktiivinen:false}];return {henkilonro:path.split('/').at(-1)};};
-  const result=await fetchParliamentMembers(request,{memberIds:['tracked']});
-  assert.deepEqual(result.members.map(m=>m.henkilonro).sort(),['active','old','tracked']);
-  assert.deepEqual(result.activeIds,['active']);assert.ok(requests.includes('/kansanedustajat/tracked'));
-  const active=await fetchParliamentMembers(request,{activeOnly:true});assert.deepEqual(active.members,[{henkilonro:'active'}]);
+  const records={active:{henkilonro:'active'},tracked:{henkilonro:'tracked'}};
+  const request=async path=>{
+    requests.push(path);
+    if(path==='/reference-data/kansanedustajat')return [{tunnus:'active',aktiivinen:true},{tunnus:'old',aktiivinen:false}];
+    if(path.startsWith('/kansanedustajat/')&&records[path.split('/').at(-1)])return records[path.split('/').at(-1)];
+    throw new Error('404 '+path);
+  };
+  const result=await fetchParliamentMembers(request,{memberIds:['tracked','active','tracked']});
+  assert.deepEqual(result.members,[records.active,records.tracked]);
+  assert.deepEqual(result.activeIds,['active']);
+  assert.deepEqual(requests,['/reference-data/kansanedustajat','/kansanedustajat/active','/kansanedustajat/tracked']);
+  requests.length=0;
+  const active=await fetchParliamentMembers(request,{activeOnly:true,memberIds:['tracked']});
+  assert.deepEqual(active.members,[records.active]);
+  assert.deepEqual(requests,['/reference-data/kansanedustajat','/kansanedustajat/active']);
 });
 test('incomplete individual member responses fail rather than publishing missing disclosures',async()=>{
-  await assert.rejects(fetchParliamentMembers(async path=>path==='/kansanedustajat'?{kansanedustajat:[]}:path==='/reference-data/kansanedustajat'?[{tunnus:'123',aktiivinen:true}]:{}),/Incomplete/);
+  for(const record of [{},{henkilonro:'456'}]){
+    await assert.rejects(fetchParliamentMembers(async path=>path==='/reference-data/kansanedustajat'?[{tunnus:'123',aktiivinen:true}]:record),/Incomplete Parliament member record: 123/);
+  }
+});
+test('invalid directories and failed individual requests reject the member import',async()=>{
+  await assert.rejects(fetchParliamentMembers(async()=>({})),/Invalid Parliament member response/);
+  await assert.rejects(fetchParliamentMembers(async()=>[{tunnus:'old',aktiivinen:false}]),/no active members/);
+  await assert.rejects(fetchParliamentMembers(async path=>{
+    if(path==='/reference-data/kansanedustajat')return [{tunnus:'123',aktiivinen:true}];
+    throw new Error('503 Parliament unavailable');
+  }),/503 Parliament unavailable/);
+});
+test('individual member requests stay bounded and results retain directory order',async()=>{
+  const reference=Array.from({length:15},(_,id)=>({tunnus:String(id),aktiivinen:true}));
+  let inFlight=0,peak=0;
+  const result=await fetchParliamentMembers(async path=>{
+    if(path==='/reference-data/kansanedustajat')return reference;
+    inFlight++;peak=Math.max(peak,inFlight);
+    const id=path.split('/').at(-1);
+    await new Promise(resolve=>setTimeout(resolve,15-Number(id)));
+    inFlight--;
+    return {henkilonro:id};
+  });
+  assert.equal(peak,6);
+  assert.equal(inFlight,0);
+  assert.deepEqual(result.members.map(member=>member.henkilonro),reference.map(member=>member.tunnus));
 });
 test('Pohtiva programmes retain metadata and exclude parties outside Parliament',()=>{
   const table=party=>`<h5>${party}</h5><table><tr><td><a href="https://www.fsd.tuni.fi/pohtiva/ohjelmalistat/KOK/1473">Testi &amp; ohjelma</a></td><td>${party}</td><td>2023</td><td>vaaliohjelma</td><td>FI</td></tr></table>`;

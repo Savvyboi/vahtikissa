@@ -31,7 +31,7 @@ export function buildMemberProfiles(members, ids, generatedAt = new Date().toISO
     if (!byId.has(id)) throw new Error('Missing official profile: '+id);
     return [id,normalizeMemberProfile(byId.get(id))];
   });
-  return {metadata:{generatedAt,source:'https://api.eduskunta.fi/api/v1/kansanedustajat',directory:'https://www.eduskunta.fi/kansanedustajat-ja-toimielimet/kansanedustajat'},members:Object.fromEntries(profiles)};
+  return {metadata:{generatedAt,source:'https://api.eduskunta.fi/api/v1/reference-data/kansanedustajat',directory:'https://www.eduskunta.fi/kansanedustajat-ja-toimielimet/kansanedustajat'},members:Object.fromEntries(profiles)};
 }
 export async function syncMemberProfiles() {
   const data = JSON.parse(await readFile(new URL('../data/parliament.json',import.meta.url),'utf8'));

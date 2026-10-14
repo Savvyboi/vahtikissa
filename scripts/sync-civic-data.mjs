@@ -7,7 +7,7 @@ import { normalizeParty } from './lib.mjs';
 const OUT = new URL('../data/', import.meta.url);
 const BUDGET_INDEX = 'https://api.tutkihallintoa.fi/valtiontalous/v1/budjettitalousvuosikuukausi';
 const PX = 'https://pxdata.stat.fi/PxWeb/api/v1';
-const PARLIAMENT = 'https://api.eduskunta.fi/api/v1/kansanedustajat';
+const PARLIAMENT = 'https://api.eduskunta.fi/api/v1/reference-data/kansanedustajat';
 const TRANSPARENCY = 'https://public.api.avoimuusrekisteri.fi';
 const START_YEAR = 2020;
 const delay = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
