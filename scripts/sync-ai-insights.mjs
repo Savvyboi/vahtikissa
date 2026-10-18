@@ -75,7 +75,7 @@ export function createOpenRouterClient({ apiKey, model = DEFAULT_AI_MODEL, fetch
     const response = await fetchImpl('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: { Authorization: 'Bearer ' + apiKey, 'Content-Type': 'application/json', 'X-OpenRouter-Title': 'Vahtikissa civic summaries' },
-      signal: AbortSignal.timeout(120000),
+      signal: AbortSignal.timeout(300000),
       body: JSON.stringify({ model, temperature: model.startsWith('nvidia/') ? 1 : 0, ...(model.startsWith('nvidia/') ? {top_p:0.95} : {}), max_tokens: 6000, reasoning: { enabled: false }, messages,
         ...(responseFormat ? {response_format:responseFormat} : {}),
         ...(agentTools ? { tools: agentTools, tool_choice: 'auto', parallel_tool_calls: false } : {}) })
@@ -220,7 +220,8 @@ export async function syncAI({ base = new URL('../data/', import.meta.url), apiK
       const minimumRequests = chunks.length * (needsAgentHarness(model) && !client ? 2 : 1);
       if (minimumRequests > maxRequests) throw new Error('A programme needs more requests than AI_MAX_REQUESTS; increase the run budget to at least ' + minimumRequests);
       if (router.requests + minimumRequests > maxRequests) break;
-      for (const sourceText of chunks) {
+      for (const [chunkIndex, sourceText] of chunks.entries()) {
+        console.log('Programme ' + document.id + ': chunk ' + (chunkIndex + 1) + '/' + chunks.length + '; ' + router.requests + '/' + maxRequests + ' requests used.');
         const existing = insightTags(index).map(({ id, label }) => ({ id, label }));
         const value = await router.complete(PROGRAMME_PROMPT, { document, existingTags: existing, sourceText }, result => validateProgrammeResult(result, sourceText, existing));
         for (const tag of validateProgrammeResult(value, sourceText, existing)) if (!tags.has(tag.id)) tags.set(tag.id, tag);
@@ -229,6 +230,7 @@ export async function syncAI({ base = new URL('../data/', import.meta.url), apiK
         promptVersion: PROMPT_VERSION, model, analysedAt: new Date().toISOString(), tags: [...tags.values()] };
       changed = true;
       await checkpoint();
+      console.log('Saved programme ' + document.id + ' with ' + tags.size + ' verified themes.');
     }
     const ready = documents.every(document => !needsProgramme(document));
     if (!ready) { console.log('Programme analysis pending; rerun to continue the cached backfill.'); return { pending: true, requests: router.requests }; }
