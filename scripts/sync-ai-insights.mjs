@@ -135,15 +135,23 @@ export function createOpenRouterClient({ apiKey, model = DEFAULT_AI_MODEL, fetch
         throw new Error('AI agent turn limit reached; completed results retained');
       }
       const format=model.startsWith('nvidia/') ? {type:'json_schema',json_schema:{name:'civic_analysis',strict:true,schema:analysisSchema(input)}} : undefined;
-      const choice=await send([{role:'system',content:system},{role:'user',content:JSON.stringify(input)}],undefined,format);
-      if(choice.finish_reason!=='stop')throw new Error('Incomplete AI response');
-      const content=choice.message?.content;
-      if(typeof content!=='string')throw new Error('Missing AI JSON');
-      let value;
-      try { value=JSON.parse(content.trim().replace(/^```(?:json)?\s*/i,'').replace(/\s*```$/,'')); }
-      catch { throw new Error('OpenRouter returned invalid JSON'); }
-      validate(value);
-      return value;
+      const messages=[{role:'system',content:system},{role:'user',content:JSON.stringify(input)}];
+      for(let attempt=0;attempt<3;attempt++) {
+        const choice=await send(messages,undefined,format);
+        if(choice.finish_reason!=='stop')throw new Error('Incomplete AI response');
+        const content=choice.message?.content;
+        if(typeof content!=='string')throw new Error('Missing AI JSON');
+        let value,problem;
+        try { value=JSON.parse(content.trim().replace(/^```(?:json)?\s*/i,'').replace(/\s*```$/,'')); }
+        catch { problem=new Error('OpenRouter returned invalid JSON'); }
+        if(!problem) { try { validate(value); return value; } catch(error) { problem=error; } }
+        if(attempt===2)throw problem;
+        // Retry only rejected output; every API attempt still consumes the shared request budget.
+        const hint = problem.message === 'Programme evidence is not an exact source quote'
+          ? 'A quote did not exactly match sourceText. Copy a shorter contiguous substring verbatim, preserving punctuation, spaces, letter case and accents. Omit a theme if you cannot find an exact source quote; never paraphrase or invent evidence.'
+          : 'The output failed validation. Return valid JSON matching the schema, include fi/sv/en, and use only the allowed theme IDs.';
+        messages.push({role:'assistant',content},{role:'user',content:'Correct your previous analysis. '+hint+' Return only the corrected analysis.'});
+      }
     }
   };
 }

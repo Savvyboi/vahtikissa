@@ -156,3 +156,23 @@ test('NVIDIA uses recommended sampling, bounded structured JSON and safe truncat
   assert.equal(payload.response_format.json_schema.strict,true);
   assert.equal(payload.reasoning.enabled,false);
 });
+
+test('rejected programme evidence is corrected without accepting fabricated quotes',async()=>{
+  const replies=[{tags:[{...theme,quote:'This evidence was invented and must be rejected.'}]},{tags:[theme]}],calls=[];
+  const client=createOpenRouterClient({apiKey:'test',maxRequests:3,wait:async()=>{},fetchImpl:async(url,options)=>{
+    calls.push(JSON.parse(options.body));
+    return {ok:true,json:async()=>({choices:[{finish_reason:'stop',message:{content:JSON.stringify(replies.shift())}}]})};
+  }});
+  const result=await client.complete('Analyse the programme',{sourceText:quote},value=>validateProgrammeResult(value,quote));
+  assert.equal(client.requests,2);
+  assert.equal(result.tags[0].quote,quote);
+  assert.match(calls[1].messages.at(-1).content,/substring verbatim/);
+});
+
+test('validation retries are bounded and malformed JSON never reaches the validator',async()=>{
+  let validations=0;
+  const client=createOpenRouterClient({apiKey:'test',wait:async()=>{},fetchImpl:async()=>({ok:true,json:async()=>({choices:[{finish_reason:'stop',message:{content:'invalid JSON'}}]})})});
+  await assert.rejects(client.complete('system',{},()=>{validations++;}),/invalid JSON/);
+  assert.equal(client.requests,3);
+  assert.equal(validations,0);
+});
