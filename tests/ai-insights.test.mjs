@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { DEFAULT_AI_MODEL, recordSource, sourceFingerprint, emptyInsights, currentInsight, insightTags, matchesAITags, validateRecordResult } from '../ai-insights.js';
-import { extractProgrammeText, validateProgrammeResult, createOpenRouterClient, needsAgentHarness, syncAI } from '../scripts/sync-ai-insights.mjs';
+import { extractProgrammeText, programmeChunks, validateProgrammeResult, createOpenRouterClient, needsAgentHarness, syncAI } from '../scripts/sync-ai-insights.mjs';
 
 const translated = { fi: 'Suomenkielinen lyhennelmä.', sv: 'En svensk sammanfattning.', en: 'An English brief.' };
 const quote = 'We promise to protect funding for public education and research.';
@@ -149,7 +149,7 @@ test('NVIDIA uses recommended sampling, bounded structured JSON and safe truncat
     assert.ok(!error.message.includes('never-log-this'));
     return true;
   });
-  assert.equal(payload.max_tokens,6000);
+  assert.equal(payload.max_tokens,3000);
   assert.equal(payload.temperature,1);
   assert.equal(payload.top_p,0.95);
   assert.equal(payload.response_format.type,'json_schema');
@@ -175,4 +175,19 @@ test('validation retries are bounded and malformed JSON never reaches the valida
   await assert.rejects(client.complete('system',{},()=>{validations++;}),/invalid JSON/);
   assert.equal(client.requests,3);
   assert.equal(validations,0);
+});
+
+
+test('programme requests stay small and provider errors expose only numeric codes',async()=>{
+  assert.deepEqual(programmeChunks('a'.repeat(12001)).map(s=>s.length),[6000,6000,1]);
+  let payload;
+  const client=createOpenRouterClient({apiKey:'never-log-key',model:'nvidia/nemotron-3.5-super-vl:free',fetchImpl:async(url,options)=>{
+    payload=JSON.parse(options.body);
+    return {ok:true,json:async()=>({error:{code:504,message:'never-log-key',metadata:{raw:'never-log-source'}}})};
+  }});
+  await assert.rejects(client.complete('system',{sourceText:quote}),error=>{
+    assert.equal(error.message,'OpenRouter returned an error (code=504)');
+    return true;
+  });
+  assert.equal(payload.response_format.json_schema.schema.properties.tags.maxItems,4);
 });
