@@ -68,8 +68,18 @@ export function createOpenRouterClient({ apiKey, model = DEFAULT_AI_MODEL, fetch
   if (!apiKey) throw new Error('OPENROUTER_API_KEY is required');
   if (!model.endsWith(':free')) throw new Error('OPENROUTER_MODEL must use a :free endpoint; paid fallback is disabled');
   let requests = 0;
-  async function send(messages, agentTools, responseFormat) {
-    if (requests >= maxRequests) throw new Error('AI request budget exhausted; rerun to continue');
+  async function send(messages, agentTools, responseFormat, transientAttempt = 0) {
+    if (requests >= maxRequests) {
+      const error = new Error('AI request budget exhausted; rerun to continue');
+      error.code = 'AI_REQUEST_BUDGET_EXHAUSTED';
+      throw error;
+    }
+    const retryTransient = async code => {
+      if (![408,500,502,503,504].includes(code) || transientAttempt >= 2 || requests >= maxRequests) return false;
+      console.log('OpenRouter temporary error ' + code + '; retry ' + (transientAttempt + 1) + '/2 within the request budget.');
+      await wait(10000 * 2 ** transientAttempt);
+      return true;
+    };
     if (requests) await wait(delayMs);
     requests++;
     const response = await fetchImpl('https://openrouter.ai/api/v1/chat/completions', {
@@ -81,10 +91,14 @@ export function createOpenRouterClient({ apiKey, model = DEFAULT_AI_MODEL, fetch
         ...(agentTools ? { tools: agentTools, tool_choice: 'auto', parallel_tool_calls: false } : {}) })
     });
     // Never print response bodies: providers may echo request credentials or source prompts.
-    if (!response.ok) throw new Error('OpenRouter HTTP ' + response.status + '; saved results retained. Retry on a later run.');
+    if (!response.ok) {
+      if (await retryTransient(response.status)) return send(messages, agentTools, responseFormat, transientAttempt + 1);
+      throw new Error('OpenRouter HTTP ' + response.status + '; saved results retained. Retry on a later run.');
+    }
     const result = await response.json();
     if (result.error) {
       const code = Number.isInteger(result.error.code) ? result.error.code : 'unknown';
+      if (await retryTransient(code)) return send(messages, agentTools, responseFormat, transientAttempt + 1);
       throw new Error('OpenRouter returned an error (code=' + code + ')');
     }
     const choice = result.choices?.[0];
@@ -264,6 +278,10 @@ export async function syncAI({ base = new URL('../data/', import.meta.url), apiK
     const total = parliament.votes.length + parliament.legislation.length;
     console.log('AI: ' + Object.keys(index.programmes).length + '/' + documents.length + ' programmes; ' + done + '/' + total + ' records; ' + router.requests + ' requests this run.');
     return { pending: done < total, requests: router.requests };
+  } catch (error) {
+    if (error.code !== 'AI_REQUEST_BUDGET_EXHAUSTED') throw error;
+    console.log('AI request budget reached; completed results retained. Rerun to continue.');
+    return { pending: true, requests: router.requests };
   } finally { await checkpoint(); }
 }
 

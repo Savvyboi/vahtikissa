@@ -181,7 +181,7 @@ test('validation retries are bounded and malformed JSON never reaches the valida
 test('programme requests stay small and provider errors expose only numeric codes',async()=>{
   assert.deepEqual(programmeChunks('a'.repeat(12001)).map(s=>s.length),[6000,6000,1]);
   let payload;
-  const client=createOpenRouterClient({apiKey:'never-log-key',model:'nvidia/nemotron-3.5-super-vl:free',fetchImpl:async(url,options)=>{
+  const client=createOpenRouterClient({apiKey:'never-log-key',model:'nvidia/nemotron-3.5-super-vl:free',maxRequests:1,fetchImpl:async(url,options)=>{
     payload=JSON.parse(options.body);
     return {ok:true,json:async()=>({error:{code:504,message:'never-log-key',metadata:{raw:'never-log-source'}}})};
   }});
@@ -190,4 +190,45 @@ test('programme requests stay small and provider errors expose only numeric code
     return true;
   });
   assert.equal(payload.response_format.json_schema.schema.properties.tags.maxItems,4);
+});
+
+
+test('temporary server errors retry with backoff while authentication and quota failures stop',async()=>{
+  let calls=0;
+  const waits=[];
+  const client=createOpenRouterClient({apiKey:'test',maxRequests:3,wait:async ms=>waits.push(ms),fetchImpl:async()=>{
+    calls++;
+    if(calls===1)return {ok:false,status:502};
+    if(calls===2)return {ok:true,json:async()=>({error:{code:504,message:'Do not log this body'}})};
+    return {ok:true,json:async()=>({choices:[{finish_reason:'stop',message:{content:JSON.stringify({brief:translated,tags:[]})}}]})};
+  }});
+  assert.deepEqual(await client.complete('system',{}),{brief:translated,tags:[]});
+  assert.equal(client.requests,3);
+  assert.deepEqual(waits,[10000,3500,20000,3500]);
+  for(const status of [401,403,429]){
+    const stopped=createOpenRouterClient({apiKey:'test',wait:async()=>{},fetchImpl:async()=>({ok:false,status})});
+    await assert.rejects(stopped.complete('system',{}),new RegExp(String(status)));
+    assert.equal(stopped.requests,1);
+  }
+  const bounded=createOpenRouterClient({apiKey:'test',maxRequests:2,wait:async()=>{},fetchImpl:async()=>({ok:false,status:502})});
+  await assert.rejects(bounded.complete('system',{}),/502/);
+  assert.equal(bounded.requests,2);
+});
+
+test('a correction that reaches the run budget leaves a successful pending checkpoint',async()=>{
+  const dir=await mkdtemp(join(tmpdir(),'vahtikissa-ai-budget-')),base=pathToFileURL(dir+'/');
+  try {
+    await writeFile(new URL('parliament.json',base),JSON.stringify({votes:[vote],legislation:[law]}));
+    await writeFile(new URL('programmes.json',base),JSON.stringify({parties:[{code:'kok',programmes:[{id:'p1',title:'Programme',url:'https://example.org/programme'}]}]}));
+    const client={requests:0,async complete(){
+      this.requests++;
+      if(this.requests===1)return {tags:[theme]};
+      const error=new Error('Budget reached during correction');error.code='AI_REQUEST_BUDGET_EXHAUSTED';throw error;
+    }};
+    const result=await syncAI({base,client,maxRequests:2,fetchImpl:async()=>({ok:true,text:async()=>html})});
+    assert.deepEqual(result,{pending:true,requests:2});
+    const index=JSON.parse(await readFile(new URL('ai-insights.json',base)));
+    assert.equal(index.programmes.p1.tags[0].quote,quote);
+    assert.deepEqual(index.records,{votes:{},legislation:{}});
+  } finally {await rm(dir,{recursive:true,force:true});}
 });
