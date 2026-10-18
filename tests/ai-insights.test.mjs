@@ -138,9 +138,9 @@ test('Inkling rejects prose responses instead of bypassing its source-reading ha
   await assert.rejects(client.complete('system',{record:vote}),/required analysis tools/);
 });
 
-test('long multilingual responses get enough output budget and truncation logs contain only safe diagnostics', async () => {
+test('NVIDIA uses recommended sampling, bounded structured JSON and safe truncation diagnostics', async () => {
   let payload;
-  const client=createOpenRouterClient({apiKey:'never-log-this-key',wait:async()=>{},fetchImpl:async(url,options)=>{
+  const client=createOpenRouterClient({apiKey:'never-log-this-key',model:'nvidia/nemotron-3.5-super-vl:free',wait:async()=>{},fetchImpl:async(url,options)=>{
     payload=JSON.parse(options.body);
     return {ok:true,json:async()=>({choices:[{finish_reason:'length',message:{content:'never-log-this-source'}}],usage:{completion_tokens:12000,completion_tokens_details:{reasoning_tokens:0}}})};
   }});
@@ -149,6 +149,10 @@ test('long multilingual responses get enough output budget and truncation logs c
     assert.ok(!error.message.includes('never-log-this'));
     return true;
   });
-  assert.equal(payload.max_tokens,12000);
+  assert.equal(payload.max_tokens,6000);
+  assert.equal(payload.temperature,1);
+  assert.equal(payload.top_p,0.95);
+  assert.equal(payload.response_format.type,'json_schema');
+  assert.equal(payload.response_format.json_schema.strict,true);
   assert.equal(payload.reasoning.enabled,false);
 });
