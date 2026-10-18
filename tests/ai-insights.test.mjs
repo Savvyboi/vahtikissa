@@ -137,3 +137,18 @@ test('Inkling rejects prose responses instead of bypassing its source-reading ha
   })});
   await assert.rejects(client.complete('system',{record:vote}),/required analysis tools/);
 });
+
+test('long multilingual responses get enough output budget and truncation logs contain only safe diagnostics', async () => {
+  let payload;
+  const client=createOpenRouterClient({apiKey:'never-log-this-key',wait:async()=>{},fetchImpl:async(url,options)=>{
+    payload=JSON.parse(options.body);
+    return {ok:true,json:async()=>({choices:[{finish_reason:'length',message:{content:'never-log-this-source'}}],usage:{completion_tokens:12000,completion_tokens_details:{reasoning_tokens:0}}})};
+  }});
+  await assert.rejects(client.complete('system',{}),error=>{
+    assert.match(error.message,/finish_reason=length, completion_tokens=12000, reasoning_tokens=0/);
+    assert.ok(!error.message.includes('never-log-this'));
+    return true;
+  });
+  assert.equal(payload.max_tokens,12000);
+  assert.equal(payload.reasoning.enabled,false);
+});

@@ -76,7 +76,7 @@ export function createOpenRouterClient({ apiKey, model = DEFAULT_AI_MODEL, fetch
       method: 'POST',
       headers: { Authorization: 'Bearer ' + apiKey, 'Content-Type': 'application/json', 'X-OpenRouter-Title': 'Vahtikissa civic summaries' },
       signal: AbortSignal.timeout(120000),
-      body: JSON.stringify({ model, temperature: 0, max_tokens: 6000, reasoning: { enabled: false }, messages,
+      body: JSON.stringify({ model, temperature: 0, max_tokens: 12000, reasoning: { enabled: false }, messages,
         ...(agentTools ? { tools: agentTools, tool_choice: 'auto', parallel_tool_calls: false } : {}) })
     });
     // Never print response bodies: providers may echo request credentials or source prompts.
@@ -84,7 +84,12 @@ export function createOpenRouterClient({ apiKey, model = DEFAULT_AI_MODEL, fetch
     const result = await response.json();
     if (result.error) throw new Error('OpenRouter returned an error');
     const choice = result.choices?.[0];
-    if (!choice || !['stop','tool_calls'].includes(choice.finish_reason)) throw new Error('Incomplete AI response');
+    if (!choice || !['stop','tool_calls'].includes(choice.finish_reason)) {
+      const reason = ['length','error','content_filter'].includes(choice?.finish_reason) ? choice.finish_reason : 'unknown';
+      const completion = Number.isFinite(result.usage?.completion_tokens) ? result.usage.completion_tokens : 'unknown';
+      const thinking = Number.isFinite(result.usage?.completion_tokens_details?.reasoning_tokens) ? result.usage.completion_tokens_details.reasoning_tokens : 'unknown';
+      throw new Error('Incomplete AI response (finish_reason=' + reason + ', completion_tokens=' + completion + ', reasoning_tokens=' + thinking + ')');
+    }
     return choice;
   }
   return {
