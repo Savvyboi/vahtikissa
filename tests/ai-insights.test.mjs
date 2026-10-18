@@ -232,3 +232,10 @@ test('a correction that reaches the run budget leaves a successful pending check
     assert.deepEqual(index.records,{votes:{},legislation:{}});
   } finally {await rm(dir,{recursive:true,force:true});}
 });
+
+
+test('repeated programme IDs merge only after every quote is validated',()=>{
+  assert.deepEqual(validateProgrammeResult({tags:[theme,{...theme}]},quote),[theme]);
+  assert.throws(()=>validateProgrammeResult({tags:[theme,{...theme,quote:'An invented quote for the same theme must still fail.'}]},quote),/exact source quote/);
+  assert.throws(()=>validateProgrammeResult({tags:[{...theme,id:'INVALID ID'}]},quote),/Invalid tag ID/);
+});
