@@ -61,3 +61,7 @@ Before starting a batch, run [Diagnose OpenRouter access](https://github.com/Sav
 5. Check the automatic data commit and the Deploy to GitHub Pages run. A proposal/vote gets language tabs once its brief has been generated. Until then it explicitly says no AI brief is available. The current briefs use record metadata, not full legal text.
 
 References: [GitHub repository variables](https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/use-variables), [manually running workflows](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow).
+
+### Review provenance
+
+The initial 25 brief files were editorially reviewed against their published source metadata. Reviewed files carry `reviewedAt` and `reviewMethod` separately from the original generation timestamp and model. Corrections create new content-addressed files; the index points to the corrected versions. This review checks the stated voting alternatives, recorded counts, processing stages, translations and direct theme relevance without inferring missing legal effects. It does not imply that later automatically generated briefs have received the same review. The AI accuracy notice and metadata-only limitation remain applicable.
