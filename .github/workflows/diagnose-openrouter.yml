@@ -1,0 +1,60 @@
+name: Diagnose OpenRouter access
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check key authentication, free quota and Gemma access
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          OPENROUTER_MODEL: ${{ vars.OPENROUTER_MODEL || 'google/gemma-4-31b-it:free' }}
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          const key = process.env.OPENROUTER_API_KEY || '';
+          const model = process.env.OPENROUTER_MODEL;
+          if (!key) { console.log('No OpenRouter secret was supplied.'); process.exit(1); }
+          const redact = value => String(value || '').replaceAll(key, '[redacted]').replace(/sk-[a-z0-9_-]{16,}/gi, '[redacted]').slice(0, 600);
+          const headers = { Authorization: 'Bearer ' + key, 'Content-Type': 'application/json' };
+          const read = async response => { try { return await response.json(); } catch { return {}; } };
+          const failure = (response, data) => ({
+            http: response.status,
+            errorCode: typeof data.error?.code === 'number' ? data.error.code : null,
+            message: redact(data.error?.message),
+            errorType: redact(data.error?.metadata?.error_type),
+            providerCode: redact(data.error?.metadata?.provider_code),
+            provider: redact(data.error?.metadata?.provider_name),
+            rateLimit: response.headers.get('x-ratelimit-limit'),
+            rateRemaining: response.headers.get('x-ratelimit-remaining'),
+            rateReset: response.headers.get('x-ratelimit-reset'),
+            retryAfter: response.headers.get('retry-after')
+          });
+          console.log('Secret formatting: ' + JSON.stringify({ hasOuterWhitespace: key !== key.trim(), hasQuotesAtEdges: /^["']|["']$/.test(key) }));
+          const status = await fetch('https://openrouter.ai/api/v1/key', { headers, signal: AbortSignal.timeout(30000) });
+          const details = await read(status);
+          if (!status.ok) { console.log('Key check: ' + JSON.stringify(failure(status, details))); process.exit(1); }
+          const quota = details.data?.free_model_daily_requests;
+          console.log('Key check: ' + JSON.stringify({
+            http: status.status, authenticated: true, freeTier: details.data?.is_free_tier ?? null,
+            freeDaily: quota ? { used: quota.used, limit: quota.limit, remaining: quota.remaining } : null
+          }));
+          if (quota?.remaining === 0) { console.log('Daily free-model quota is exhausted; skipping inference.'); process.exit(1); }
+          if (!model?.endsWith(':free')) { console.log('Diagnostic accepts only a free model.'); process.exit(1); }
+          const probe = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+            method: 'POST', headers, signal: AbortSignal.timeout(60000),
+            body: JSON.stringify({ model, max_tokens: 16, reasoning: { enabled: false }, messages: [{ role: 'user', content: 'Reply with OK.' }] })
+          });
+          const result = await read(probe);
+          if (!probe.ok || result.error) { console.log('Model probe: ' + JSON.stringify(failure(probe, result))); process.exit(1); }
+          console.log('Model probe: ' + JSON.stringify({ http: probe.status, model, hasResponse: Boolean(result.choices?.[0]?.message?.content) }));
+          NODE
