@@ -1,0 +1,101 @@
+import assert from 'node:assert/strict';
+import { readFile, mkdir } from 'node:fs/promises';
+import { spawn } from 'node:child_process';
+import { createRequire } from 'node:module';
+import { chromium } from 'playwright';
+import { emptyInsights, sourceFingerprint, recordSource } from '../ai-insights.js';
+const require = createRequire(import.meta.url);
+const port = process.env.AI_TEST_PORT || '4207', url = 'http://localhost:' + port;
+const server = spawn(process.execPath, ['server.mjs'], { cwd: new URL('..', import.meta.url), env: { ...process.env, PORT: port }, stdio: 'ignore', windowsHide: true });
+const source = JSON.parse(await readFile(new URL('../data/parliament.json', import.meta.url)));
+const programmes = JSON.parse(await readFile(new URL('../data/programmes.json', import.meta.url)));
+const vote = source.votes[0], law = source.legislation[0], programme = programmes.parties[0].programmes[0];
+const tag = { id: 'public-services', label: { fi: 'Julkiset palvelut', sv: 'Offentliga tjänster', en: 'Public services' }, quote: 'A source quote used only in mocked browser tests.', promise: true };
+const index = emptyInsights();
+index.programmes[programme.id] = { ...programme, party: programmes.parties[0].code, tags: [tag] };
+const files = { votes: 'a'.repeat(64) + '.json', legislation: 'b'.repeat(64) + '.json' };
+for (const [kind, item] of [['votes', vote], ['legislation', law]]) index.records[kind][item.id] = { fingerprint: sourceFingerprint(kind,item), tags:[tag.id], file: files[kind] };
+const brief = { fi: 'Suomenkielinen AI-lyhennelmä.', sv: 'En svensk AI-sammanfattning.', en: 'An English AI brief. <img src=x onerror=alert(1)>' };
+let browser;
+try {
+  for (let attempt = 0; attempt < 100; attempt++) {
+    try { if ((await fetch(url)).ok) break; } catch {}
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+  browser = await chromium.launch({ headless: true, ...(process.env.BROWSER_CHANNEL ? { channel: process.env.BROWSER_CHANNEL } : {}) });
+  await mkdir(new URL('../.hermes-tmp.ai-browser/', import.meta.url), { recursive: true });
+  for (const view of ['full','simple']) {
+    const context = await browser.newContext({ viewport:{width:390,height:844} }), page = await context.newPage();
+    const errors = [], requests = [];
+    page.on('pageerror', error => errors.push(error.message));
+    await page.route('**/data/ai-insights.json', route => route.fulfill({ json:index }));
+    await page.route('**/data/ai/*.json', route => {
+      requests.push(route.request().url());
+      const kind = route.request().url().includes(files.votes) ? 'votes' : 'legislation', item = kind === 'votes' ? vote : law;
+      return route.fulfill({ json:{version:1,kind,id:item.id,source:recordSource(kind,item),brief,tags:[tag.id],model:'Mock free model',generatedAt:'2026-10-18T08:00:00Z'} });
+    });
+    await page.goto(url + '/?view=' + view + '#/votes/' + encodeURIComponent(vote.id));
+    await page.locator('[data-ai-brief]').waitFor();
+    assert.equal(await page.locator('[data-ai-brief]').getAttribute('open'), null);
+    assert.equal(requests.length, 0, 'Collapsed panel must not request brief files');
+    assert.match(await page.locator('[data-ai-brief]>summary').innerText(), /AI/);
+    await page.locator('[data-ai-brief]>summary').click();
+    await page.locator('[data-ai-language="fi"]').waitFor();
+    assert.equal(await page.locator('[data-ai-brief-text]').innerText(), brief.fi);
+    await page.locator('[data-ai-language="sv"]').click();
+    assert.equal(await page.locator('[data-ai-brief-text]').innerText(), brief.sv);
+    await page.locator('[data-ai-language="sv"]').press('ArrowRight');
+    assert.equal(await page.locator('[data-ai-language="en"]').getAttribute('aria-selected'),'true');
+    assert.equal(await page.locator('[data-ai-brief-text]').innerText(),brief.en);
+    assert.equal(await page.locator('[data-ai-brief-text] img').count(),0,'Model output must never become HTML');
+    await page.addScriptTag({ path:require.resolve('axe-core/axe.min.js') });
+    const violations = await page.evaluate(async () => (await axe.run(document.querySelector('.ai-insights'), { rules:{region:{enabled:false}} })).violations.map(v => v.id));
+    assert.deepEqual(violations,[]);
+    await page.screenshot({path:new URL('../.hermes-tmp.ai-browser/' + view + '.png',import.meta.url).pathname.replace(/^\/(.:)/,'$1'),fullPage:false});
+    await page.evaluate(() => { location.hash = '#/votes'; });
+    await page.locator('[data-ai-tag-filter]').waitFor({state:'attached'});
+    if(view === 'full') await page.locator('[data-pagination="votes"] button[data-page="2"]').first().click();
+    else await page.locator('[data-easy-page="2"]').click();
+    await page.evaluate(() => { location.hash = '#/votes?tag=public-services'; });
+    await page.locator('[data-ai-tag-filter]').waitFor({state:'attached'});
+    assert.equal(await page.locator('[data-ai-tag-filter]').inputValue(),tag.id);
+    const rows = view === 'full' ? '[data-list] tbody tr' : '[data-easy-collection] .easy-card';
+    assert.equal(await page.locator(rows).count(),1,'Tag filter must restrict results');
+    await page.locator('.ai-theme-list>details>summary').first().click();
+    await page.locator('[data-ai-follow]').first().click();
+    assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('vahtikissa-ai-tags'))),[tag.id]);
+    await page.locator('[data-ai-tag-filter]').selectOption('followed');
+    await page.waitForFunction(() => location.hash.includes('tag=followed'));
+    await page.locator('[data-ai-tag-filter]').waitFor({state:'attached'});
+    assert.equal(await page.locator(rows).count(),1);
+    await page.reload();
+    await page.locator('[data-ai-tag-filter]').waitFor({state:'attached'});
+    assert.equal(await page.locator(rows).count(),1,'Followed filter must persist through reload');
+    await page.evaluate(id => { location.hash = '#/legislation/' + encodeURIComponent(id); },law.id);
+    await page.locator('[data-ai-brief]>summary').click();
+    await page.locator('[data-ai-language="fi"]').waitFor();
+    await page.locator('.language-select').selectOption('en');
+    await page.locator('[data-ai-brief]').waitFor();
+    assert.equal(await page.locator('[data-ai-brief]').getAttribute('open'),null,'Language rerender keeps panel collapsed');
+    await page.locator('[data-ai-brief]>summary').click();
+    await page.locator('[data-ai-language="en"]').waitFor();
+    assert.equal(await page.locator('[data-ai-language="en"]').getAttribute('aria-selected'),'true');
+    await page.evaluate(() => { location.hash = '#/programmes'; });
+    await page.locator('.ai-programme-tags').waitFor();
+    await page.locator('.ai-programme-tags>summary').click();
+    assert.match(await page.locator('.ai-programme-tags').innerText(),/mocked browser tests/);
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),false,'No mobile overflow');
+    assert.deepEqual(errors,[]);
+    await context.close();
+  }
+  // Failed index fetch and unavailable briefs must preserve official data.
+  const context = await browser.newContext(), page = await context.newPage();
+  await page.route('**/data/ai-insights.json', route => route.abort());
+  await page.goto(url + '/?view=full#/votes/' + encodeURIComponent(vote.id));
+  await page.locator('[data-ai-brief]>summary').click();
+  await page.waitForFunction(() => document.querySelector('[data-ai-brief-content]')?.textContent.includes('vielä'));
+  assert.equal(await page.locator('.load-error').count(),0);
+  assert.ok(await page.locator('[data-voter-list] li').count());
+  await context.close();
+  console.log('AI browser checks passed: both reading views, collapsed/lazy briefs, FI/SV/EN, keyboard tabs, escaping, accessibility, tag filters, local follow persistence, source evidence and failure fallback.');
+} finally { await browser?.close(); server.kill(); }

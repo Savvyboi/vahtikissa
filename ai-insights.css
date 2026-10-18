@@ -1,0 +1,18 @@
+.ai-brief,.ai-monitor,.ai-programme-tags{margin:1rem 0;border:1px solid var(--line,#777);border-radius:.65rem;overflow:hidden;background:var(--panel,var(--bg,transparent))}
+.ai-brief>summary,.ai-monitor>summary,.ai-programme-tags>summary{padding:1rem;cursor:pointer}
+.ai-brief>summary strong{margin-right:1rem}.ai-brief>summary span{display:block;font-size:.9rem;margin-top:.3rem}
+.ai-brief-body,.ai-monitor-body,.ai-programme-theme{padding:0 1rem 1rem}
+.ai-notice{border-left:3px solid currentColor;padding:.5rem .8rem}
+.ai-language-tabs,.ai-tags{display:flex;flex-wrap:wrap;gap:.5rem;margin:.75rem 0}
+.ai-language-tabs button,.ai-follow,.ai-tag{border:1px solid currentColor;border-radius:.4rem;padding:.45rem .7rem;color:inherit;background:transparent}
+.ai-language-tabs [aria-selected="true"],.ai-follow[aria-pressed="true"]{font-weight:700;border-width:2px;text-decoration:underline}
+.ai-tags .ai-tag{font-size:.85rem;line-height:1.4;text-decoration:underline;overflow-wrap:anywhere}
+.ai-theme-list details{border-top:1px solid var(--line,#777);padding:.8rem 0}
+.ai-theme-list summary{cursor:pointer;font-weight:600}
+.ai-theme-list blockquote,.ai-programme-theme blockquote{margin:1rem 0;padding:.5rem 1rem;border-left:2px solid currentColor;overflow-wrap:anywhere}
+.ai-theme-list a,.ai-provenance,.ai-brief-body p{overflow-wrap:anywhere}
+.ai-monitor label{display:block;font-weight:600}.ai-monitor select{display:block;max-width:100%;width:100%;margin-top:.5rem;padding:.6rem;color:inherit;background:var(--bg,transparent)}
+.ai-follow{cursor:pointer;margin:.5rem 0}
+.ai-programme-tags .ai-programme-theme{padding-top:.75rem;border-top:1px solid var(--line,#777)}
+.ai-insights [role="tabpanel"]{line-height:1.7;padding:.4rem 0}
+@media(max-width:480px){.ai-brief>summary,.ai-monitor>summary{padding:.8rem}.ai-language-tabs button{flex:1}.ai-brief-body,.ai-monitor-body{padding:0 .8rem .8rem}}

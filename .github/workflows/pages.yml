@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
   workflow_run:
-    workflows: ["Daily Eduskunta data sync", "Daily budget, election and influence data sync"]
+    workflows: ["Daily Eduskunta data sync", "Daily budget, election and influence data sync", "Daily AI briefs and programme tags"]
     types: [completed]
   workflow_dispatch:
 

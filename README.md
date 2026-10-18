@@ -169,3 +169,9 @@ The home page and ordinary vote/MP lists avoid downloading or expanding the comp
 A small back-to-top arrow appears after scrolling down. It works in both reading views, has Finnish/Swedish/English labels, supports keyboard input and respects reduced-motion preferences.
 
 Run `npm run test:performance` for browser payload budgets, scoped-detail loading and back-to-top interaction checks on desktop and mobile.
+
+## Programme themes and AI briefs
+
+Programme-derived theme and promise tags connect party programmes with proposals and votes. Users can filter and follow themes locally. Proposal and vote pages include a collapsed AI brief panel with Finnish, Swedish and English tabs, an accuracy notice and original source links. Briefs currently summarise published record metadata; full legal text is not present in the dataset.
+
+Generation uses an offline, cached OpenRouter pipeline with a free model and a server-side Actions secret. Add OPENROUTER_API_KEY, then run the Daily AI briefs and programme tags workflow to start the bounded backfill. No key is embedded in the site; no AI requests are made by visitors. See [setup, method and limits](docs/ai-insights.md).

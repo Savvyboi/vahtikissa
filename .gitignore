@@ -1,4 +1,10 @@
 node_modules/
+.env
+.env.*
+!.env.example
+.hermes-tmp.ai-*
+data/ai/*.tmp
+data/ai-insights.json.tmp
 .DS_Store
 *.log
 .hermes-tmp.*/

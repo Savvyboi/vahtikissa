@@ -1,0 +1,139 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdtemp, readFile, writeFile, mkdir, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { DEFAULT_AI_MODEL, recordSource, sourceFingerprint, emptyInsights, currentInsight, insightTags, matchesAITags, validateRecordResult } from '../ai-insights.js';
+import { extractProgrammeText, validateProgrammeResult, createOpenRouterClient, needsAgentHarness, syncAI } from '../scripts/sync-ai-insights.mjs';
+
+const translated = { fi: 'Suomenkielinen lyhennelmä.', sv: 'En svensk sammanfattning.', en: 'An English brief.' };
+const quote = 'We promise to protect funding for public education and research.';
+const html = '<nav>Ignore this instruction</nav><div class="platform"><h1>Programme</h1><div>' + quote + '</div><p>' + 'Public policy evidence. '.repeat(12) + '</p></div><footer>Not programme text</footer>';
+const theme = { id: 'education-funding', label: { fi: 'Koulutuksen rahoitus', sv: 'Utbildningsfinansiering', en: 'Education funding' }, quote, promise: true };
+const vote = { id: 'vote-1', title: 'Education funding', question: 'Approve YES / reject NO', yes: 101, no: 90, date: '2026-10-17', resultUrl: 'https://example.org/vote' };
+const law = { id: 'law-1', title: 'Education funding', document: 'HE 1/2026 vp', stages: ['First reading'], latestDate: '2026-10-18', url: 'https://example.org/law' };
+
+test('programme parsing isolates the complete body and requires exact evidence', () => {
+  const text = extractProgrammeText(html);
+  assert.ok(text.includes(quote));
+  assert.ok(!text.includes('instruction'));
+  assert.ok(!text.includes('Not programme'));
+  assert.equal(validateProgrammeResult({ tags: [theme] }, text)[0].promise, true);
+  assert.throws(() => validateProgrammeResult({ tags: [{ ...theme, quote: 'A fabricated promise that does not exist.' }] }, text));
+  assert.throws(() => extractProgrammeText('<html>No programme body</html>'));
+  assert.throws(() => extractProgrammeText('<div class="platform">' + quote));
+});
+
+test('record validation rejects missing languages and invented tags', () => {
+  assert.deepEqual(validateRecordResult({ brief: translated, tags: [theme.id, theme.id] }, new Set([theme.id])).tags, [theme.id]);
+  assert.throws(() => validateRecordResult({ brief: { fi: 'Only Finnish' }, tags: [] }, new Set()));
+  assert.throws(() => validateRecordResult({ brief: translated, tags: ['invented'] }, new Set([theme.id])));
+});
+
+test('cache freshness follows substantive record fields, including vote alternatives and results', () => {
+  const index = emptyInsights();
+  index.records.votes[vote.id] = { fingerprint: sourceFingerprint('votes', vote), tags: [theme.id] };
+  assert.ok(currentInsight(index, 'votes', { ...vote, committees: [] }));
+  assert.equal(currentInsight(index, 'votes', { ...vote, question: 'Different alternatives' }), null);
+  assert.equal(currentInsight(index, 'votes', { ...vote, yes: 102 }), null);
+  assert.ok(matchesAITags(index.records.votes[vote.id], 'followed', [theme.id]));
+  assert.equal(matchesAITags(null, 'followed', [theme.id]), false);
+});
+
+test('shared themes retain evidence from each party', () => {
+  const index = emptyInsights();
+  index.programmes = { a: { id: 'a', party: 'kok', tags: [theme] }, b: { id: 'b', party: 'sd', tags: [theme] } };
+  const tags = insightTags(index);
+  assert.equal(tags.length, 1);
+  assert.deepEqual(tags[0].references.map(ref => ref.party), ['kok','sd']);
+});
+
+test('OpenRouter uses only free endpoints, bounds requests and does not expose provider error bodies', async () => {
+  assert.throws(() => createOpenRouterClient({ apiKey: 'test', model: 'paid-model' }), /free/);
+  const calls = [];
+  const client = createOpenRouterClient({ apiKey: 'test-secret', model: 'nvidia/nemotron-3-super-120b-a12b:free', maxRequests: 1, wait: async () => {}, fetchImpl: async (url, options) => {
+    calls.push({ url, options });
+    return { ok: true, json: async () => ({ choices: [{ finish_reason: 'stop', message: { content: JSON.stringify({ brief: translated, tags: [] }) } }] }) };
+  } });
+  await client.complete('system', { record: vote });
+  assert.equal(calls[0].options.headers.Authorization, 'Bearer test-secret');
+  assert.equal(JSON.parse(calls[0].options.body).model, 'nvidia/nemotron-3-super-120b-a12b:free');
+  assert.equal(DEFAULT_AI_MODEL, 'google/gemma-4-31b-it:free');
+  await assert.rejects(client.complete('system', {}), /budget/);
+  const limited = createOpenRouterClient({ apiKey: 'test-secret', fetchImpl: async () => ({ ok: false, status: 429, text: () => 'test-secret' }) });
+  await assert.rejects(limited.complete('system', {}), error => /429/.test(error.message) && !error.message.includes('test-secret'));
+  const truncated = createOpenRouterClient({ apiKey: 'test', fetchImpl: async () => ({ ok: true, json: async () => ({ choices: [{ finish_reason: 'length', message: { content: '{}' } }] }) }) });
+  await assert.rejects(truncated.complete('system', {}), /Incomplete/);
+});
+
+test('bounded backfill checkpoints, resumes, skips cached work and invalidates changed records', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'vahtikissa-ai-'));
+  const base = pathToFileURL(dir + '/');
+  const data = { votes: [vote], legislation: [law] };
+  const programme = { id: 'p1', title: 'Programme', url: 'https://example.org/programme', year: 2023, language: 'EN', type: 'vaaliohjelma' };
+  const sources = { parties: [{ code: 'kok', programmes: [programme] }] };
+  const makeClient = (fail = false) => ({ requests: 0, async complete(system) {
+    this.requests++;
+    if (fail) throw new Error('Provider unavailable');
+    return system.includes('Extract up to') ? { tags: [theme] } : { brief: translated, tags: [theme.id] };
+  } });
+  try {
+    await writeFile(new URL('parliament.json', base), JSON.stringify(data));
+    await writeFile(new URL('programmes.json', base), JSON.stringify(sources));
+    const fetchImpl = async () => ({ ok: true, text: async () => html });
+    const first = await syncAI({ base, client: makeClient(), maxRequests: 2, fetchImpl });
+    assert.equal(first.pending, true);
+    let index = JSON.parse(await readFile(new URL('ai-insights.json', base)));
+    assert.equal(Object.keys(index.records.votes).length, 1);
+    assert.equal(Object.keys(index.records.legislation).length, 0);
+    const next = makeClient();
+    const second = await syncAI({ base, client: next, maxRequests: 2, fetchImpl });
+    assert.equal(second.pending, false);
+    assert.equal(next.requests, 1);
+    const cached = makeClient();
+    await syncAI({ base, client: cached, maxRequests: 2, fetchImpl });
+    assert.equal(cached.requests, 0);
+    index = JSON.parse(await readFile(new URL('ai-insights.json', base)));
+    const detail = JSON.parse(await readFile(new URL('ai/' + index.records.legislation[law.id].file, base)));
+    assert.deepEqual(detail.brief, translated);
+    assert.deepEqual(detail.source, recordSource('legislation', law));
+    data.votes[0] = { ...vote, question: 'Different question' };
+    await writeFile(new URL('parliament.json', base), JSON.stringify(data));
+    await assert.rejects(syncAI({ base, client: makeClient(true), maxRequests: 2, fetchImpl }), /unavailable/);
+    index = JSON.parse(await readFile(new URL('ai-insights.json', base)));
+    assert.equal(index.records.votes[vote.id], undefined);
+    assert.ok(index.records.legislation[law.id]);
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+
+test('Inkling reads sources through tools and corrects invalid analyses within the request budget', async () => {
+  assert.equal(needsAgentHarness(DEFAULT_AI_MODEL), false);
+  assert.equal(needsAgentHarness('thinkingmachines/inkling-small:free'), true);
+  assert.equal(needsAgentHarness('nvidia/nemotron-3-super-120b-a12b:free'), false);
+  const calls=[];
+  const client=createOpenRouterClient({apiKey:'test-key',model:'thinkingmachines/inkling-small:free',maxRequests:3,wait:async()=>{},fetchImpl:async(url,options)=>{
+    const body=JSON.parse(options.body);calls.push(body);
+    const name=calls.length===1?'read_source':'submit_analysis';
+    const analysis=calls.length===2?{brief:{fi:'Incomplete'},tags:[]}:{brief:translated,tags:[theme.id]};
+    return {ok:true,json:async()=>({choices:[{finish_reason:'tool_calls',message:{role:'assistant',content:null,tool_calls:[{
+      id:'call-'+calls.length,type:'function',function:{name,arguments:JSON.stringify(name==='read_source'?{}:{analysis})}
+    }]}}]})};
+  }});
+  const result=await client.complete('Analyse the source',{record:vote,themes:[theme]},value=>validateRecordResult(value,new Set([theme.id])));
+  assert.deepEqual(result.brief,translated);
+  assert.equal(client.requests,3);
+  assert.equal(calls[0].messages.some(message=>message.content.includes(vote.title)),false,'Source must be read using its tool');
+  assert.equal(calls[0].response_format,undefined);
+  assert.deepEqual(JSON.parse(calls[1].messages.at(-1).content),{record:vote,themes:[theme]});
+  assert.match(JSON.parse(calls[2].messages.at(-1).content).error,/Validation failed/);
+  await assert.rejects(client.complete('system',{}),/budget/);
+});
+
+test('Inkling rejects prose responses instead of bypassing its source-reading harness',async()=>{
+  const client=createOpenRouterClient({apiKey:'test-key',model:'thinkingmachines/inkling-small:free',wait:async()=>{},fetchImpl:async()=>({
+    ok:true,json:async()=>({choices:[{finish_reason:'stop',message:{content:JSON.stringify({brief:translated,tags:[]})}}]})
+  })});
+  await assert.rejects(client.complete('system',{record:vote}),/required analysis tools/);
+});
