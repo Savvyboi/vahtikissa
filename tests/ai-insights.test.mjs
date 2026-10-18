@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { DEFAULT_AI_MODEL, recordSource, sourceFingerprint, emptyInsights, currentInsight, insightTags, matchesAITags, validateRecordResult } from '../ai-insights.js';
-import { extractProgrammeText, programmeChunks, validateProgrammeResult, createOpenRouterClient, needsAgentHarness, syncAI } from '../scripts/sync-ai-insights.mjs';
+import { extractProgrammeText, programmeChunks, programmeEvidencePassages, validateProgrammeResult, createOpenRouterClient, needsAgentHarness, syncAI } from '../scripts/sync-ai-insights.mjs';
 
 const translated = { fi: 'Suomenkielinen lyhennelmä.', sv: 'En svensk sammanfattning.', en: 'An English brief.' };
 const quote = 'We promise to protect funding for public education and research.';
@@ -238,4 +238,52 @@ test('repeated programme IDs merge only after every quote is validated',()=>{
   assert.deepEqual(validateProgrammeResult({tags:[theme,{...theme}]},quote),[theme]);
   assert.throws(()=>validateProgrammeResult({tags:[theme,{...theme,quote:'An invented quote for the same theme must still fail.'}]},quote),/exact source quote/);
   assert.throws(()=>validateProgrammeResult({tags:[{...theme,id:'INVALID ID'}]},quote),/Invalid tag ID/);
+});
+
+
+test('programme passages are bounded verbatim excerpts and selected IDs become exact quotes',async()=>{
+  const source=('Suomen koulutus ja terveydenhuolto. Vi stöder utbildning och hälsovård. '+quote+' ').repeat(40).trim();
+  const passages=programmeEvidencePassages(source);
+  assert.ok(passages.length>1);
+  for(const passage of passages){
+    assert.ok(passage.text.length>=20 && passage.text.length<=240);
+    assert.ok(source.includes(passage.text));
+  }
+  assert.equal(passages.map(p=>p.text).join(' '),source);
+  assert.deepEqual(programmeEvidencePassages('Short'),[]);
+  let payload;
+  const client=createOpenRouterClient({apiKey:'test',model:'nvidia/nemotron-3.5-super-vl:free',fetchImpl:async(url,options)=>{
+    payload=JSON.parse(options.body);
+    return {ok:true,json:async()=>({choices:[{finish_reason:'stop',message:{content:JSON.stringify({tags:[{id:theme.id,label:theme.label,evidenceId:passages[0].id,promise:true}]})}}]})};
+  }});
+  const result=await client.complete('Analyse the passages',{sourceText:source,evidencePassages:passages},value=>validateProgrammeResult(value,source));
+  assert.equal(result.tags[0].quote,passages[0].text);
+  assert.equal(result.tags[0].evidenceId,undefined);
+  const sent=JSON.parse(payload.messages[1].content);
+  assert.equal(sent.sourceText,undefined);
+  assert.deepEqual(sent.evidencePassages,passages);
+  assert.deepEqual(payload.response_format.json_schema.schema.properties.tags.items.properties.evidenceId.enum,passages.map(p=>p.id));
+});
+
+test('unknown passage IDs are rejected even when a model also supplies a valid-looking quote',async()=>{
+  const passages=programmeEvidencePassages(quote),calls=[];
+  const client=createOpenRouterClient({apiKey:'test',maxRequests:2,wait:async()=>{},fetchImpl:async(url,options)=>{
+    calls.push(JSON.parse(options.body));
+    return {ok:true,json:async()=>({choices:[{finish_reason:'stop',message:{content:JSON.stringify({tags:[{...theme,evidenceId:'invented-passage'}]})}}]})};
+  }});
+  await assert.rejects(client.complete('system',{sourceText:quote,evidencePassages:passages},value=>validateProgrammeResult(value,quote)),/budget|Unknown programme evidence ID/);
+  assert.match(calls[1].messages.at(-1).content,/supplied evidencePassages IDs/);
+  assert.equal(client.requests,2);
+});
+
+test('the tool harness resolves selected passages after source reading',async()=>{
+  const passages=programmeEvidencePassages(quote);let calls=0;
+  const client=createOpenRouterClient({apiKey:'test',model:'thinkingmachines/inkling-small:free',wait:async()=>{},fetchImpl:async()=>{
+    calls++;const name=calls===1?'read_source':'submit_analysis';
+    const args=calls===1?{}:{analysis:{tags:[{id:theme.id,label:theme.label,evidenceId:passages[0].id,promise:true}]}};
+    return {ok:true,json:async()=>({choices:[{finish_reason:'tool_calls',message:{content:null,tool_calls:[{id:'call-'+calls,type:'function',function:{name,arguments:JSON.stringify(args)}}]}}]})};
+  }});
+  const result=await client.complete('system',{sourceText:quote,evidencePassages:passages},value=>validateProgrammeResult(value,quote));
+  assert.equal(result.tags[0].quote,quote);
+  assert.equal(client.requests,2);
 });
