@@ -1,5 +1,5 @@
-import {createHash} from 'node:crypto';
-import {readFile,writeFile,mkdir} from 'node:fs/promises';
+import {createHash,randomUUID} from 'node:crypto';
+import {readFile,writeFile,mkdir,rename} from 'node:fs/promises';
 const API='https://api.eduskunta.fi/api/v1/asiakirjat/eduskuntatunnus/';
 const hash=value=>createHash('sha256').update(value).digest('hex');
 export function selectDocumentExcerpt(text){
@@ -32,7 +32,7 @@ export function createDocumentLoader({base,fetchImpl=fetch}={}){
     if(!original || !/^EDK-\d{4}-AK-\d+$/.test(original.edktunnus))return [];
     const text=selectDocumentExcerpt(original.fullText);if(!text)return [];
     const document={document:identifier,title:original.nimeketeksti,language:'fi',edkId:original.edktunnus,url:'https://www.eduskunta.fi/asiat-ja-aanestykset/valtiopaivaasiat/asiakirjat/edktunnus/'+original.edktunnus,text,sourceHash:hash(text),publishedAt:original.viimeisinJulkaisuajankohta||null,fetchedAt:new Date().toISOString(),scope:'document-excerpt'};
-    if(file){await mkdir(new URL('ai-sources/',base),{recursive:true});await writeFile(file,JSON.stringify(document)+'\n');}
+    if(file){await mkdir(new URL('ai-sources/',base),{recursive:true});const temp=new URL(file.href+'.'+randomUUID()+'.tmp');await writeFile(temp,JSON.stringify(document)+'\n');await rename(temp,file);}
     return [document];
    }catch(error){if(error?.code==='ENOSPC'||error?.code==='EACCES')throw error;return [];}
   })());
