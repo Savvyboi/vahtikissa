@@ -157,6 +157,12 @@ export async function renderBudget(root,lang,routeId,escapeHTML) {
       root.querySelector('[data-tool="direction"] option[value="asc"]').textContent=L('Nouseva','Stigande','Ascending');
       root.querySelector('[data-tool="direction"] option[value="desc"]').textContent=L('Laskeva','Fallande','Descending');
     }
+    const combined = root.querySelector('[data-budget-refine]'), quickSearch = root.querySelector('.budget-search-controls');
+    if (combined && quickSearch) {
+      combined.classList.add('filter-panel'); combined.dataset.filterPanel = 'budget';
+      combined.querySelector(':scope > summary').textContent = L('Haku, rajaukset ja järjestys','Sök, avgränsa och sortera','Search, filter and sort');
+      combined.insertBefore(quickSearch, combined.children[1]);
+    }
     foldFilterToolbars(root,lang);
     const exportItems=leaf?[{...level.node,path:codes}]:items;
     bindExportButtons(root,'budget',()=>exportItems.map(item=>({year:year.year,type,metric:state.metric,actualThroughMonth:year.latestMonth,code:item.code,path:item.path.join('/'),name:name(item,lang),budget:item.budget,original:item.original,actual:item.actual,sharePercent:budgetShare(amount(item),scope),changePercent:delta(item)})),`vahtikissa-budjetti-${year.year}-${type}`);

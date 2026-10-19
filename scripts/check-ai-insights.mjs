@@ -32,7 +32,7 @@ try {
     await page.route('**/data/ai/*.json', route => {
       requests.push(route.request().url());
       const kind = route.request().url().includes(files.votes) ? 'votes' : 'legislation', item = kind === 'votes' ? vote : law;
-      return route.fulfill({ json:{version:1,kind,id:item.id,source:recordSource(kind,item),brief,tags:[tag.id],model:'Mock free model',generatedAt:'2026-10-18T08:00:00Z'} });
+      return route.fulfill({ json:{version:1,kind,id:item.id,source:recordSource(kind,item),brief,tags:[tag.id],briefBasis:'document-excerpt',evidence:[{document:'HE 1/2026 vp',url:'https://example.org/source',quote:'Verified mock source <img src=x onerror=alert(1)>'}],model:'Mock free model',generatedAt:'2026-10-18T08:00:00Z'} });
     });
     await page.goto(url + '/?view=' + view + '#/votes/' + encodeURIComponent(vote.id));
     await page.locator('[data-ai-brief]').waitFor();
@@ -48,6 +48,10 @@ try {
     assert.equal(await page.locator('[data-ai-language="en"]').getAttribute('aria-selected'),'true');
     assert.equal(await page.locator('[data-ai-brief-text]').innerText(),brief.en);
     assert.equal(await page.locator('[data-ai-brief-text] img').count(),0,'Model output must never become HTML');
+    assert.equal(await page.locator('.ai-brief-method').getAttribute('open'),null);
+    await page.locator('.ai-brief-method>summary').click();
+    assert.match(await page.locator('[data-ai-evidence]').innerText(),/Verified mock source/);
+    assert.equal(await page.locator('[data-ai-evidence] img').count(),0,'Source evidence must never become HTML');
     await page.addScriptTag({ path:require.resolve('axe-core/axe.min.js') });
     const violations = await page.evaluate(async () => (await axe.run(document.querySelector('.ai-insights'), { rules:{region:{enabled:false}} })).violations.map(v => v.id));
     assert.deepEqual(violations,[]);

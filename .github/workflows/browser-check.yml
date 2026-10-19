@@ -29,3 +29,4 @@ jobs:
       - run: npm run test:charts
       - run: npm run test:loading-language
       - run: npm run test:ai-browser
+      - run: npm run test:vote-reading

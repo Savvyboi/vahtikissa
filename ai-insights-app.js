@@ -58,12 +58,11 @@ function notice(lang) {
 function briefPanel(kind, item, lang) {
   return '<details class="ai-brief" data-ai-brief><summary><strong>' + L(lang, 'AI-lyhennelmä', 'AI-sammanfattning', 'AI brief') +
     '</strong><span>' + L(lang, 'AI voi erehtyä – tarkista lähde', 'AI kan göra fel – kontrollera källan', 'AI can make mistakes — check the source') +
-    '</span></summary><div class="ai-brief-body"><p class="ai-notice">' + notice(lang) + '</p><p>' +
-    L(lang, 'Perustuu julkaistuun otsikkoon, kysymykseen, käsittelyvaiheeseen ja tulostietoihin. Koko lakiteksti ei sisälly analyysiin.',
-      'Bygger på publicerad rubrik, fråga, behandlingsskede och resultat. Hela lagtexten ingår inte i analysen.',
-      'Based on published title, question, stage and result metadata. The full legal text is not included in this analysis.') +
-    '</p><div data-ai-brief-content role="status"></div><p><a href="' + e(safeURL(item.resultUrl || item.url || item.documentUrl)) + '" target="_blank" rel="noreferrer">' +
-    L(lang, 'Alkuperäinen lähde', 'Originalkälla', 'Original source') + ' ↗</a></p></div></details>';
+    '</span></summary><div class="ai-brief-body"><div data-ai-brief-content role="status"></div><p class="ai-brief-scope" data-ai-scope>' +
+    L(lang, 'Vain metatiedot: ehdotuksen varsinaiset muutokset eivät sisälly tähän lyhennelmään.', 'Endast metadata: förslagets konkreta ändringar ingår inte i denna sammanfattning.', 'Metadata only: this brief does not describe the proposal’s substantive changes.') +
+    '</p><details class="ai-brief-method"><summary>' + L(lang,'Lähteet ja rajaukset','Källor och avgränsningar','Sources and limits') +
+    '</summary><p class="ai-notice">' + notice(lang) + '</p><div data-ai-evidence></div><p class="ai-provenance"></p><a href="' + e(safeURL(item.resultUrl || item.url || item.documentUrl)) + '" target="_blank" rel="noreferrer">' +
+    L(lang, 'Alkuperäinen lähde', 'Originalkälla', 'Original source') + ' ↗</a></details></div></details>';
 }
 function mountBrief(holder, kind, item, lang) {
   holder.innerHTML = briefPanel(kind, item, lang);
@@ -89,10 +88,20 @@ function mountBrief(holder, kind, item, lang) {
         content.removeAttribute('role');
         content.innerHTML = '<div class="ai-language-tabs" role="tablist" aria-label="' + L(lang, 'Lyhennelmän kieli', 'Sammanfattningens språk', 'Brief language') + '">' +
           [['fi','Suomi'],['sv','Svenska'],['en','English']].map(([key, name]) => '<button type="button" role="tab" id="' + uid + '-tab-' + key + '" data-ai-language="' + key + '" aria-controls="' + uid + '-panel" aria-selected="' + (key === lang) + '" tabindex="' + (key === lang ? '0' : '-1') + '">' + name + '</button>').join('') +
-          '</div><div role="tabpanel" id="' + uid + '-panel" aria-labelledby="' + uid + '-tab-' + lang + '" lang="' + lang + '" tabindex="0"><p data-ai-brief-text></p></div><p class="ai-provenance"></p>';
+          '</div><div role="tabpanel" id="' + uid + '-panel" aria-labelledby="' + uid + '-tab-' + lang + '" lang="' + lang + '" tabindex="0"><p data-ai-brief-text></p></div>';
         const panel = content.querySelector('[role="tabpanel"]'), paragraph = content.querySelector('[data-ai-brief-text]');
         paragraph.textContent = validated.brief[lang];
-        content.querySelector('.ai-provenance').textContent = result.model + ' · ' + L(lang, 'Luotu', 'Skapad', 'Generated') + ' ' + new Date(result.generatedAt).toLocaleDateString(lang);
+        holder.querySelector('.ai-provenance').textContent = result.model + ' · ' + L(lang, 'Luotu', 'Skapad', 'Generated') + ' ' + new Date(result.generatedAt).toLocaleDateString(lang);
+        if (result.briefBasis === 'document-excerpt' && result.evidence?.length) {
+          holder.querySelector('[data-ai-scope]').textContent = L(lang,'Perustuu alkuperäisasiakirjan otteisiin. Ehdotuksen kuvaus ei yksin selitä kaikkia äänestysvaihtoehtoja.','Bygger på utdrag ur originaldokumentet. Beskrivningen av förslaget förklarar inte ensam alla omröstningsalternativ.','Based on original-document excerpts. The proposal description does not by itself explain every voting alternative.');
+          const evidence = holder.querySelector('[data-ai-evidence]');
+          for (const passage of result.evidence) {
+            if (!safeURL(passage.url) || typeof passage.quote !== 'string') continue;
+            const block = document.createElement('blockquote'), link = document.createElement('a');
+            block.textContent = passage.quote; link.href = safeURL(passage.url); link.target = '_blank'; link.rel = 'noreferrer'; link.textContent = passage.document || L(lang,'Asiakirja','Dokument','Document');
+            evidence.append(link,block);
+          }
+        }
         const buttons = [...content.querySelectorAll('[role="tab"]')];
         const select = button => {
           buttons.forEach(tab => { tab.setAttribute('aria-selected', String(tab === button)); tab.tabIndex = tab === button ? 0 : -1; });
@@ -127,8 +136,8 @@ export function decorateAI(root, { route, data, lang, rerender }) {
       if (item) {
         const holder = document.createElement('section');
         holder.className = 'ai-insights';
-        const head = page.querySelector('.page-head,.easy-hero');
-        if (head) head.after(holder); else page.prepend(holder);
+        const anchor = kind === 'votes' ? page.querySelector('.result-block,.easy-vote-context + .easy-section') : page.querySelector('.matter-summary,.easy-callout,.legislation-process');
+        if (anchor) anchor.after(holder); else page.append(holder);
         mountBrief(holder, kind, item, lang);
         const tags = document.createElement('div'); tags.innerHTML = aiTagBadges(kind, item, lang);
         holder.prepend(tags);

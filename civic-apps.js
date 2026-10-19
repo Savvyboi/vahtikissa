@@ -16,6 +16,8 @@ function attachExtra(root, key, state, config, lang, before, rerender) {
   const holder = document.createElement('div');
   root.querySelector(before).before(holder);
   collapseQuickFilters(root,lang);
+  const quick = [...holder.parentElement.children].filter(node => node.matches('[data-filter-panel]') && (node.compareDocumentPosition(holder) & Node.DOCUMENT_POSITION_FOLLOWING)).at(-1);
+  if (quick) quick.append(holder);
   const hasSearch=root.querySelector('.filters input[type="search"]');
   mountCollectionTools(holder,key,state,hasSearch?{...config,search:undefined}:config,lang,()=>preserveFocus(root,rerender));
 }

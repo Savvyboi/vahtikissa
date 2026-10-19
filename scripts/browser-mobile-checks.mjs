@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 
 /** Check content geometry as well as page overflow on the affected mobile views. */
 export async function checkMobileLayouts(page, navigate) {
-  const searchLabels={fi:'Haku ja rajaukset',sv:'Sök och avgränsa',en:'Search and filters'};
+  const searchLabels={fi:'Haku, rajaukset ja järjestys',sv:'Sök, avgränsa och sortera',en:'Search, filter and sort'};
   for(const language of ['fi','sv','en']) {
     await page.locator('.language-select').selectOption(language);
     for(const width of [320,390,600]) {

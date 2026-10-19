@@ -15,7 +15,7 @@ on:
         default: false
   push:
     branches: [main]
-    paths: ['scripts/sync-ai-insights.mjs', 'ai-insights.js', '.github/workflows/daily-ai-sync.yml']
+    paths: ['scripts/sync-ai-insights.mjs', 'ai-insights.js', 'scripts/ai-document-sources.mjs', '.github/workflows/daily-ai-sync.yml']
 
 permissions:
   contents: write
@@ -57,6 +57,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add data/ai-insights.json
           if [ -d data/ai ]; then git add data/ai/; fi
+          if [ -d data/ai-sources ]; then git add data/ai-sources/; fi
           git diff --cached --quiet && exit 0
           git commit -m "data: refresh AI briefs and programme themes"
           for attempt in 1 2 3; do

@@ -1,12 +1,17 @@
 const labels = {
-  fi: { search: 'Haku ja rajaukset', sort: 'Rajaa ja järjestä', active: 'aktiivista rajausta' },
-  sv: { search: 'Sök och avgränsa', sort: 'Avgränsa och sortera', active: 'aktiva avgränsningar' },
-  en: { search: 'Search and filters', sort: 'Filter and sort', active: 'active filters' }
+  fi: { search: 'Haku, rajaukset ja järjestys', sort: 'Haku, rajaukset ja järjestys', active: 'aktiivista rajausta' },
+  sv: { search: 'Sök, avgränsa och sortera', sort: 'Sök, avgränsa och sortera', active: 'aktiva avgränsningar' },
+  en: { search: 'Search, filter and sort', sort: 'Search, filter and sort', active: 'active filters' }
 };
 
 // Native disclosures keep hidden controls out of the tab order without extra ARIA.
 export function foldControls(toolbar, lang = 'fi', { key, sort = false, state } = {}) {
-  if (toolbar.closest('[data-filter-panel]')) return;
+  const existing = toolbar.closest('[data-filter-panel]');
+  if (existing) {
+    if (state) { if (state.open.__panel !== undefined) existing.open = Boolean(state.open.__panel); existing.addEventListener('toggle', () => { if (existing.isConnected) state.open.__panel = existing.open; }); }
+    existing.dispatchEvent(new Event('change', {bubbles:true}));
+    return existing;
+  }
   const copy = labels[lang] || labels.fi;
   const panel = document.createElement('details');
   panel.className = 'filter-panel';
@@ -20,7 +25,7 @@ export function foldControls(toolbar, lang = 'fi', { key, sort = false, state } 
     if (panel.isConnected) state.open.__panel = panel.open;
   });
   const update = () => {
-    const count = [...toolbar.querySelectorAll('input, select')].filter(input => {
+    const count = [...panel.querySelectorAll('input, select')].filter(input => {
       if (input.matches('[data-option-search], [data-tool="sort"], [data-tool="direction"], [data-vote-sort], [data-member-sort], [data-legislation-sort]')) return false;
       if (input.type === 'checkbox') return input.checked;
       if (input.tagName === 'INPUT') return Boolean(input.value.trim());
@@ -28,9 +33,9 @@ export function foldControls(toolbar, lang = 'fi', { key, sort = false, state } 
     }).length;
     summary.querySelector('[data-panel-count]').textContent = count ? `${count} ${copy.active}` : '';
   };
-  toolbar.addEventListener('input', update);
-  toolbar.addEventListener('change', update);
-  toolbar.addEventListener('click', update);
+  panel.addEventListener('input', update);
+  panel.addEventListener('change', update);
+  panel.addEventListener('click', update);
   update();
   return panel;
 }

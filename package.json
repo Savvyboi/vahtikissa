@@ -26,7 +26,8 @@
     "build:data": "node scripts/build-parliament-data.mjs",
     "test:performance": "node scripts/check-performance.mjs",
     "sync:ai": "node scripts/sync-ai-insights.mjs",
-    "test:ai-browser": "node scripts/check-ai-insights.mjs"
+    "test:ai-browser": "node scripts/check-ai-insights.mjs",
+    "test:vote-reading": "node scripts/check-vote-reading.mjs"
   },
   "devDependencies": {
     "axe-core": "^4.13.0",

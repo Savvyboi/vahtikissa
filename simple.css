@@ -87,3 +87,9 @@ html[data-theme="dark"] .easy-choices button[aria-pressed="true"],html[data-them
 .easy-choices dt{font-weight:700;color:var(--blue)}.easy-choices dd{margin:.4rem 0 0;overflow-wrap:anywhere}
 /* A tiny cat silhouette on the reading-mode switch. */
 .view-toggle-track::after{top:0;bottom:2px;border-radius:45%;clip-path:polygon(0 0,34% 22%,66% 22%,100% 0,100% 70%,85% 92%,50% 100%,15% 92%,0 70%)}
+
+/* Vote rosters stay on one page in compact, readable rows. */
+.easy-vote-context{padding:1rem 1.2rem;margin-top:1.4rem}.easy-page .easy-vote-context h2{font:700 1.2rem/1.3 Manrope,sans-serif;margin:0 0 .5rem;letter-spacing:0}.easy-vote-context p{margin:.5rem 0}.easy-vote-context .easy-choices{margin:.6rem 0;gap:.65rem}.easy-vote-context .easy-choices>div{padding:.6rem .8rem}.easy-vote-context .easy-choices dd{margin-top:.2rem}.easy-voter-list{grid-template-columns:repeat(3,minmax(0,1fr));gap:0 1rem}.easy-voter{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;column-gap:.6rem;padding:.5rem .15rem;border-bottom:1px solid var(--line);font-size:.86rem;line-height:1.35;min-width:0}.easy-voter-name{font-weight:700;overflow-wrap:anywhere}.easy-voter .ballot-party{grid-column:1;font-size:.73rem}.easy-voter .pill{grid-column:2;grid-row:1 / 3;font-size:.75rem}.easy-page [data-easy-voters] h2{font-size:1.55rem}
+@media(max-width:850px){.easy-voter-list{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:520px){.easy-voter-list{grid-template-columns:1fr}.easy-voter{padding:.45rem .15rem}.easy-vote-context{padding:.8rem}}
+
+.ballot-person>a,.easy-voter>a{display:flex;align-items:center;min-height:24px}
