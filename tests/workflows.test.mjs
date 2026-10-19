@@ -37,3 +37,17 @@ test('AI backfill reserves the daily budget before inference and deploys only ch
  assert.match(ai,/actions\/workflows\/pages.yml\/dispatches/);
  assert.doesNotMatch(pages,/"Daily AI briefs and programme tags"/);
 });
+
+
+test('AI batches hand off after persisted results even when publication or generation fails',async()=>{
+ const ai=await readFile(new URL('../.github/workflows/daily-ai-sync.yml',import.meta.url),'utf8');
+ const sync=await readFile(new URL('../scripts/sync-ai-insights.mjs',import.meta.url),'utf8');
+ assert.match(ai,/workflow_run:/);assert.match(ai,/workflows: \["Daily Eduskunta data sync", "Daily budget, election and influence data sync"\]/);
+ assert.match(ai,/github.event.workflow_run.head_branch == 'main'/);
+ assert.match(ai,/!cancelled\(\) && steps.commit.outcome == 'success' && steps.budget.outputs.reservation != ''/);
+ assert.match(ai,/AI_BACKFILL_PENDING: \$\{\{ steps.ai.outputs.pending \}\}/);
+ assert.match(ai,/run: node scripts\/continue-ai-backfill.mjs/);
+ assert.match(sync,/'pending='\+Boolean\(result.pending\)/);
+ assert.ok(ai.indexOf('name: Continue backfill')>ai.indexOf('name: Commit completed insights'));
+ assert.ok(ai.indexOf('name: Continue backfill')<ai.indexOf('name: Report generation failure'));
+});

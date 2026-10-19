@@ -390,5 +390,6 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   };
   run().then(async result => {
     if (process.env.GITHUB_STEP_SUMMARY) await appendFile(process.env.GITHUB_STEP_SUMMARY, '\nAI refresh: '+(result.skipped?'skipped (key not configured)':result.pending?'backfill pending':'complete')+'. Free-model requests: '+(result.requests||0)+'. Rejected briefs: '+(result.rejected||0)+' (unpublished and pending). Completed results retained.\n');
+    if(process.env.GITHUB_OUTPUT)await appendFile(process.env.GITHUB_OUTPUT,'pending='+Boolean(result.pending)+'\n');
   }).catch(error => { console.error(error.message); process.exitCode = 1; });
 }

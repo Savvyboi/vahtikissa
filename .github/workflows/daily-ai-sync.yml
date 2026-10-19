@@ -3,6 +3,9 @@ name: Daily AI briefs and programme tags
 on:
   schedule:
     - cron: '4,19,34,49 * * * *'
+  workflow_run:
+    workflows: ["Daily Eduskunta data sync", "Daily budget, election and influence data sync"]
+    types: [completed]
   workflow_dispatch:
     inputs:
       max_requests:
@@ -15,7 +18,7 @@ on:
         default: false
   push:
     branches: [main]
-    paths: ['scripts/sync-ai-insights.mjs', 'scripts/ai-document-sources.mjs', 'scripts/ai-request-budget.mjs']
+    paths: ['.github/workflows/daily-ai-sync.yml', 'scripts/sync-ai-insights.mjs', 'scripts/ai-document-sources.mjs', 'scripts/ai-request-budget.mjs', 'scripts/continue-ai-backfill.mjs']
 
 permissions:
   contents: write
@@ -27,6 +30,7 @@ concurrency:
 
 jobs:
   sync:
+    if: ${{ github.event_name != 'workflow_run' || (github.event.workflow_run.head_branch == 'main' && contains(fromJSON('["success", "failure"]'), github.event.workflow_run.conclusion)) }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
@@ -123,6 +127,14 @@ jobs:
           if(response.status!==204)throw Error('Pages dispatch HTTP '+response.status);
           console.log('Published-data deployment requested.');
           NODE
+      - name: Continue backfill until the daily budget is spent
+        if: ${{ !cancelled() && steps.commit.outcome == 'success' && steps.budget.outputs.reservation != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPOSITORY: ${{ github.repository }}
+          AI_BUDGET_RESERVATION: ${{ steps.budget.outputs.reservation }}
+          AI_BACKFILL_PENDING: ${{ steps.ai.outputs.pending }}
+        run: node scripts/continue-ai-backfill.mjs
       - name: Report generation failure
         if: steps.ai.outcome == 'failure'
         run: |
