@@ -204,7 +204,7 @@ test('temporary server errors retry with backoff while authentication and quota 
   }});
   assert.deepEqual(await client.complete('system',{}),{brief:translated,tags:[]});
   assert.equal(client.requests,3);
-  assert.deepEqual(waits,[10000,3500,20000,3500]);
+  assert.deepEqual(waits,[10000,4100,20000,4100]);
   for(const status of [401,403,429]){
     const stopped=createOpenRouterClient({apiKey:'test',wait:async()=>{},fetchImpl:async()=>({ok:false,status})});
     await assert.rejects(stopped.complete('system',{}),new RegExp(String(status)));
@@ -339,5 +339,32 @@ test('a repeatedly rejected brief stays unpublished while later records complete
     await assert.rejects(syncAI({base,client:unavailable,model:'nvidia/nemotron-3.5-super-vl:free',maxRequests:4,fetchImpl}),/HTTP 401/);
     assert.equal(unavailable.requests,1);
     assert.deepEqual(JSON.parse(await readFile(new URL('ai-insights.json',base))),index);
+  }finally{await rm(dir,{recursive:true,force:true});}
+});
+
+test('parallel analyses share one request gate and never exceed the request cap',async()=>{
+  let time=0;const starts=[];
+  const client=createOpenRouterClient({apiKey:'test',maxRequests:15,wait:async ms=>{time+=ms;},fetchImpl:async()=>{
+    starts.push(time);return {ok:true,json:async()=>({choices:[{finish_reason:'stop',message:{content:JSON.stringify({brief:translated,tags:[]})}}]})};
+  }});
+  const results=await Promise.allSettled(Array.from({length:24},()=>client.complete('system',{},value=>validateRecordResult(value,new Set()))));
+  assert.equal(starts.length,15);assert.equal(client.requests,15);
+  assert.equal(results.filter(r=>r.status==='fulfilled').length,15);
+  for(let i=1;i<starts.length;i++)assert.ok(starts[i]-starts[i-1]>=4100);
+});
+
+test('parallel record checkpoints retain every completed brief when the request budget runs out',async()=>{
+  const dir=await mkdtemp(join(tmpdir(),'vahti-ai-parallel-')),base=pathToFileURL(dir+'/');
+  const data={votes:Array.from({length:40},(_,i)=>({...vote,id:'parallel-'+i,date:'2026-10-19'})),legislation:[]};
+  let calls=0;
+  const client=createOpenRouterClient({apiKey:'test',maxRequests:20,wait:async()=>{},fetchImpl:async()=>{
+    calls++;await new Promise(resolve=>setTimeout(resolve,calls%3));
+    return {ok:true,json:async()=>({choices:[{finish_reason:'stop',message:{content:JSON.stringify({brief:translated,tags:[]})}}]})};
+  }});
+  try{
+    await writeFile(new URL('parliament.json',base),JSON.stringify(data));await writeFile(new URL('programmes.json',base),JSON.stringify({parties:[]}));
+    const result=await syncAI({base,client,maxRequests:20,concurrency:10});assert.equal(result.pending,true);assert.equal(calls,20);
+    const index=JSON.parse(await readFile(new URL('ai-insights.json',base)));assert.equal(Object.keys(index.records.votes).length,20);
+    for(const [id,entry] of Object.entries(index.records.votes))assert.equal(JSON.parse(await readFile(new URL('ai/'+entry.file,base))).id,id);
   }finally{await rm(dir,{recursive:true,force:true});}
 });

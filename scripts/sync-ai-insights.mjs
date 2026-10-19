@@ -1,3 +1,4 @@
+import {openDailyReservation,REQUEST_DELAY_MS,BATCH_REQUEST_LIMIT} from './ai-request-budget.mjs';
 import {createRecordDocumentLoader,documentPassages,validateDocumentEvidence} from './ai-document-sources.mjs';
 import { readFile, writeFile, mkdir, rename, appendFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
@@ -100,10 +101,21 @@ function analysisSchema(input) {
   return { type:'object', properties:{brief:translation,tags:{type:'array',maxItems:12,items:{type:'string'}},...evidence}, required:['brief','tags',...Object.keys(evidence)],additionalProperties:false };
 }
 
-export function createOpenRouterClient({ apiKey, model = DEFAULT_AI_MODEL, fetchImpl = fetch, maxRequests = 40, delayMs = 3500, wait = pause } = {}) {
+export function createOpenRouterClient({ apiKey, model = DEFAULT_AI_MODEL, fetchImpl = fetch, maxRequests = BATCH_REQUEST_LIMIT, delayMs = REQUEST_DELAY_MS, wait = pause, beforeRequest = async()=>{}, initialDelayMs = 0 } = {}) {
   if (!apiKey) throw new Error('OPENROUTER_API_KEY is required');
   if (!model.endsWith(':free')) throw new Error('OPENROUTER_MODEL must use a :free endpoint; paid fallback is disabled');
-  let requests = 0;
+  let requests = 0, stopped = false, gate = Promise.resolve();
+  const reserveRequest = () => {
+    const next = gate.then(async()=>{
+      if(stopped || requests>=maxRequests)throw Object.assign(new Error('AI request budget exhausted; rerun to continue'),{code:'AI_REQUEST_BUDGET_EXHAUSTED'});
+      if(requests || initialDelayMs)await wait(requests?delayMs:initialDelayMs);
+      if(stopped)throw Object.assign(new Error('AI batch stopped; completed results retained'),{code:'AI_REQUEST_BUDGET_EXHAUSTED'});
+      await beforeRequest();
+      requests++;
+    });
+    gate=next.catch(()=>{});
+    return next;
+  };
   async function send(messages, agentTools, responseFormat, transientAttempt = 0) {
     if (requests >= maxRequests) {
       const error = new Error('AI request budget exhausted; rerun to continue');
@@ -116,8 +128,7 @@ export function createOpenRouterClient({ apiKey, model = DEFAULT_AI_MODEL, fetch
       await wait(10000 * 2 ** transientAttempt);
       return true;
     };
-    if (requests) await wait(delayMs);
-    requests++;
+    await reserveRequest();
     const response = await fetchImpl('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: { Authorization: 'Bearer ' + apiKey, 'Content-Type': 'application/json', 'X-OpenRouter-Title': 'Vahtikissa civic summaries' },
@@ -148,6 +159,7 @@ export function createOpenRouterClient({ apiKey, model = DEFAULT_AI_MODEL, fetch
   }
   return {
     get requests() { return requests; },
+    stop() { stopped=true; },
     async complete(system, input, validate = () => {}) {
       const modelInput = Array.isArray(input.evidencePassages) ? { ...input, sourceText: undefined } : input;
       if (needsAgentHarness(model)) {
@@ -233,9 +245,10 @@ async function atomicJSON(url, value) {
 }
 
 export async function syncAI({ base = new URL('../data/', import.meta.url), apiKey = process.env.OPENROUTER_API_KEY,
-  model = process.env.OPENROUTER_MODEL || DEFAULT_AI_MODEL, maxRequests = Number(process.env.AI_MAX_REQUESTS || 40),
-  fetchImpl = fetch, client, refreshProgrammes = false } = {}) {
+  model = process.env.OPENROUTER_MODEL || DEFAULT_AI_MODEL, maxRequests = Number(process.env.AI_MAX_REQUESTS || BATCH_REQUEST_LIMIT),
+  fetchImpl = fetch, client, refreshProgrammes = false, concurrency = Number(process.env.AI_CONCURRENCY || 1) } = {}) {
   if (!apiKey && !client) { console.log('AI generation skipped: configure OPENROUTER_API_KEY. Existing results retained.'); return { skipped: true }; }
+  if (!Number.isInteger(concurrency)||concurrency<1||concurrency>15)throw Error('AI_CONCURRENCY must be an integer from 1 to 15');
   if (!Number.isInteger(maxRequests) || maxRequests < 1 || maxRequests > 1000) throw new Error('AI_MAX_REQUESTS must be an integer from 1 to 1000');
   const router = client || createOpenRouterClient({ apiKey, model, maxRequests, fetchImpl });
   const loadDocuments = createRecordDocumentLoader({base,fetchImpl});
@@ -246,12 +259,17 @@ export async function syncAI({ base = new URL('../data/', import.meta.url), apiK
   if (index.version !== AI_SCHEMA_VERSION) throw new Error('Unsupported AI cache version');
   await mkdir(new URL('ai/', base), { recursive: true });
   let changed = false, rejected = 0;
-  const checkpoint = async () => {
-    if (!changed) return;
-    index.generatedAt = new Date().toISOString();
-    index.model = model;
-    await atomicJSON(new URL('ai-insights.json', base), index);
-    changed = false;
+  let checkpointQueue=Promise.resolve();
+  const checkpoint = () => {
+    const next=checkpointQueue.then(async()=>{
+      if(!changed)return;
+      changed=false;
+      index.generatedAt=new Date().toISOString();index.model=model;
+      try{await atomicJSON(new URL('ai-insights.json',base),index);}
+      catch(error){changed=true;throw error;}
+    });
+    checkpointQueue=next.catch(()=>{});
+    return next;
   };
   const documents = programmes.parties.flatMap(party => party.programmes.map(document => ({ ...document, party: party.code })));
   const activeIds = new Set(documents.map(document => document.id));
@@ -309,11 +327,15 @@ export async function syncAI({ base = new URL('../data/', import.meta.url), apiK
       if (votes[i]) queue.push(['votes', votes[i]]);
       if (laws[i]) queue.push(['legislation', laws[i]]);
     }
-    for (const [kind, item] of queue) {
+    let cursor=0, stopped=false, fatal;
+    const work = async()=>{
+    while(!stopped && cursor<queue.length) {
+      const [kind,item]=queue[cursor++];
+      try {
       const previous = index.records[kind][item.id];
       const current = previous && previous.taxonomyHash === taxonomyHash && previous.promptVersion === RECORD_PROMPT_VERSION && previous.model === model;
       if (current && (previous.briefBasis === 'document-excerpt' || Date.now()-Date.parse(previous.sourceCheckedAt||0)<86400000)) continue;
-      if (router.requests + (needsAgentHarness(model) && !client ? 2 : 1) > maxRequests) break;
+      if (router.requests + (needsAgentHarness(model) && !client ? 2 : 1) > maxRequests) { stopped=true; break; }
       const source = recordSource(kind, item);
       const documents = await loadDocuments(source.document || source.id,{asOf:source.latestDate || source.date,includeReport:kind==='votes' && /mietintö|betänkande/i.test(source.question||'')});
       if (current && !documents.length) { previous.sourceCheckedAt=new Date().toISOString(); changed=true; await checkpoint(); continue; }
@@ -335,7 +357,14 @@ export async function syncAI({ base = new URL('../data/', import.meta.url), apiK
       index.records[kind][item.id] = { fingerprint: sourceFingerprint(kind, item), tags: value.tags, file, taxonomyHash, promptVersion: RECORD_PROMPT_VERSION, model, briefBasis:documents.length?'document-excerpt':'metadata',sourceCheckedAt:generatedAt };
       changed = true;
       await checkpoint();
+      } catch(error) {
+        stopped=true;router.stop?.();
+        if(error.code!=='AI_REQUEST_BUDGET_EXHAUSTED')fatal ||= error;
+      }
     }
+    };
+    await Promise.all(Array.from({length:concurrency},work));
+    if(fatal)throw fatal;
     const done = ['votes', 'legislation'].reduce((n, kind) => n + Object.values(index.records[kind]).filter(entry => entry.taxonomyHash === taxonomyHash && entry.model === model && entry.promptVersion === RECORD_PROMPT_VERSION).length, 0);
     const total = parliament.votes.length + parliament.legislation.length;
     console.log('AI: ' + Object.keys(index.programmes).length + '/' + documents.length + ' programmes; ' + done + '/' + total + ' records; ' + router.requests + ' requests this run; ' + rejected + ' briefs rejected and left pending.');
@@ -348,7 +377,15 @@ export async function syncAI({ base = new URL('../data/', import.meta.url), apiK
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  syncAI({ refreshProgrammes: process.argv.includes('--refresh-programmes') }).then(async result => {
+  const run = async()=>{
+    const reservation=process.env.AI_BUDGET_RESERVATION?await openDailyReservation({file:new URL('../data/ai-request-budget.json',import.meta.url),id:process.env.AI_BUDGET_RESERVATION}):null;
+    if(!reservation)return syncAI({refreshProgrammes:process.argv.includes('--refresh-programmes')});
+    const model=process.env.OPENROUTER_MODEL||DEFAULT_AI_MODEL;
+    const client=createOpenRouterClient({apiKey:process.env.OPENROUTER_API_KEY,model,maxRequests:reservation.requests,beforeRequest:reservation.beforeRequest,initialDelayMs:REQUEST_DELAY_MS});
+    try{return await syncAI({client,model,maxRequests:reservation.requests,refreshProgrammes:process.argv.includes('--refresh-programmes')});}
+    finally{await reservation.settle(client.requests);}
+  };
+  run().then(async result => {
     if (process.env.GITHUB_STEP_SUMMARY) await appendFile(process.env.GITHUB_STEP_SUMMARY, '\nAI refresh: '+(result.skipped?'skipped (key not configured)':result.pending?'backfill pending':'complete')+'. Free-model requests: '+(result.requests||0)+'. Rejected briefs: '+(result.rejected||0)+' (unpublished and pending). Completed results retained.\n');
   }).catch(error => { console.error(error.message); process.exitCode = 1; });
 }

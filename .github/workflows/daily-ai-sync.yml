@@ -3,11 +3,13 @@ name: Daily AI briefs and programme tags
 on:
   schedule:
     - cron: '19 5 * * *'
+    - cron: '19 0-4,6-23 * * *'
+    - cron: '4,34,49 * * * *'
   workflow_dispatch:
     inputs:
       max_requests:
-        description: Maximum free-model requests (cached backfill resumes each run)
-        default: '40'
+        description: Maximum requests in this batch (1–150; all batches share 950 per UTC day)
+        default: '150'
         required: true
       refresh_programmes:
         description: Recheck original programme texts for changes
@@ -15,10 +17,11 @@ on:
         default: false
   push:
     branches: [main]
-    paths: ['scripts/sync-ai-insights.mjs', 'scripts/ai-document-sources.mjs']
+    paths: ['scripts/sync-ai-insights.mjs', 'scripts/ai-document-sources.mjs', 'scripts/ai-request-budget.mjs']
 
 permissions:
   contents: write
+  actions: write
 
 concurrency:
   group: daily-data-sync
@@ -37,14 +40,35 @@ jobs:
         with:
           node-version: 22
       - run: npm test
+      - name: Reserve and persist daily free-model budget before inference
+        id: budget
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          AI_MAX_REQUESTS: ${{ inputs.max_requests || vars.AI_MAX_REQUESTS || '150' }}
+        run: |
+          node scripts/ai-request-budget.mjs
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/ai-request-budget.json
+          git diff --cached --quiet && exit 0
+          git commit -m "data: reserve daily AI request budget"
+          for attempt in 1 2 3; do
+            git pull --rebase origin main && git push && exit 0
+            git rebase --abort 2>/dev/null || true
+            sleep $((attempt * 5))
+          done
+          exit 1
       - name: Generate cached AI insights
         id: ai
+        if: steps.budget.outputs.requests != '0'
         continue-on-error: true
         env:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           OPENROUTER_MODEL: ${{ vars.OPENROUTER_MODEL || 'google/gemma-4-31b-it:free' }}
-          AI_MAX_REQUESTS: ${{ inputs.max_requests || vars.AI_MAX_REQUESTS || '40' }}
-          REFRESH_PROGRAMMES: ${{ github.event_name == 'schedule' || inputs.refresh_programmes }}
+          AI_MAX_REQUESTS: ${{ steps.budget.outputs.requests }}
+          AI_BUDGET_RESERVATION: ${{ steps.budget.outputs.reservation }}
+          AI_CONCURRENCY: '10'
+          REFRESH_PROGRAMMES: ${{ github.event.schedule == '19 5 * * *' || inputs.refresh_programmes }}
         run: |
           if [ "$REFRESH_PROGRAMMES" = "true" ]; then
             npm run sync:ai -- --refresh-programmes
@@ -52,12 +76,16 @@ jobs:
             npm run sync:ai
           fi
       - name: Commit completed insights even after provider failures
+        id: commit
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/ai-insights.json
+          git add data/ai-insights.json data/ai-request-budget.json
           if [ -d data/ai ]; then git add data/ai/; fi
           if [ -d data/ai-sources ]; then git add data/ai-sources/; fi
+          if git diff --cached --name-only | grep -qv '^data/ai-request-budget\.json$'; then
+            echo "content_changed=true" >> "$GITHUB_OUTPUT"
+          fi
           git diff --cached --quiet && exit 0
           git commit -m "data: refresh AI briefs and programme themes"
           for attempt in 1 2 3; do
@@ -66,8 +94,21 @@ jobs:
             sleep $((attempt * 5))
           done
           exit 1
+      - name: Publish changed briefs
+        if: steps.commit.outputs.content_changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPOSITORY: ${{ github.repository }}
+        run: |
+          node --input-type=module <<'NODE'
+          const response=await fetch('https://api.github.com/repos/'+process.env.GH_REPOSITORY+'/actions/workflows/pages.yml/dispatches',{
+            method:'POST',headers:{Authorization:'Bearer '+process.env.GH_TOKEN,Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'},body:JSON.stringify({ref:'main'})
+          });
+          if(response.status!==204)throw Error('Pages dispatch HTTP '+response.status);
+          console.log('Published-data deployment requested.');
+          NODE
       - name: Report generation failure
         if: steps.ai.outcome == 'failure'
         run: |
-          echo "AI generation stopped. Completed results were retained; rerun to resume. Check free-model availability and quota." >> "$GITHUB_STEP_SUMMARY"
+          echo "AI generation stopped. Completed results and request accounting were retained. See the generation step for the exact error." >> "$GITHUB_STEP_SUMMARY"
           exit 1
