@@ -24,7 +24,7 @@ permissions:
   actions: write
 
 concurrency:
-  group: daily-data-sync
+  group: ai-backfill
   cancel-in-progress: false
 
 jobs:
@@ -40,8 +40,26 @@ jobs:
         with:
           node-version: 22
       - run: npm test
+      - name: Wait for older AI batches during scheduler transition
+        id: turn
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPOSITORY: ${{ github.repository }}
+        run: |
+          node --input-type=module <<'NODE'
+          import {appendFile} from 'node:fs/promises';
+          const response=await fetch('https://api.github.com/repos/'+process.env.GH_REPOSITORY+'/actions/workflows/daily-ai-sync.yml/runs?per_page=100',{
+            headers:{Authorization:'Bearer '+process.env.GH_TOKEN,Accept:'application/vnd.github+json'}
+          });
+          if(!response.ok)throw Error('AI coordination check HTTP '+response.status);
+          const runs=(await response.json()).workflow_runs;
+          const older=runs.filter(run=>run.id<Number(process.env.GITHUB_RUN_ID)&&run.status!=='completed');
+          await appendFile(process.env.GITHUB_OUTPUT,'ready='+(older.length===0)+'\n');
+          if(older.length)console.log('An older AI batch is still active or queued; this slot will leave its quota untouched.');
+          NODE
       - name: Reserve and persist daily free-model budget before inference
         id: budget
+        if: steps.turn.outputs.ready == 'true'
         env:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           AI_MAX_REQUESTS: ${{ inputs.max_requests || vars.AI_MAX_REQUESTS || '150' }}
@@ -60,7 +78,7 @@ jobs:
           exit 1
       - name: Generate cached AI insights
         id: ai
-        if: steps.budget.outputs.requests != '0'
+        if: steps.budget.outputs.requests != '' && steps.budget.outputs.requests != '0'
         continue-on-error: true
         env:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
