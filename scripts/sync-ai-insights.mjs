@@ -246,7 +246,7 @@ async function atomicJSON(url, value) {
 
 export async function syncAI({ base = new URL('../data/', import.meta.url), apiKey = process.env.OPENROUTER_API_KEY,
   model = process.env.OPENROUTER_MODEL || DEFAULT_AI_MODEL, maxRequests = Number(process.env.AI_MAX_REQUESTS || BATCH_REQUEST_LIMIT),
-  fetchImpl = fetch, client, refreshProgrammes = false, concurrency = Number(process.env.AI_CONCURRENCY || 1) } = {}) {
+  fetchImpl = fetch, client, refreshProgrammes = false, concurrency = Number(process.env.AI_CONCURRENCY || 1), onProgrammesReady = async()=>{} } = {}) {
   if (!apiKey && !client) { console.log('AI generation skipped: configure OPENROUTER_API_KEY. Existing results retained.'); return { skipped: true }; }
   if (!Number.isInteger(concurrency)||concurrency<1||concurrency>15)throw Error('AI_CONCURRENCY must be an integer from 1 to 15');
   if (!Number.isInteger(maxRequests) || maxRequests < 1 || maxRequests > 1000) throw new Error('AI_MAX_REQUESTS must be an integer from 1 to 1000');
@@ -317,6 +317,7 @@ export async function syncAI({ base = new URL('../data/', import.meta.url), apiK
     }
     const ready = documents.every(document => !needsProgramme(document));
     if (!ready) { console.log('Programme analysis pending; rerun to continue the cached backfill.'); return { pending: true, requests: router.requests }; }
+    await onProgrammesReady();
     const vocabulary = insightTags(index).map(({ id, label }) => ({ id, label }));
     const allowed = new Set(vocabulary.map(tag => tag.id)), taxonomyHash = hash(vocabulary);
     // Alternate recent votes and proposals so neither collection is starved by a large backlog.
@@ -382,7 +383,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     if(!reservation)return syncAI({refreshProgrammes:process.argv.includes('--refresh-programmes')});
     const model=process.env.OPENROUTER_MODEL||DEFAULT_AI_MODEL;
     const client=createOpenRouterClient({apiKey:process.env.OPENROUTER_API_KEY,model,maxRequests:reservation.requests,beforeRequest:reservation.beforeRequest,initialDelayMs:REQUEST_DELAY_MS});
-    try{return await syncAI({client,model,maxRequests:reservation.requests,refreshProgrammes:process.argv.includes('--refresh-programmes')});}
+    try{return await syncAI({client,model,maxRequests:reservation.requests,refreshProgrammes:process.argv.includes('--refresh-programmes')||reservation.refreshProgrammes,onProgrammesReady:reservation.markProgrammesReady});}
     finally{await reservation.settle(client.requests);}
   };
   run().then(async result => {

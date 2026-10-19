@@ -12,10 +12,12 @@ test('daily reservations respect account usage, refund unused requests and retai
  const first=await reserveDailyRequests({...options,requested:150,fetchImpl:quota(875),id:'first'});
  assert.equal(first.requests,75);assert.equal(first.used,950);
  const active=await openDailyReservation({file,id:first.id,now:()=>time});
+ assert.equal(active.refreshProgrammes,true);await active.markProgrammesReady();
  for(let i=0;i<10;i++)active.beforeRequest();
  await active.settle(10);
  assert.equal(JSON.parse(await readFile(file)).used,885);
  const second=await reserveDailyRequests({...options,fetchImpl:quota(885),id:'cancelled'});assert.equal(second.requests,65);
+ assert.equal((await openDailyReservation({file,id:second.id,now:()=>time})).refreshProgrammes,false);
  // A cancelled runner cannot refund its reservation: the next run remains capped.
  const next=await reserveDailyRequests({...options,fetchImpl:quota(885),id:'next'});assert.equal(next.requests,0);
  time+=86400000;

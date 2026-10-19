@@ -2,9 +2,7 @@ name: Daily AI briefs and programme tags
 
 on:
   schedule:
-    - cron: '19 5 * * *'
-    - cron: '19 0-4,6-23 * * *'
-    - cron: '4,34,49 * * * *'
+    - cron: '4,19,34,49 * * * *'
   workflow_dispatch:
     inputs:
       max_requests:
@@ -86,7 +84,7 @@ jobs:
           AI_MAX_REQUESTS: ${{ steps.budget.outputs.requests }}
           AI_BUDGET_RESERVATION: ${{ steps.budget.outputs.reservation }}
           AI_CONCURRENCY: '10'
-          REFRESH_PROGRAMMES: ${{ github.event.schedule == '19 5 * * *' || inputs.refresh_programmes }}
+          REFRESH_PROGRAMMES: ${{ inputs.refresh_programmes }}
         run: |
           if [ "$REFRESH_PROGRAMMES" = "true" ]; then
             npm run sync:ai -- --refresh-programmes

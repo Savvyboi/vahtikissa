@@ -44,6 +44,8 @@ export async function openDailyReservation({file,id,now=Date.now,maxDurationMs=5
  const start=now();let attempts=0;
  return {
   requests:row.allocated,
+  refreshProgrammes:state.programmesCheckedDay!==state.day,
+  async markProgrammesReady(){const latest=await readLedger(file);if(latest.day!==state.day)throw Error('AI request ledger day changed unexpectedly');latest.programmesCheckedDay=state.day;await save(file,latest);},
   beforeRequest(){
    if(utcDay(now())!==state.day)throw exhausted('UTC day changed; completed results retained for the next batch');
    if(now()-start>=maxDurationMs)throw exhausted('AI batch time window reached; completed results retained');

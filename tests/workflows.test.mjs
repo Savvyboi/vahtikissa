@@ -30,7 +30,7 @@ test('AI backfill reserves the daily budget before inference and deploys only ch
  const ai=await readFile(new URL('../.github/workflows/daily-ai-sync.yml',import.meta.url),'utf8');
  const pages=await readFile(new URL('../.github/workflows/pages.yml',import.meta.url),'utf8');
  assert.match(ai,/group: ai-backfill/);assert.match(ai,/AI_CONCURRENCY: '10'/);
- assert.match(ai,/default: '150'/);assert.match(ai,/4,34,49 \* \* \* \*/);
+ assert.match(ai,/default: '150'/);assert.match(ai,/4,19,34,49 \* \* \* \*/);
  assert.ok(ai.indexOf('git commit -m "data: reserve daily AI request budget"')<ai.indexOf('name: Generate cached AI insights'));
  assert.match(ai,/AI_BUDGET_RESERVATION:/);assert.match(ai,/steps.turn.outputs.ready == 'true'/);assert.match(ai,/run.id<Number\(process.env.GITHUB_RUN_ID\)/);assert.match(ai,/steps\.budget\.outputs\.requests != '0'/);
  assert.match(ai,/actions: write/);assert.match(ai,/steps\.commit\.outputs\.content_changed == 'true'/);
