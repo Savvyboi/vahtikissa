@@ -5,8 +5,8 @@ import {chromium} from 'playwright';
 const data=JSON.parse(await readFile(new URL('../data/parliament.json',import.meta.url)));
 const vote=data.votes.find(v=>v.id==='2026-100-2')||data.votes[0];
 const ballots=data.ballots.filter(b=>(Array.isArray(b)?b[0]:b.voteId)===vote.id);
-const port=process.env.VOTE_READING_PORT||'4209',base='http://localhost:'+port;
-const server=spawn(process.execPath,['server.mjs'],{cwd:new URL('..',import.meta.url),env:{...process.env,PORT:port},stdio:'ignore',windowsHide:true});
+const port=process.env.VOTE_READING_PORT||'4209',base=process.env.VOTE_READING_URL||'http://localhost:'+port;
+const server=process.env.VOTE_READING_URL?null:spawn(process.execPath,['server.mjs'],{cwd:new URL('..',import.meta.url),env:{...process.env,PORT:port},stdio:'ignore',windowsHide:true});
 let browser;
 try{
  for(let i=0;i<60;i++){try{if((await fetch(base)).ok)break;}catch{}await new Promise(r=>setTimeout(r,100));}
@@ -42,5 +42,5 @@ try{
  }
  await page.setViewportSize({width:320,height:844});await page.goto(base+'/?view=full#/elections');await page.locator('[data-election-tab="candidates"]').click();await page.locator('[data-filter-panel]>summary').click();await page.locator('[data-advanced]>summary').click();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'Opened candidate controls fit 320px');
  console.log('Vote reading checks passed: all ballots, party links, compact context/briefs, both views, mobile and unified controls.');
-}finally{await browser?.close();server.kill();}
+}finally{await browser?.close();server?.kill();}
 
