@@ -295,3 +295,49 @@ test('brief validation rejects overlong prose, mixed-language headings and inter
   }
   assert.equal(validateRecordResult({ brief: { ...translated, en: 'word '.repeat(100).trim() }, tags: [] }, new Set()).brief.en.split(/\s+/).length, 100);
 });
+
+test('brief length correction identifies the language and word count without relaxing validation',async()=>{
+  const calls=[];
+  const replies=[{brief:{...translated,fi:'sana '.repeat(101).trim()},tags:[]},{brief:translated,tags:[]}];
+  const client=createOpenRouterClient({apiKey:'test',model:'nvidia/nemotron-3.5-super-vl:free',maxRequests:3,wait:async()=>{},fetchImpl:async(url,options)=>{
+    calls.push(JSON.parse(options.body));
+    return {ok:true,json:async()=>({choices:[{finish_reason:'stop',message:{content:JSON.stringify(replies.shift())}}]})};
+  }});
+  const result=await client.complete('system',{},value=>validateRecordResult(value,new Set()));
+  assert.deepEqual(result.brief,translated);assert.equal(client.requests,2);
+  assert.match(calls[1].messages.at(-1).content,/fi brief has 101 words/);
+  assert.match(calls[1].messages.at(-1).content,/maximum is 100 per language/);
+  assert.match(calls[1].messages.at(-1).content,/Do not truncate a sentence/);
+});
+
+test('a repeatedly rejected brief stays unpublished while later records complete within the budget',async()=>{
+  const {readdir}=await import('node:fs/promises');
+  const dir=await mkdtemp(join(tmpdir(),'vahtikissa-ai-rejected-')),base=pathToFileURL(dir+'/');
+  const calls=[];let providerCalls=0;
+  const bad={...vote,id:'too-long',date:'2026-10-19'},good={...vote,id:'valid-next',date:'2026-10-18'};
+  const fetchImpl=async(url,options)=>{
+    assert.match(String(url),/chat\/completions$/);
+    providerCalls++;calls.push(JSON.parse(options.body));
+    const result={brief:providerCalls<=3?{...translated,fi:'sana '.repeat(101).trim()}:translated,tags:[]};
+    return {ok:true,json:async()=>({choices:[{finish_reason:'stop',message:{content:JSON.stringify(result)}}]})};
+  };
+  const client=createOpenRouterClient({apiKey:'test',model:'nvidia/nemotron-3.5-super-vl:free',maxRequests:4,wait:async()=>{},fetchImpl});
+  try{
+    await writeFile(new URL('parliament.json',base),JSON.stringify({votes:[bad,good],legislation:[]}));
+    await writeFile(new URL('programmes.json',base),JSON.stringify({parties:[]}));
+    const result=await syncAI({base,client,model:'nvidia/nemotron-3.5-super-vl:free',maxRequests:4,fetchImpl});
+    assert.deepEqual(result,{pending:true,requests:4,rejected:1});assert.equal(providerCalls,4);
+    assert.equal(JSON.parse(calls[0].messages[1].content).record.id,'too-long');
+    assert.equal(JSON.parse(calls[3].messages[1].content).record.id,'valid-next');
+    const index=JSON.parse(await readFile(new URL('ai-insights.json',base)));
+    assert.equal(index.records.votes['too-long'],undefined);assert.ok(index.records.votes['valid-next']);
+    const files=await readdir(new URL('ai/',base));assert.equal(files.length,1);
+    const saved=JSON.parse(await readFile(new URL('ai/'+files[0],base)));
+    assert.equal(saved.id,'valid-next');assert.deepEqual(saved.brief,translated);
+    // Provider failures are not treated as per-record output rejections.
+    const unavailable=createOpenRouterClient({apiKey:'test',maxRequests:4,wait:async()=>{},fetchImpl:async()=>({ok:false,status:401})});
+    await assert.rejects(syncAI({base,client:unavailable,model:'nvidia/nemotron-3.5-super-vl:free',maxRequests:4,fetchImpl}),/HTTP 401/);
+    assert.equal(unavailable.requests,1);
+    assert.deepEqual(JSON.parse(await readFile(new URL('ai-insights.json',base))),index);
+  }finally{await rm(dir,{recursive:true,force:true});}
+});

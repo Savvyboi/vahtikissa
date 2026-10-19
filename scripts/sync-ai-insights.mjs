@@ -1,5 +1,5 @@
 import {createRecordDocumentLoader,documentPassages,validateDocumentEvidence} from './ai-document-sources.mjs';
-import { readFile, writeFile, mkdir, rename } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, rename, appendFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import { AI_SCHEMA_VERSION, DEFAULT_AI_MODEL, emptyInsights, insightTags, recordSource, sourceFingerprint, validateTranslations, validateRecordResult } from '../ai-insights.js';
@@ -199,9 +199,14 @@ export function createOpenRouterClient({ apiKey, model = DEFAULT_AI_MODEL, fetch
         try { value=JSON.parse(content.trim().replace(/^```(?:json)?\s*/i,'').replace(/\s*```$/,'')); }
         catch { problem=new Error('OpenRouter returned invalid JSON'); }
         if(!problem) { try { value=resolveProgrammeEvidence(value,input); validate(value); return value; } catch(error) { problem=error; } }
-        if(attempt===2)throw problem;
+        if(attempt===2) { problem.code='AI_OUTPUT_REJECTED'; throw problem; }
         // Retry only rejected output; every API attempt still consumes the shared request budget.
-        const hint = problem.message === 'Unknown programme evidence ID'
+        const overlong = /^AI brief exceeds 100 words in (fi|sv|en)$/.exec(problem.message);
+        const hint = overlong
+          ? 'The '+overlong[1]+' brief has '+value.brief[overlong[1]].trim().split(/\s+/u).length+' words; the maximum is 100 per language. Rewrite each brief as 2–4 concise sentences, aiming for 60 words per language. Keep the concrete changes and important exceptions. Do not repeat sentences or add vote counts, headings, tags, evidence labels or generic disclaimers to the prose. Do not truncate a sentence.'
+          : /^AI brief contains internal fields or language headings in (fi|sv|en)$/.test(problem.message)
+          ? 'Each brief must contain only prose in its own language, with at most 100 words. Remove JSON fragments, tags, evidence labels and language-summary headings from brief text; keep tags and evidence IDs in their separate schema fields.'
+          : problem.message === 'Unknown programme evidence ID'
           ? 'Select evidenceId only from the supplied evidencePassages IDs. Do not invent IDs or supply copied quotes.'
           : problem.message === 'Programme evidence is not an exact source quote'
           ? 'A quote did not exactly match sourceText. Copy a shorter contiguous substring verbatim, preserving punctuation, spaces, letter case and accents. Omit a theme if you cannot find an exact source quote; never paraphrase or invent evidence.'
@@ -240,7 +245,7 @@ export async function syncAI({ base = new URL('../data/', import.meta.url), apiK
   ]);
   if (index.version !== AI_SCHEMA_VERSION) throw new Error('Unsupported AI cache version');
   await mkdir(new URL('ai/', base), { recursive: true });
-  let changed = false;
+  let changed = false, rejected = 0;
   const checkpoint = async () => {
     if (!changed) return;
     index.generatedAt = new Date().toISOString();
@@ -314,7 +319,15 @@ export async function syncAI({ base = new URL('../data/', import.meta.url), apiK
       if (current && !documents.length) { previous.sourceCheckedAt=new Date().toISOString(); changed=true; await checkpoint(); continue; }
       const passages = documentPassages(documents);
       const analyse = result => { validateRecordResult(result,allowed); validateDocumentEvidence(result,passages); };
-      const result = await router.complete(RECORD_PROMPT,{kind,record:source,themes:vocabulary,documentEvidence:passages},analyse);
+      let result;
+      try {
+        result = await router.complete(RECORD_PROMPT,{kind,record:source,themes:vocabulary,documentEvidence:passages},analyse);
+      } catch (error) {
+        if (error.code !== 'AI_OUTPUT_REJECTED') throw error;
+        rejected++;
+        console.warn('AI brief rejected after bounded correction attempts for '+JSON.stringify([kind,item.id])+'. No rejected output published; continuing with other records.');
+        continue;
+      }
       const value = {...validateRecordResult(result,allowed),evidence:validateDocumentEvidence(result,passages)};
       const generatedAt = new Date().toISOString();
       const file = hash({ kind, source, taxonomyHash, model, prompt: RECORD_PROMPT_VERSION, value }) + '.json';
@@ -325,15 +338,17 @@ export async function syncAI({ base = new URL('../data/', import.meta.url), apiK
     }
     const done = ['votes', 'legislation'].reduce((n, kind) => n + Object.values(index.records[kind]).filter(entry => entry.taxonomyHash === taxonomyHash && entry.model === model && entry.promptVersion === RECORD_PROMPT_VERSION).length, 0);
     const total = parliament.votes.length + parliament.legislation.length;
-    console.log('AI: ' + Object.keys(index.programmes).length + '/' + documents.length + ' programmes; ' + done + '/' + total + ' records; ' + router.requests + ' requests this run.');
-    return { pending: done < total, requests: router.requests };
+    console.log('AI: ' + Object.keys(index.programmes).length + '/' + documents.length + ' programmes; ' + done + '/' + total + ' records; ' + router.requests + ' requests this run; ' + rejected + ' briefs rejected and left pending.');
+    return { pending: done < total || rejected > 0, requests: router.requests, ...(rejected ? { rejected } : {}) };
   } catch (error) {
     if (error.code !== 'AI_REQUEST_BUDGET_EXHAUSTED') throw error;
-    console.log('AI request budget reached; completed results retained. Rerun to continue.');
-    return { pending: true, requests: router.requests };
+    console.log('AI request budget reached; completed results retained. '+rejected+' briefs rejected and left pending. Rerun to continue.');
+    return { pending: true, requests: router.requests, ...(rejected ? { rejected } : {}) };
   } finally { await checkpoint(); }
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  syncAI({ refreshProgrammes: process.argv.includes('--refresh-programmes') }).catch(error => { console.error(error.message); process.exitCode = 1; });
+  syncAI({ refreshProgrammes: process.argv.includes('--refresh-programmes') }).then(async result => {
+    if (process.env.GITHUB_STEP_SUMMARY) await appendFile(process.env.GITHUB_STEP_SUMMARY, '\nAI refresh: '+(result.skipped?'skipped (key not configured)':result.pending?'backfill pending':'complete')+'. Free-model requests: '+(result.requests||0)+'. Rejected briefs: '+(result.rejected||0)+' (unpublished and pending). Completed results retained.\n');
+  }).catch(error => { console.error(error.message); process.exitCode = 1; });
 }
