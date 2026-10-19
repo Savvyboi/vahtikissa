@@ -104,11 +104,13 @@ function analysisSchema(input) {
 export function createOpenRouterClient({ apiKey, model = DEFAULT_AI_MODEL, fetchImpl = fetch, maxRequests = BATCH_REQUEST_LIMIT, delayMs = REQUEST_DELAY_MS, wait = pause, beforeRequest = async()=>{}, initialDelayMs = 0 } = {}) {
   if (!apiKey) throw new Error('OPENROUTER_API_KEY is required');
   if (!model.endsWith(':free')) throw new Error('OPENROUTER_MODEL must use a :free endpoint; paid fallback is disabled');
-  let requests = 0, stopped = false, gate = Promise.resolve();
+  let requests = 0, stopped = false, providerPause = 0, gate = Promise.resolve();
   const reserveRequest = () => {
     const next = gate.then(async()=>{
       if(stopped || requests>=maxRequests)throw Object.assign(new Error('AI request budget exhausted; rerun to continue'),{code:'AI_REQUEST_BUDGET_EXHAUSTED'});
+      while(providerPause){const delay=providerPause;providerPause=0;await wait(delay);}
       if(requests || initialDelayMs)await wait(requests?delayMs:initialDelayMs);
+      while(providerPause){const delay=providerPause;providerPause=0;await wait(delay);}
       if(stopped)throw Object.assign(new Error('AI batch stopped; completed results retained'),{code:'AI_REQUEST_BUDGET_EXHAUSTED'});
       await beforeRequest();
       requests++;
@@ -125,7 +127,7 @@ export function createOpenRouterClient({ apiKey, model = DEFAULT_AI_MODEL, fetch
     const retryTransient = async code => {
       if (![408,500,502,503,504].includes(code) || transientAttempt >= 2 || requests >= maxRequests) return false;
       console.log('OpenRouter temporary error ' + code + '; retry ' + (transientAttempt + 1) + '/2 within the request budget.');
-      await wait(10000 * 2 ** transientAttempt);
+      providerPause=Math.max(providerPause,10000 * 2 ** transientAttempt);
       return true;
     };
     await reserveRequest();

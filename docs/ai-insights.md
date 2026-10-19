@@ -83,3 +83,5 @@ Before inference, the workflow verifies OpenRouter’s UTC-day free quota and co
 Generation stops starting requests after 50 minutes or a UTC-day boundary, then drains in-flight work and checkpoints completed results within the 90-minute job limit. Failed briefs remain unpublished; fatal provider failures still stop the batch. Later scheduled batches resume unfinished work. Only content-changing batches dispatch Pages deployment, so exhausted-budget polls and budget-reservation commits do not republish the site.
 
 The ledger records programme source checks only after the shared vocabulary is ready. The first available batch each UTC day rechecks those sources before spending the day’s quota on record briefs; later batches reuse the checked vocabulary. Interrupted checks are retried, and explicit manual programme refresh remains available.
+
+Transient provider errors pause the shared request queue with the existing bounded backoff, including when other analyses are in flight. Exhausted provider retries remain visible as batch failures; completed briefs and accurate request accounting are committed before later batches resume.

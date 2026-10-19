@@ -368,3 +368,14 @@ test('parallel record checkpoints retain every completed brief when the request 
     for(const [id,entry] of Object.entries(index.records.votes))assert.equal(JSON.parse(await readFile(new URL('ai/'+entry.file,base))).id,id);
   }finally{await rm(dir,{recursive:true,force:true});}
 });
+
+test('provider backoff pauses the shared queue across parallel analyses',async()=>{
+ const waits=[],starts=[];let time=0,calls=0;
+ const client=createOpenRouterClient({apiKey:'test',maxRequests:20,wait:async ms=>{waits.push(ms);time+=ms;},fetchImpl:async()=>{
+  calls++;starts.push(time);if(calls<=3)return {ok:false,status:502};
+  return {ok:true,json:async()=>({choices:[{finish_reason:'stop',message:{content:JSON.stringify({brief:translated,tags:[]})}}]})};
+ }});
+ await Promise.all(Array.from({length:6},()=>client.complete('system',{},value=>validateRecordResult(value,new Set()))));
+ assert.equal(client.requests,9);assert.ok(waits.some(ms=>ms>=10000));
+ for(let i=1;i<starts.length;i++)assert.ok(starts[i]-starts[i-1]>=4100);
+});
