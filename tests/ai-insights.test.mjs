@@ -287,3 +287,11 @@ test('the tool harness resolves selected passages after source reading',async()=
   assert.equal(result.tags[0].quote,quote);
   assert.equal(client.requests,2);
 });
+
+
+test('brief validation rejects overlong prose, mixed-language headings and internal fields', () => {
+  for (const text of ['word '.repeat(101), 'Suomeksi. Svensk sammanfattning: Mer text.', 'A useful brief. Tags: irrelevant-theme', 'A useful brief. Evidence: document-1-passage-1', 'A useful brief.}']) {
+    assert.throws(() => validateRecordResult({ brief: { ...translated, fi: text }, tags: [] }, new Set()), /AI brief/);
+  }
+  assert.equal(validateRecordResult({ brief: { ...translated, en: 'word '.repeat(100).trim() }, tags: [] }, new Set()).brief.en.split(/\s+/).length, 100);
+});

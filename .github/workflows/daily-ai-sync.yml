@@ -15,7 +15,7 @@ on:
         default: false
   push:
     branches: [main]
-    paths: ['scripts/sync-ai-insights.mjs', 'ai-insights.js', 'scripts/ai-document-sources.mjs', '.github/workflows/daily-ai-sync.yml']
+    paths: ['scripts/sync-ai-insights.mjs', 'scripts/ai-document-sources.mjs']
 
 permissions:
   contents: write
