@@ -6,6 +6,7 @@ import { spawn } from 'node:child_process';
 import { chromium } from 'playwright';
 import { createRequire } from 'node:module';
 import { checkUI } from './browser-ui-checks.mjs';
+import { checkPageRegressions } from './browser-page-checks.mjs';
 import { checkMobileLayouts } from './browser-mobile-checks.mjs';
 import { checkStartupRecovery, checkSeamlessNavigation, followPrimaryNavigation } from './browser-navigation-checks.mjs';
 import { checkNewPages } from './check-new-pages.mjs';
@@ -25,6 +26,7 @@ try {
   }
   browser=await chromium.launch({headless:true,...(process.env.BROWSER_CHANNEL?{channel:process.env.BROWSER_CHANNEL}:{})});
   await checkStartupRecovery(browser,url);
+  await checkPageRegressions(browser,url);
   await checkSimpleMode(browser,url);
   await checkSeamlessNavigation(browser,url);
   const page=await browser.newPage({viewport:{width:1440,height:1000}});

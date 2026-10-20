@@ -145,6 +145,9 @@ function applyChrome(){
   $('[data-search-label]').textContent=t('search');$('.search-button').setAttribute('aria-label',ui('Avaa haku','Öppna sökning','Open search'));
   $('.search-button kbd').textContent=/Mac|iPhone|iPad/.test(navigator.platform)?'⌘ K':'Ctrl K';
   $('.site-footer-note').textContent=t('independent');$('.footer-data').textContent=t('data');
+  $('.footer-cat').setAttribute('aria-label',ui('Avaa tarkempi ASCII-kuva uuteen välilehteen','Öppna ASCII-bilden i full storlek i en ny flik','Open the full-size ASCII cat image in a new tab'));
+  $('.footer-cat').title=ui('Avaa tarkempi ASCII-kuva','Öppna en större ASCII-bild','Open the full-size ASCII cat image');
+  $('.footer-cat .cat-character').alt=ui('Valokuvasta muunnettu ASCII-kissa korissa lelujen kanssa','ASCII-version av fotografiet med katten och leksakerna i korgen','ASCII version of a photograph of a cat in a basket with toys');
   $('.footer-open-data').textContent=ui('Suomen eduskunta · avoin data ↗','Finlands riksdag · öppna data ↗','Finnish Parliament · open data ↗');
   $('.footer-budget-data').textContent=ui('Valtiokonttori · budjetti ↗','Statskontoret · budget ↗','State Treasury · budget ↗');$('.footer-election-data').textContent=ui('Tilastokeskus · vaalit ↗','Statistikcentralen · val ↗','Statistics Finland · elections ↗');$('.footer-transparency-data').textContent=ui('Avoimuusrekisteri ↗','Öppenhetsregistret ↗','Transparency Register ↗');
   const language=$('.language-select');language.value=lang;language.setAttribute('aria-label',ui('Kieli','Språk','Language'));language.previousElementSibling.textContent=language.getAttribute('aria-label');
@@ -183,7 +186,7 @@ function bindPagination(key,redraw){root.querySelectorAll(`[data-pagination="${k
 function stats(){const c=data.metadata.counts;return `<div class="stat-strip"><div class="stat"><strong>${c.votes.toLocaleString(lang)}</strong><span>${t('votes').toLowerCase()}</span></div><div class="stat"><strong>${c.members}</strong><span>${t('members').toLowerCase()}</span></div><div class="stat"><strong>${c.speeches.toLocaleString(lang)}</strong><span>${t('speechTurns')}</span></div><div class="stat"><strong>${c.legislation.toLocaleString(lang)}</strong><span>${t('legislation').toLowerCase()}</span></div><div class="stat"><strong>${c.amendments.toLocaleString(lang)}</strong><span>${lang==='sv'?'ändringsförslag':'muutosehdotusta'}</span></div></div>`}
 function memberPortrait(m,large=false){return `<img class="member-portrait${large?' member-portrait-large':''}" src="assets/members/${encodeURIComponent(m.id)}.webp" alt="${e(memberName(m))}" width="${large?160:48}" height="${large?235:64}" loading="lazy" decoding="async">`}
 function memberRows(items){return items.map(m=>`<tr><td><div class="member-identity">${memberPortrait(m)}<div><a class="row-link" href="${href('members',m.id)}">${e(memberName(m))}</a><span class="sub"><span class="party-dot"></span>${e(titleFor(m.party))}</span></div></div></td><td>${participationMetric(m.stats?.participation??0)}<span class="sub">${m.stats?.votes??0} ${t('recordedVotes')}</span></td><td>${m.stats?.loyalty??0}%</td><td>${m.stats?.speeches??0}</td></tr>`).join('')}
-function overview(){const latest=data.votes.slice(0,8);return `<div class="page"><section class="hero"><div><div class="eyebrow">${t('parliament')}</div><h1>${t('hero')}</h1><p class="lead">${t('heroLead')}</p></div><div class="hero-side"><a class="cat-character-link" href="assets/cat-character.svg" target="_blank" rel="noopener" aria-label="${label('Avaa tarkempi ASCII-kuva uuteen välilehteen','Öppna ASCII-bilden i full storlek i en ny flik')}" title="${label('Avaa tarkempi ASCII-kuva','Öppna en större ASCII-bild')}"><img class="cat-character" src="assets/cat-character.webp" alt="${label('Valokuvasta muunnettu ASCII-kissa korissa lelujen kanssa','ASCII-version av fotografiet med katten och leksakerna i korgen')}" width="600" height="517"></a><strong>${data.metadata.counts.ballots.toLocaleString(lang)}</strong><span>${t('voteRecords')}</span></div></section>${stats()}<section class="section"><div class="section-head"><h2>${t('latestVotes')}</h2><a href="#/votes">${t('showAll')} →</a></div>${table([t('day'),t('matter'),t('result')],voteRows(latest))}</section></div>`}
+function overview(){const latest=data.votes.slice(0,8);return `<div class="page"><section class="hero"><div><div class="eyebrow">${t('parliament')}</div><h1>${t('hero')}</h1><p class="lead">${t('heroLead')}</p></div><div class="hero-side"><strong>${data.metadata.counts.ballots.toLocaleString(lang)}</strong><span>${t('voteRecords')}</span></div></section>${stats()}<section class="section"><div class="section-head"><h2>${t('latestVotes')}</h2><a href="#/votes">${t('showAll')} →</a></div>${table([t('day'),t('matter'),t('result')],voteRows(latest))}</section></div>`}
 function voteList(){
   const controls=state.voteFilters, extra=toolState('votes','date','desc'), config=voteTools(data.votes);
   const stages=[...new Map(data.votes.filter(v=>v.stage).map(v=>[v.stage,(lang==='sv'&&v.stageSv)||v.stage])).entries()].sort((a,b)=>a[1].localeCompare(b[1],lang));
@@ -436,7 +439,61 @@ function render(position){
   },position);
 }
 document.addEventListener('click',event=>{if(event.defaultPrevented||event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;const link=event.target.closest('a[href^="#/"]');if(!link||link.hasAttribute('download')||(link.target&&link.target!=='_self'))return;event.preventDefault();if(pushRoute(link.getAttribute('href')))render();if(data)root.focus({preventScroll:true})});
-function setupSearch(onOpen=()=>{}){const panel=$('.search-panel'),button=$('.search-button'),input=$('#global-search'),results=$('.search-results'),status=$('.search-status');button.setAttribute('aria-expanded','false');button.setAttribute('aria-controls','site-search');panel.id='site-search';const close=()=>{const restore=panel.contains(document.activeElement);panel.hidden=true;button.setAttribute('aria-expanded','false');if(restore)button.focus({preventScroll:true})};const open=()=>{onOpen();panel.hidden=false;button.setAttribute('aria-expanded','true');input.focus({preventScroll:true});renderResults()};const renderResults=async()=>{const query=input.value.trim();if(!query){results.innerHTML='';status.textContent='';return}if(!data){status.textContent=lastLoadError?ui('Haku on käytettävissä, kun tiedot on ladattu.','Sökningen blir tillgänglig när uppgifterna har laddats.','Search will be available once the data has loaded.'):t('loading');return}status.textContent=ui('Ladataan puheiden hakuindeksi…','Sökindexet laddas…','Loading the speech search index…');try{await loadSpeechSearchIndex();if(panel.hidden||query!==input.value.trim())return;const allSpeeches=await parliamentLoader.loadSpeeches();if(panel.hidden||query!==input.value.trim())return;const members=data.members.filter(member=>memberMatchesQuery(member,query,partyNames)).slice(0,5),votes=filterItems(data.votes,query,localizedSearchFields(['title','question','document'])).slice(0,5),speeches=searchSpeeches(allSpeeches,query,speechSearchTexts).slice(0,10);const rows=[...members.map(item=>({href:href('members',item.id),title:memberName(item),type:t('members')})),...votes.map(item=>({href:href('votes',item.id),title:voteText(item,'title')||voteText(item,'question'),type:t('votes')})),...speeches.map(item=>({href:href('speeches',item.id),title:(lang==='sv'&&item.agendaSv)||item.agenda,type:t('speeches')}))];status.textContent=ui('Näytetään '+rows.length+' tulosta',rows.length+' resultat visas',rows.length+' results shown');results.innerHTML=rows.length?`<ul>${rows.map(row=>`<li><a href="${row.href}"><strong>${e(row.title)}</strong><span>${e(row.type)}</span></a></li>`).join('')}</ul>`:`<p class="empty">${t('noData')}</p>`}catch{status.textContent=ui('Hakua ei voitu ladata.','Sökningen kunde inte laddas.','Search could not be loaded. Please try again.')}};let timer;input.oninput=()=>{clearTimeout(timer);timer=setTimeout(renderResults,250)};button.onclick=()=>panel.hidden?open():close();$('.search-close').onclick=close;panel.onclick=event=>event.stopPropagation();document.addEventListener('click',event=>{if(!panel.hidden&&!panel.contains(event.target)&&!button.contains(event.target))close()});document.addEventListener('keydown',event=>{if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='k'){event.preventDefault();open()}if(event.key==='Escape'&&!panel.hidden){close();button.focus({preventScroll:true})}});results.onclick=event=>{if(event.target.closest('a'))close()};return close}
+function setupSearch(onOpen=()=>{}){
+  const panel=$('.search-panel'),button=$('.search-button'),input=$('#global-search'),results=$('.search-results'),status=$('.search-status');
+  let timer,searchVersion=0;
+  button.setAttribute('aria-expanded','false');button.setAttribute('aria-controls','site-search');panel.id='site-search';
+  const clearResults=()=>{results.replaceChildren();status.textContent=''};
+  const close=()=>{
+    clearTimeout(timer);searchVersion++;
+    const restore=panel.contains(document.activeElement);
+    panel.hidden=true;button.setAttribute('aria-expanded','false');
+    if(restore)button.focus({preventScroll:true});
+  };
+  const renderResults=async()=>{
+    const request=++searchVersion,query=input.value.trim(),searchLanguage=lang;
+    const current=()=>request===searchVersion&&!panel.hidden&&query===input.value.trim()&&lang===searchLanguage;
+    if(!query){clearResults();return}
+    if(!data){
+      results.replaceChildren();
+      status.textContent=lastLoadError?ui('Haku on käytettävissä, kun tiedot on ladattu.','Sökningen blir tillgänglig när uppgifterna har laddats.','Search will be available once the data has loaded.'):t('loading');
+      return;
+    }
+    const members=data.members.filter(member=>memberMatchesQuery(member,query,partyNames)).slice(0,5);
+    const votes=filterItems(data.votes,query,localizedSearchFields(['title','question','document'])).slice(0,5);
+    const rows=[...members.map(item=>({href:href('members',item.id),title:memberName(item),type:t('members')})),...votes.map(item=>({href:href('votes',item.id),title:voteText(item,'title')||voteText(item,'question'),type:t('votes')}))];
+    const showRows=(items,note='')=>{
+      status.textContent=ui('Näytetään '+items.length+' tulosta',items.length+' resultat visas',items.length+' results shown')+(note?' · '+note:'');
+      preserveFocus(results,()=>{
+        results.innerHTML=items.length?`<ul>${items.map(row=>`<li><a href="${row.href}"><strong>${e(row.title)}</strong><span>${e(row.type)}</span></a></li>`).join('')}</ul>`:note?'':`<p class="empty">${t('noData')}</p>`;
+      });
+    };
+    // MP and vote matches are already local; speech loading must not hold them back.
+    showRows(rows,ui('Ladataan puheiden hakuindeksi…','Sökindexet laddas…','Loading the speech search index…'));
+    try{
+      await loadSpeechSearchIndex();
+      if(!current())return;
+      const allSpeeches=await parliamentLoader.loadSpeeches();
+      if(!current())return;
+      const speeches=searchSpeeches(allSpeeches,query,speechSearchTexts).slice(0,10);
+      showRows([...rows,...speeches.map(item=>({href:href('speeches',item.id),title:(lang==='sv'&&item.agendaSv)||item.agenda,type:t('speeches')}))]);
+    }catch{
+      if(!current())return;
+      showRows(rows,ui('Puheiden haku ei ole käytettävissä. Yritä uudelleen.','Sökning i anföranden är inte tillgänglig. Försök igen.','Speech search is unavailable. Please try again.'));
+    }
+  };
+  const open=()=>{clearTimeout(timer);onOpen();panel.hidden=false;button.setAttribute('aria-expanded','true');input.focus({preventScroll:true});renderResults()};
+  input.oninput=()=>{clearTimeout(timer);searchVersion++;clearResults();timer=setTimeout(renderResults,250)};
+  button.onclick=()=>panel.hidden?open():close();$('.search-close').onclick=close;
+  panel.onclick=event=>event.stopPropagation();
+  document.addEventListener('click',event=>{if(!panel.hidden&&!panel.contains(event.target)&&!button.contains(event.target))close()});
+  document.addEventListener('keydown',event=>{
+    if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='k'){event.preventDefault();open()}
+    if(event.key==='Escape'&&!panel.hidden){close();button.focus({preventScroll:true})}
+  });
+  results.onclick=event=>{if(event.target.closest('a'))close()};
+  return close;
+}
 function setup(){
   const menu=$('.menu-button'),nav=$('.nav');
   const closeMenu=(restore=false)=>{nav.classList.remove('open');menu.setAttribute('aria-expanded','false');menu.setAttribute('aria-label',ui('Avaa valikko','Öppna meny','Open menu'));menu.textContent=t('menu');document.body.classList.remove('menu-open');if(restore)menu.focus({preventScroll:true})};
