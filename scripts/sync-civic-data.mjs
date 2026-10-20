@@ -3,6 +3,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import { jsonStatRows, numberValue, parseCSVLine, parseGiftDisclosure } from '../civic-utils.js';
 import { normalizeParty } from './lib.mjs';
+import { retryDelayMs } from './http-retry.mjs';
 
 const OUT = new URL('../data/', import.meta.url);
 const BUDGET_INDEX = 'https://api.tutkihallintoa.fi/valtiontalous/v1/budjettitalousvuosikuukausi';
@@ -38,8 +39,9 @@ const MAIN_CLASS_SV = {
 async function request(url, options = {}, attempts = 4) {
   let lastError;
   for (let attempt = 1; attempt <= attempts; attempt++) {
+    let response;
     try {
-      const response = await fetch(url, {
+      response = await fetch(url, {
         ...options,
         signal: AbortSignal.timeout(options.timeout || 180_000),
         headers: { accept: 'application/json, text/csv;q=0.9, */*;q=0.8', 'user-agent': 'Vahtikissa/1.0 (+open civic data)', ...options.headers }
@@ -52,7 +54,7 @@ async function request(url, options = {}, attempts = 4) {
       lastError = error;
       if (attempt === attempts) throw error;
     }
-    await delay(700 * 2 ** (attempt - 1));
+    if (attempt < attempts) await delay(retryDelayMs(response, attempt));
   }
   throw lastError;
 }
@@ -266,6 +268,11 @@ function localizedTarget(target, language) {
   return { organization: clean(value.organization).replace(/^-$/, ''), department: clean(value.department).replace(/^-$/, ''), unit: clean(value.unit).replace(/^-$/, ''), title: clean(value.title).replace(/^-$/, ''), name: clean(value.name).replace(/^-$/, '') };
 }
 
+export function lobbyingTopic(topic = {}) {
+  return [topic.contactTopicOther, topic.contactTopicProject?.fi, topic.contactTopicProject?.title, topic.title]
+    .map(clean).find(Boolean) || '';
+}
+
 export async function syncInfluence() {
   console.log('Syncing Parliament gifts and Transparency Register lobbying data…');
   const parliament = JSON.parse(await readFile(new URL('parliament.json', OUT), 'utf8'));
@@ -315,7 +322,7 @@ export async function syncInfluence() {
   let contactCount = 0;
   for (const notification of notifications) {
     for (const topic of notification.topics || []) {
-      const topicText = clean(topic.contactTopicOther || topic.contactTopicProject?.title || topic.title);
+      const topicText = lobbyingTopic(topic);
       const contacts = (topic.contactedTargets || []).map(contact => ({ contact, target: targetById.get(contact.contactedTargetId) }))
         .filter(({ target }) => isParliamentTarget(target));
       if (!contacts.length) continue;

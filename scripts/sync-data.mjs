@@ -5,6 +5,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import { normalizeParty, normalizeVote, buildIndexes, deriveMembers, isInRange, START_DATE } from './lib.mjs';
 import { buildSpeechAnalytics, normalizeSpeechSearchText } from '../app-utils.js';
+import { retryDelayMs } from './http-retry.mjs';
 
 const parliamentMatterUrl = document => document ? `https://www.eduskunta.fi/asiat-ja-aanestykset/valtiopaivaasiat/${encodeURIComponent(document)}` : '';
 
@@ -16,30 +17,36 @@ const fi = value => typeof value === 'object' && value !== null ? value.fi ?? ''
 const clean = value => String(value ?? '').trim();
 const iso = value => clean(value).replace(/^(\d{4}-\d\d-\d\d)\+.*$/, '$1');
 
-async function request(path, options = {}, attempts = 4) {
-  let lastError;
-  for (let attempt = 1; attempt <= attempts; attempt++) {
-    try {
-      const response = await fetch(`${API}${path}`, {
-        ...options,
-        signal: AbortSignal.timeout(60_000),
-        headers: { accept: 'application/json', 'user-agent': 'EduskuntaVahti/1.0 (+open civic data)', ...options.headers }
-      });
-      if (response.ok) return await response.json();
-      const body = await response.text();
-      const error = new Error(`${response.status} ${path}: ${body}`);
-      if (response.status < 500 && response.status !== 429) throw error;
-      lastError = error;
-      const retryAfter = Number(response.headers.get('retry-after'));
-      if (retryAfter) await delay(retryAfter * 1000);
-    } catch (error) {
-      lastError = error;
-      if (attempt === attempts || /^4\d\d /.test(error.message) && !error.message.startsWith('429 ')) throw error;
+export function createParliamentRequest({ api = API, fetcher = fetch, wait = delay } = {}) {
+  return async function request(path, options = {}, attempts = 4) {
+    let lastError;
+    for (let attempt = 1; attempt <= attempts; attempt++) {
+      let response;
+      try {
+        response = await fetcher(api + path, {
+          ...options,
+          signal: AbortSignal.timeout(60_000),
+          headers: { accept: 'application/json', 'user-agent': 'EduskuntaVahti/1.0 (+open civic data)', ...options.headers }
+        });
+        if (response.ok) return await response.json();
+        const body = await response.text();
+        const error = new Error(response.status + ' ' + path + ': ' + body);
+        if (response.status < 500 && response.status !== 429) throw error;
+        lastError = error;
+      } catch (error) {
+        lastError = error;
+        if (attempt === attempts || /^4\d\d /.test(error.message) && !error.message.startsWith('429 ')) throw error;
+      }
+      if (attempt < attempts) {
+        const retryIn = retryDelayMs(response, attempt);
+        if (response?.status === 429) console.warn('Parliament rate limit: retrying ' + path + ' in ' + Math.ceil(retryIn / 1000) + 's.');
+        await wait(retryIn);
+      }
     }
-    await delay(700 * 2 ** (attempt - 1));
-  }
-  throw lastError;
+    throw lastError;
+  };
 }
+const request = createParliamentRequest();
 
 async function search(category, year, sortProperty) {
   const query = {
@@ -58,7 +65,9 @@ async function search(category, year, sortProperty) {
       const response = await fetch(status.resultUrl, { signal: AbortSignal.timeout(120_000) });
       if (!response.ok) throw new Error(`Dataset download failed: ${response.status}`);
       const text = await response.text();
-      return text.split(/\r?\n/).filter(Boolean).map(line => JSON.parse(line));
+      const records = text.split(/\r?\n/).filter(Boolean).map(line => JSON.parse(line));
+      console.log(category + ' ' + year + ': ' + records.length + ' source records.');
+      return records;
     }
   }
   throw new Error(`Dataset search timed out: ${category} ${year}`);

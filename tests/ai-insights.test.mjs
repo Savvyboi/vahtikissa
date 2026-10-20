@@ -342,6 +342,37 @@ test('a repeatedly rejected brief stays unpublished while later records complete
   }finally{await rm(dir,{recursive:true,force:true});}
 });
 
+test('a truncated brief stays pending while later records complete without extra requests',async()=>{
+  const {readdir}=await import('node:fs/promises');
+  const dir=await mkdtemp(join(tmpdir(),'vahtikissa-ai-truncated-')),base=pathToFileURL(dir+'/');
+  const calls=[];
+  const bad={...vote,id:'truncated',date:'2026-10-19'},good={...vote,id:'valid-after-truncation',date:'2026-10-18'};
+  const fetchImpl=async(url,options)=>{
+    assert.match(String(url),/chat\/completions$/);
+    calls.push(JSON.parse(options.body));
+    const first=calls.length===1;
+    return {ok:true,json:async()=>({choices:[{finish_reason:first?'length':'stop',message:{content:first?'never-publish-this-partial-output':JSON.stringify({brief:translated,tags:[]})}}],usage:{completion_tokens:first?3000:100}})};
+  };
+  const client=createOpenRouterClient({apiKey:'test',model:'nvidia/nemotron-3.5-super-vl:free',maxRequests:2,wait:async()=>{},fetchImpl});
+  try{
+    await writeFile(new URL('parliament.json',base),JSON.stringify({votes:[bad,good],legislation:[]}));
+    await writeFile(new URL('programmes.json',base),JSON.stringify({parties:[]}));
+    const result=await syncAI({base,client,model:'nvidia/nemotron-3.5-super-vl:free',maxRequests:2,fetchImpl});
+    assert.deepEqual(result,{pending:true,requests:2,rejected:1});
+    assert.equal(calls.length,2);
+    assert.equal(JSON.parse(calls[0].messages[1].content).record.id,bad.id);
+    assert.equal(JSON.parse(calls[1].messages[1].content).record.id,good.id);
+    assert.ok(calls.every(call=>call.max_tokens===3000 && call.model.endsWith(':free')));
+    const index=JSON.parse(await readFile(new URL('ai-insights.json',base)));
+    assert.equal(index.records.votes[bad.id],undefined);
+    const files=await readdir(new URL('ai/',base));
+    assert.deepEqual(files,[index.records.votes[good.id].file]);
+    const saved=JSON.parse(await readFile(new URL('ai/'+files[0],base)));
+    assert.equal(saved.id,good.id);
+    assert.deepEqual(saved.brief,translated);
+  }finally{await rm(dir,{recursive:true,force:true});}
+});
+
 test('parallel analyses share one request gate and never exceed the request cap',async()=>{
   let time=0;const starts=[];
   const client=createOpenRouterClient({apiKey:'test',maxRequests:15,wait:async ms=>{time+=ms;},fetchImpl:async()=>{

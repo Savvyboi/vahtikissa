@@ -1,5 +1,6 @@
 import { writeFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
+import { retryDelayMs } from './http-retry.mjs';
 import { fetchParliamentMembers, parliamentaryGroupCode } from './parliament-members.mjs';
 export const SOURCE='https://www.fsd.tuni.fi/pohtiva/vaalit/6';
 const API='https://api.eduskunta.fi/api/v1';
@@ -38,9 +39,10 @@ export function parseProgrammes(html, represented) {
 async function request(url, json=true) {
   let last;
   for(let attempt=0;attempt<3;attempt++){
-    try{const response=await fetch(url,{signal:AbortSignal.timeout(60000),headers:{'user-agent':'Vahtikissa/1.0 (+open civic data)'}});if(!response.ok)throw new Error(`${response.status} ${url}`);return json?await response.json():await response.text();}
+    let response;
+    try{response=await fetch(url,{signal:AbortSignal.timeout(60000),headers:{'user-agent':'Vahtikissa/1.0 (+open civic data)'}});if(!response.ok)throw new Error(`${response.status} ${url}`);return json?await response.json():await response.text();}
     catch(error){last=error;}
-    await new Promise(resolve=>setTimeout(resolve,500*2**attempt));
+    if(attempt<2)await new Promise(resolve=>setTimeout(resolve,retryDelayMs(response,attempt+1)));
   }
   throw last;
 }

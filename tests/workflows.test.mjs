@@ -17,6 +17,7 @@ test('scheduled writers serialize and deployments read the current main branch',
     assert.match(workflow,/group: daily-data-sync/);
     assert.match(workflow,/fetch-depth: 0/);
     assert.match(workflow,/timeout-minutes: 90/);
+    assert.match(workflow,/paths: \[[^\n]*'scripts\/http-retry\.mjs'/);
   }
   assert.match(civic,/--only=budget --all/);
   assert.match(civic,/--only=elections/);

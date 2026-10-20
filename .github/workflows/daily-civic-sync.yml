@@ -3,7 +3,7 @@ name: Daily budget, election and influence data sync
 on:
   push:
     branches: [main]
-    paths: ['scripts/sync-civic-data.mjs', 'scripts/sync-programmes.mjs', 'scripts/parliament-members.mjs', '.github/workflows/daily-civic-sync.yml']
+    paths: ['scripts/http-retry.mjs', 'scripts/sync-civic-data.mjs', 'scripts/sync-programmes.mjs', 'scripts/parliament-members.mjs', '.github/workflows/daily-civic-sync.yml']
   schedule:
     - cron: '43 3 * * *'
   workflow_dispatch:

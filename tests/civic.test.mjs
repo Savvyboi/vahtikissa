@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { lobbyingTopic } from '../scripts/sync-civic-data.mjs';
 import { filterBudgetItems, filterElectionCandidates, filterInfluence, jsonStatRows, parseCSVLine, parseGiftDisclosure } from '../civic-utils.js';
 
 const source = file => readFile(new URL(`../${file}`, import.meta.url), 'utf8');
@@ -16,6 +17,14 @@ test('gift disclosures expose donor, description, value and dates', () => {
   assert.equal(gift.description, 'Ruisrock VIP-liput');
   assert.equal(gift.amount, 678);
   assert.equal(gift.used, '05.07.2025');
+});
+
+test('lobbying subjects include the official Finnish project label', () => {
+  assert.equal(lobbyingTopic({ contactTopicOther:'', contactTopicProject:{ projectId:'STM200:00/2025', fi:'Yrittäjän eläkelain muuttaminen', sv:'Ändring av lagen om pension för företagare' }, title:null }), 'Yrittäjän eläkelain muuttaminen');
+  assert.equal(lobbyingTopic({ contactTopicOther:' Oma aihe ', contactTopicProject:{ fi:'Hankkeen nimi' } }), 'Oma aihe');
+  assert.equal(lobbyingTopic({ contactTopicOther:'  ', contactTopicProject:{ title:'Vanha hankkeen nimi' } }), 'Vanha hankkeen nimi');
+  assert.equal(lobbyingTopic({ title:'Muu otsikko' }), 'Muu otsikko');
+  assert.equal(lobbyingTopic(), '');
 });
 
 test('JSON-stat2 cells expand in the declared dimension order', () => {

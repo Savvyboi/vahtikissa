@@ -155,7 +155,11 @@ export function createOpenRouterClient({ apiKey, model = DEFAULT_AI_MODEL, fetch
       const reason = ['length','error','content_filter'].includes(choice?.finish_reason) ? choice.finish_reason : 'unknown';
       const completion = Number.isFinite(result.usage?.completion_tokens) ? result.usage.completion_tokens : 'unknown';
       const thinking = Number.isFinite(result.usage?.completion_tokens_details?.reasoning_tokens) ? result.usage.completion_tokens_details.reasoning_tokens : 'unknown';
-      throw new Error('Incomplete AI response (finish_reason=' + reason + ', completion_tokens=' + completion + ', reasoning_tokens=' + thinking + ')');
+      const error = new Error('Incomplete AI response (finish_reason=' + reason + ', completion_tokens=' + completion + ', reasoning_tokens=' + thinking + ')');
+      // A truncated record must stay pending without stopping unrelated records or
+      // spending extra requests retrying the same oversized output in this batch.
+      if (reason === 'length') error.code = 'AI_OUTPUT_REJECTED';
+      throw error;
     }
     return choice;
   }
@@ -350,7 +354,7 @@ export async function syncAI({ base = new URL('../data/', import.meta.url), apiK
       } catch (error) {
         if (error.code !== 'AI_OUTPUT_REJECTED') throw error;
         rejected++;
-        console.warn('AI brief rejected after bounded correction attempts for '+JSON.stringify([kind,item.id])+'. No rejected output published; continuing with other records.');
+        console.warn('AI brief rejected for '+JSON.stringify([kind,item.id])+'. No rejected output published; continuing with other records.');
         continue;
       }
       const value = {...validateRecordResult(result,allowed),evidence:validateDocumentEvidence(result,passages)};
