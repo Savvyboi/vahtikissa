@@ -41,3 +41,7 @@ jobs:
       - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v4
+      - name: Verify published code and data
+        env:
+          SITE_URL: https://vahtikissa.fi/
+        run: node scripts/check-live-deployment.mjs
