@@ -345,3 +345,13 @@ test('transparency footer, methodology and display themes are exposed', async ()
   assert.match(css, /data-theme="dark"/);
   assert.match(css, /data-theme="contrast"/);
 });
+
+test('member searches match a displayed full name with Finnish case and spacing', () => {
+  const member = { firstName: 'Petteri', lastName: 'Orpo', party: 'kok' };
+  assert.equal(memberMatchesQuery(member, 'Petteri Orpo'), true);
+  assert.equal(memberMatchesQuery(member, '  PETTERI   ORPO  '), true);
+  assert.equal(memberMatchesQuery(member, 'teri or'), true);
+  assert.equal(memberMatchesQuery(member, 'Petteri Other'), false);
+  assert.deepEqual(filterAndSortMembers([member], { query: 'Petteri Orpo' }), [member]);
+  assert.equal(memberMatchesQuery({ firstName: 'Aino-Kaisa', lastName: 'Ääkkönen' }, 'aino-kaisa ääkkönen'), true);
+});

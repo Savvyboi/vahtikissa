@@ -126,7 +126,7 @@ Application code: MIT. Parliament data remains subject to the source provider's 
 
 ## Budget and programme methods
 
-The budget view uses the treemap and bar-chart interactions demonstrated in the Ministry of Finance’s Tutki budjettia video. Areas show monetary proportions; original and current budgets are distinct. Revenue excludes budget section 15 (borrowing) when calculating the deficit. Actuals show their source month, and percentage comparisons of actuals are suppressed if the years cover different numbers of months. Small chart blocks have equivalent, readable links in the complete table.
+The budget view uses the treemap and bar-chart interactions demonstrated in the Ministry of Finance’s Tutki budjettia video. Areas show monetary proportions; original and current budgets are distinct. Revenue excludes only net borrowing (budget moment 15.03.01) when calculating the deficit; repayments of loans to the state remain revenue. Actuals show their source month, and percentage comparisons of actuals are suppressed if the years cover different numbers of months. Small chart blocks have equivalent, readable links in the complete table.
 
 Pohtiva documents are linked in their original language, with publication year and programme type. The page deliberately represents the requested **2023 election collection**, not a claim to each party’s newest programme. Representation and group seat counts are checked against Parliament’s current member reference list every day. Independent groups without matching documents in that collection are excluded.
 

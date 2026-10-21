@@ -431,3 +431,15 @@ html[data-theme="dark"] .nav a.nav-civic,html[data-theme="contrast"] .nav a.nav-
 .ballot-person>a,.easy-voter>a{display:flex;align-items:center;min-height:24px}
 
 .filter-panel .filters>input,.filter-panel .filters>select{min-width:0;max-width:100%;width:100%}@media(max-width:600px){.filter-panel .election-filters,.filter-panel .influence-filters{grid-template-columns:minmax(0,1fr)}}
+
+
+/* Native disclosures expose participation guidance to touch and keyboard users. */
+.metric-help{max-width:30ch}
+.metric-help>summary{min-height:44px;padding:.3rem .4rem;cursor:pointer;list-style:none}
+.metric-help>summary::-webkit-details-marker{display:none}
+.metric-help[open]>summary{color:var(--blue)}
+.metric-help-text{margin:.4rem 0 0;padding:.65rem;border:1px solid var(--line);border-radius:6px;background:var(--paper);color:var(--ink);font-size:.78rem;line-height:1.5}
+.speech-load-error{margin:.75rem 0;padding:.85rem;border:1px solid var(--no);border-radius:6px;background:var(--paper)}
+.speech-load-error p{margin:0 0 .6rem}
+.speech-load-error button{min-height:44px;padding:.5rem .85rem;border:1px solid var(--blue);border-radius:6px;background:var(--white);color:var(--blue);font-weight:700;cursor:pointer}
+.speech-load-error button[aria-busy="true"]{cursor:progress}

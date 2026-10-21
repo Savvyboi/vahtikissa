@@ -14,7 +14,7 @@ permissions:
 jobs:
   browser:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -22,7 +22,9 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - run: npm run check
       - run: npx playwright install --with-deps chromium
+      - run: node scripts/check-audit-regressions.mjs
       - run: npm run test:performance
       - run: npm run test:release
       - run: npm run test:browser
@@ -30,3 +32,9 @@ jobs:
       - run: npm run test:loading-language
       - run: npm run test:ai-browser
       - run: npm run test:vote-reading
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: audit-regression-screenshots
+          path: .hermes-tmp.audit/
+          if-no-files-found: ignore
