@@ -90,11 +90,12 @@ export function hasCommittee(item, committee = 'all') {
 }
 
 export function memberMatchesQuery(member, query, partyNames = {}) {
-  const q = String(query || '').trim().toLocaleLowerCase('fi');
+  const q = String(query || '').trim().replace(/\s+/g, ' ').toLocaleLowerCase('fi');
   if (!q) return true;
   const party = partyNames[member.party] || {};
-  return [member.firstName, member.lastName, member.party, party.fi, party.sv]
-    .some(value => String(value || '').toLocaleLowerCase('fi').includes(q));
+  const fullName = [member.firstName, member.lastName].filter(Boolean).join(' ');
+  return [member.firstName, member.lastName, fullName, member.party, party.fi, party.sv]
+    .some(value => String(value || '').replace(/\s+/g, ' ').toLocaleLowerCase('fi').includes(q));
 }
 
 export function parliamentMatterUrl(document) {

@@ -31,6 +31,8 @@ const preferences = {
 let readingView = readingMode(location.search, preferences.get('vahtikissa-view'));
 const speechTexts = {};
 const speechTextPromises = new Map();
+const speechTextErrors = new Map();
+const loadedSpeechChunks = new Set();
 let lang = ['fi','sv','en'].includes(preferences.get('vahtikissa-lang')) ? preferences.get('vahtikissa-lang') : 'fi';
 let theme = ['light','dark','contrast'].includes(preferences.get('vahtikissa-theme')) ? preferences.get('vahtikissa-theme') : 'light';
 const state = {
@@ -64,8 +66,8 @@ const voteExportRows = items => items.map(vote=>({id:vote.id,date:vote.date,docu
 const ballotExportRows = ballots => ballots.map(ballot=>({voteId:ballot.voteId,mpId:ballot.mpId,name:memberName(ballot),party:ballot.party,choice:choice(ballot.choice)}));
 const speechExportRows = items => items.map(speech=>({id:speech.id,date:speech.date,mpId:speech.mpId,name:memberName(speech),party:speech.party,topic:policyTopicKeys(speech).map(key=>policyTopicLabel(key,lang)),agenda:(lang==='sv'&&speech.agendaSv)||speech.agenda,type:speech.type,documents:(lang==='sv'&&speech.documentsSv?.length?speech.documentsSv:speech.documents)?.map(document=>document.label)}));
 const speechElementId = id => `speech-${String(id || '').replace(/[^\p{L}\p{N}_-]+/gu,'-')}`;
-const participationInfo = () => lang==='sv'?'Frånvaro kan bero på bland annat kvittning, sjukfrånvaro eller ministeruppdrag. Siffran ensam berättar inte orsaken.':'Poissaolo voi johtua esimerkiksi äänestysparista, sairauslomasta tai ministeritehtävästä. Luku ei yksin kerro poissaolon syytä.';
-const participationMetric = value => `<span class="metric-with-help" tabindex="0" title="${e(participationInfo())}">${value}% <span aria-hidden="true">ⓘ</span><span class="sr-only">${e(participationInfo())}</span></span>`;
+const participationInfo = () => ui('Poissaolo voi johtua esimerkiksi äänestysparista, sairauslomasta tai ministeritehtävästä. Luku ei yksin kerro poissaolon syytä.','Frånvaro kan bero på bland annat kvittning, sjukfrånvaro eller ministeruppdrag. Siffran ensam berättar inte orsaken.','Absence may reflect an agreed voting pair, sick leave or ministerial duties. The percentage alone does not explain the reason.');
+const participationMetric = value => `<details class="metric-help"><summary class="metric-with-help"><span>${e(value)}%</span> <span aria-hidden="true">ⓘ</span><span class="sr-only">${ui('Tietoa osallistumisesta','Om deltagande','About participation')}</span></summary><p class="metric-help-text">${e(participationInfo())}</p></details>`;
 
 const collectionStates = new Map();
 const toolState = (key, sort, direction = 'asc') => {
@@ -227,7 +229,18 @@ function members(id){
   bindExportButtons(root,'members',()=>filtered.map(member=>({id:member.id,name:memberName(member),party:titleFor(member.party),participationPercent:member.stats?.participation,votes:member.stats?.votes,partyLinePercent:member.stats?.loyalty,speeches:member.stats?.speeches})),'vahtikissa-kansanedustajat');
 }
 let activeMemberId=null;
-async function loadSpeechTexts(items){const chunks=[...new Set(items.map(item=>item.textChunk).filter(Number.isInteger))];await Promise.all(chunks.map(chunk=>{if(!speechTextPromises.has(chunk))speechTextPromises.set(chunk,fetchJSONWithTimeout(`./data/speech-texts-${chunk}.json`).then(value=>Object.assign(speechTexts,value)).catch(error=>{speechTextPromises.delete(chunk);throw error}));return speechTextPromises.get(chunk)}));return speechTexts}
+async function loadSpeechTexts(items){
+  const chunks=[...new Set(items.map(item=>item.textChunk).filter(Number.isInteger))];
+  const results=await Promise.allSettled(chunks.map(chunk=>{
+    if(!speechTextPromises.has(chunk))speechTextPromises.set(chunk,fetchJSONWithTimeout(`./data/speech-texts-${chunk}.json`).then(value=>{
+      Object.assign(speechTexts,value);loadedSpeechChunks.add(chunk);speechTextErrors.delete(chunk);return value;
+    }).catch(error=>{speechTextPromises.delete(chunk);speechTextErrors.set(chunk,error);throw error}));
+    return speechTextPromises.get(chunk);
+  }));
+  const failed=results.find(result=>result.status==='rejected');
+  if(failed)throw failed.reason;
+  return speechTexts;
+}
 function loadSpeechSearchIndex(){if(!speechSearchPromise)speechSearchPromise=Promise.all([fetchJSONWithTimeout('./data/speech-search.json').then(decodeSpeechSearchIndex),parliamentLoader.loadSpeeches()]).then(([index,metadata])=>{if(index.length!==metadata.length)throw new Error('Speech search index does not match speech metadata');speechSearchTexts=index;return index}).catch(error=>{speechSearchPromise=null;throw error});return speechSearchPromise}
 function loadSpeechAnalytics(){if(!speechAnalyticsPromise)speechAnalyticsPromise=fetchJSONWithTimeout('./data/speech-analytics.json').catch(error=>{speechAnalyticsPromise=null;throw error});return speechAnalyticsPromise}
 function speechAnalyticsView(analytics,topic='all'){
@@ -271,25 +284,49 @@ function memberDetail(m){if(!m)return notFound();if(activeMemberId!==m.id){state
   const memberSpeechList=$('[data-member-speeches]');
   let filteredVotes=[],filteredSpeeches=[],version=0;
   const redrawVotes=()=>{filteredVotes=applyCollection(votes,voteState,voteConfig,lang);$('[data-member-vote-count]').textContent=`${filteredVotes.length} ${t('votes').toLocaleLowerCase(lang)}`;$('[data-member-votes]').innerHTML=table([t('day'),t('matter'),t('result')],voteRows(pageSlice(filteredVotes,state.memberVotes,PAGE.memberVotes),m.id));$('[data-member-votes-more]').innerHTML=pagination('memberVotes',filteredVotes.length);bindPagination('memberVotes',redrawVotes)};
-  const redrawSpeeches=()=>{const current=++version;filteredSpeeches=applyCollection(speechesForMember,speechState,speechConfig,lang);const shown=pageSlice(filteredSpeeches,state.memberSpeeches,PAGE.memberSpeeches);$('[data-member-speech-count]').textContent=`${filteredSpeeches.length} ${t('speechTurns')}`;$('[data-member-speeches]').innerHTML=speechList(shown);$('[data-member-speeches-more]').innerHTML=pagination('memberSpeeches',filteredSpeeches.length);bindPagination('memberSpeeches',redrawSpeeches);bindSpeechToggles();loadSpeechTexts(shown).then(()=>{if(current===version&&memberSpeechList.isConnected){preserveFocus(root,()=>{memberSpeechList.innerHTML=speechList(shown);bindSpeechToggles()})}}).catch(console.error)};
+  const redrawSpeeches=()=>{
+    const current=++version;filteredSpeeches=applyCollection(speechesForMember,speechState,speechConfig,lang);
+    const shown=pageSlice(filteredSpeeches,state.memberSpeeches,PAGE.memberSpeeches);
+    const paint=()=>{
+      if(current!==version||!memberSpeechList.isConnected)return;
+      preservePageScroll(root,()=>preserveFocus(memberSpeechList,()=>{memberSpeechList.innerHTML=speechList(shown);bindSpeechToggles(paint)}));
+    };
+    $('[data-member-speech-count]').textContent=`${filteredSpeeches.length} ${t('speechTurns')}`;
+    paint();$('[data-member-speeches-more]').innerHTML=pagination('memberSpeeches',filteredSpeeches.length);bindPagination('memberSpeeches',redrawSpeeches);
+    loadSpeechTexts(shown).then(paint,paint);
+  };
   mountCollectionTools($('[data-member-vote-tools]'),'member-votes',voteState,voteConfig,lang,()=>{state.memberVotes=1;redrawVotes()});
   mountCollectionTools($('[data-member-speech-tools]'),'member-speeches',speechState,speechConfig,lang,()=>{state.memberSpeeches=1;redrawSpeeches()});
   bindExportButtons(root,'member-votes',()=>voteExportRows(filteredVotes).map(row=>({...row,choice:choice(ballots.find(ballot=>ballot.voteId===row.id)?.choice)})),`vahtikissa-${safeFilename(memberName(m))}-aanestykset`);
   bindExportButtons(root,'member-speeches',()=>speechExportRows(filteredSpeeches),`vahtikissa-${safeFilename(memberName(m))}-puheet`);
   redrawVotes();redrawSpeeches();
 }
-function speechList(items){return items.length?items.map(s=>{const documents=lang==='sv'&&s.documentsSv?.length?s.documentsSv:s.documents,text=speechTexts?.[s.id]??s.text,long=isLongSpeech(text),officialDocument=documents?.[0]?.label,partyKey=/^[a-z]+$/.test(s.party)?s.party:'other',articleId=speechElementId(s.id),textId=`${articleId}-text`,paragraphs=text?speechParagraphs(text):[];return `<article class="speech speech-party-${partyKey}" id="${e(articleId)}"><div class="speech-meta"><time class="date" datetime="${e(s.date)}">${fmtDate(s.date)}</time><a class="speech-speaker" href="${href('members',s.mpId)}">${e(memberName(s))}</a><span class="speech-party">${e(titleFor(s.party))}</span></div><h3>${e((lang==='sv'&&s.agendaSv)||s.agenda||t('speeches'))}</h3>${text?`<blockquote id="${e(textId)}" class="speech-text${long?' collapsed':''}">${paragraphs.map(paragraph=>`<p>${e(paragraph)}</p>`).join('')}</blockquote>`:`<p class="sub">${t('loading')}</p>`}${long?`<button class="speech-toggle" type="button" aria-expanded="false" aria-controls="${e(textId)}">${t('readMore')}</button>`:''}${documents?.length?`<p class="source-links">${documents.map(d=>officialDocument?`<a href="${e(parliamentMatterUrl(d.label))}" target="_blank" rel="noreferrer">${e(d.label||d.name)} ↗</a>`:`<span>${e(d.label||d.name)}</span>`).join(' · ')}</p>`:''}</article>`}).join(''):`<div class="empty">${t('noData')}</div>`}
-function bindSpeechToggles(){document.querySelectorAll('.speech-toggle').forEach(button=>button.onclick=()=>{const text=document.getElementById(button.getAttribute('aria-controls')),expanded=button.getAttribute('aria-expanded')==='true';if(!text)return;text.classList.toggle('collapsed',expanded);button.setAttribute('aria-expanded',String(!expanded));button.textContent=expanded?t('readMore'):t('readLess')})}
+function speechList(items){return items.length?items.map(s=>{const documents=lang==='sv'&&s.documentsSv?.length?s.documentsSv:s.documents,text=speechTexts?.[s.id]??s.text,long=isLongSpeech(text),officialDocument=documents?.[0]?.label,partyKey=/^[a-z]+$/.test(s.party)?s.party:'other',articleId=speechElementId(s.id),textId=`${articleId}-text`,paragraphs=text?speechParagraphs(text):[],failed=speechTextErrors.has(s.textChunk),loaded=!Number.isInteger(s.textChunk)||loadedSpeechChunks.has(s.textChunk);return `<article class="speech speech-party-${partyKey}" id="${e(articleId)}" tabindex="-1"><div class="speech-meta"><time class="date" datetime="${e(s.date)}">${fmtDate(s.date)}</time><a class="speech-speaker" href="${href('members',s.mpId)}">${e(memberName(s))}</a><span class="speech-party">${e(titleFor(s.party))}</span></div><h3>${e((lang==='sv'&&s.agendaSv)||s.agenda||t('speeches'))}</h3>${text?`<blockquote id="${e(textId)}" class="speech-text${long?' collapsed':''}">${paragraphs.map(paragraph=>`<p>${e(paragraph)}</p>`).join('')}</blockquote>`:failed?`<div class="speech-load-error" role="alert"><p>${ui('Puhetekstiä ei saatu ladattua. Yritä uudelleen.','Taltexten kunde inte laddas. Försök igen.','The transcript could not be loaded. Please try again.')}</p><button type="button" data-speech-retry="${e(s.textChunk)}" data-speech-id="${e(s.id)}">${ui('Yritä uudelleen','Försök igen','Try again')}</button></div>`:loaded?`<p class="sub">${ui('Puhetekstiä ei ole tässä aineistossa.','Taltexten saknas i materialet.','The transcript is not available in this dataset.')}</p>`:`<p class="sub" role="status">${t('loading')}</p>`}${long?`<button class="speech-toggle" type="button" aria-expanded="false" aria-controls="${e(textId)}">${t('readMore')}</button>`:''}${documents?.length?`<p class="source-links">${documents.map(d=>officialDocument?`<a href="${e(parliamentMatterUrl(d.label))}" target="_blank" rel="noreferrer">${e(d.label||d.name)} ↗</a>`:`<span>${e(d.label||d.name)}</span>`).join(' · ')}</p>`:''}</article>`}).join(''):`<div class="empty">${t('noData')}</div>`}
+function bindSpeechToggles(repaint){
+  root.querySelectorAll('.speech-toggle').forEach(button=>button.onclick=()=>{const text=document.getElementById(button.getAttribute('aria-controls')),expanded=button.getAttribute('aria-expanded')==='true';if(!text)return;text.classList.toggle('collapsed',expanded);button.setAttribute('aria-expanded',String(!expanded));button.textContent=expanded?t('readMore'):t('readLess')});
+  root.querySelectorAll('[data-speech-retry]').forEach(button=>button.onclick=async()=>{
+    if(button.getAttribute('aria-busy')==='true')return;
+    const speech=data.speeches.find(item=>item.id===button.dataset.speechId);if(!speech)return;
+    button.setAttribute('aria-busy','true');button.setAttribute('aria-disabled','true');button.textContent=ui('Yritetään uudelleen…','Försöker igen…','Retrying…');
+    try{
+      await loadSpeechTexts([speech]);if(!button.isConnected)return;
+      const restoreFocus=document.activeElement===button;
+      repaint?.();
+      if(restoreFocus)document.getElementById(speechElementId(speech.id))?.focus({preventScroll:true});
+    }catch{
+      if(button.isConnected){button.textContent=ui('Yritä uudelleen','Försök igen','Try again');button.removeAttribute('aria-busy');button.removeAttribute('aria-disabled')}
+    }
+  });
+}
 function speeches(targetId=null,{scrollToTarget=true}={}){
-  const params=new URLSearchParams(location.hash.split('?')[1]||'');
+  const params=new URLSearchParams(targetId?'':location.hash.split('?')[1]||'');
   const researchSettings={lang,mode:['contains','word','phrase'].includes(params.get('match'))?params.get('match'):'contains',scope:params.get('scope')==='text'?'text':'all',exclude:params.get('exclude')||''};
   let indexedTexts;
   const parties=[...new Set(data.speeches.map(s=>s.party).filter(Boolean))].sort((a,b)=>titleFor(a).localeCompare(titleFor(b),lang));
   const speakers=[...new Map(data.speeches.map(s=>[String(s.mpId),s])).values()].sort((a,b)=>memberName(a).localeCompare(memberName(b),lang));
-  let filtered=data.speeches,queryMatches=data.speeches,version=0,searchVersion=0,timer;
-  const controls={party:params.get('party')||'all',mpId:params.get('mp')||'all',topic:params.get('topic')||'all'},extra=params.has('q')?collectionState('date','desc'):toolState('speeches','date','desc'),config=speechTools(data.speeches);
+  let filtered=data.speeches,queryMatches=data.speeches,version=0,searchVersion=0,timer,targetPending=Boolean(targetId);
+  const controls={party:params.get('party')||'all',mpId:params.get('mp')||'all',topic:params.get('topic')||'all'},extra=targetId||params.has('q')?collectionState('date','desc'):toolState('speeches','date','desc'),config=speechTools(data.speeches);
   for(const key of ['from','to'])if(/^\d{4}-\d{2}-\d{2}$/.test(params.get(key)||''))extra[key]=params.get(key);
-  if(targetId){const targetIndex=data.speeches.findIndex(s=>s.id===targetId);if(targetIndex>=0)state.speeches=Math.floor(targetIndex/PAGE.speeches)+1}
   root.innerHTML=`<div class="page">${header(t('parliament'),t('speeches'),t('allSpeeches'))}<div class="filters speech-filters"><div class="speech-search-field"><input data-filter aria-label="${e(t('searchSpeeches'))}" placeholder="${e(t('searchSpeeches'))}"><span class="filter-note" data-search-status role="status" aria-live="polite"></span></div><label class="filter-control"><span>${lang==='sv'?'Ämne':'Aihealue'}</span><select data-speech-topic>${topicOptionsHTML(controls.topic)}</select></label><label class="filter-control"><span>${lang==='sv'?'Parti':'Puolue'}</span><select data-speech-party><option value="all">${lang==='sv'?'Alla partier':'Kaikki puolueet'}</option>${parties.map(party=>`<option value="${e(party)}">${e(titleFor(party))}</option>`).join('')}</select></label><label class="filter-control"><span>${lang==='sv'?'Ledamot':'Kansanedustaja'}</span><select data-speech-member><option value="all">${lang==='sv'?'Alla ledamöter':'Kaikki kansanedustajat'}</option></select></label></div><section class="speech-analytics" data-speech-analytics aria-busy="true"><p>${t('loading')}</p></section><div class="data-actions"><p class="filter-summary" data-speech-count aria-live="polite"></p>${exportButtons('speeches',lang)}</div><div data-list></div><div data-more></div></div>`;
   const input=$('[data-filter]'),topicSelect=$('[data-speech-topic]'),partySelect=$('[data-speech-party]'),memberSelect=$('[data-speech-member]'),searchStatus=$('[data-search-status]'),analyticsRoot=$('[data-speech-analytics]');
   input.value=params.get('q')||'';partySelect.value=controls.party;topicSelect.value=controls.topic;
@@ -297,9 +334,18 @@ function speeches(targetId=null,{scrollToTarget=true}={}){
   const shareParams=()=>{const values=new URLSearchParams({q:input.value.trim(),match:researchSettings.mode,scope:researchSettings.scope,exclude:researchSettings.exclude,mp:controls.mpId,party:controls.party,topic:controls.topic});for(const key of ['from','to'])if(extra[key])values.set(key,extra[key]);values.set('filters',JSON.stringify({facets:extra.facets,min:extra.min,max:extra.max,sort:extra.sort,direction:extra.direction}));return values;};
   if(params.has('filters')){try{const saved=JSON.parse(params.get('filters'));if(saved&&typeof saved==='object'){extra.facets=Object.fromEntries(config.facets.map(facet=>[facet.key,{include:Array.isArray(saved.facets?.[facet.key]?.include)?saved.facets[facet.key].include.map(String):[],exclude:Array.isArray(saved.facets?.[facet.key]?.exclude)?saved.facets[facet.key].exclude.map(String):[]} ]));extra.min=typeof saved.min==='string'?saved.min:'';extra.max=typeof saved.max==='string'?saved.max:'';if(config.sorts.some(sort=>sort.key===saved.sort))extra.sort=saved.sort;extra.direction=saved.direction==='asc'?'asc':'desc';}}catch{}}
   const updateMemberOptions=()=>{const available=speakers.filter(s=>controls.party==='all'||s.party===controls.party);if(!available.some(s=>String(s.mpId)===controls.mpId))controls.mpId='all';memberSelect.innerHTML=`<option value="all">${lang==='sv'?'Alla ledamöter':'Kaikki kansanedustajat'}</option>${available.map(s=>`<option value="${e(s.mpId)}">${e(memberName(s))}</option>`).join('')}`;memberSelect.value=controls.mpId};
-  const redraw=()=>{const current=++version,shown=pageSlice(filtered,state.speeches,PAGE.speeches);$('[data-speech-count]').textContent=lang==='sv'?`${filtered.length.toLocaleString('sv-FI')} anföranden`:`${filtered.length.toLocaleString('fi-FI')} puheenvuoroa`;$('[data-list]').innerHTML=speechList(shown);researchUI.annotate(shown,indexedTexts,input.value);$('[data-more]').innerHTML=pagination('speeches',filtered.length);bindPagination('speeches',redraw);bindSpeechToggles();loadSpeechTexts(shown).then(()=>{if(current===version&&document.body.contains(input)){$('[data-list]').innerHTML=speechList(shown);researchUI.annotate(shown,indexedTexts,input.value);bindSpeechToggles()}}).catch(console.error)};
+  const redraw=()=>{
+    const current=++version,shown=pageSlice(filtered,state.speeches,PAGE.speeches),list=$('[data-list]');
+    const paint=()=>{
+      if(current!==version||!input.isConnected)return;
+      preservePageScroll(root,()=>preserveFocus(list,()=>{list.innerHTML=speechList(shown);researchUI.annotate(shown,indexedTexts,input.value);bindSpeechToggles(paint)}));
+    };
+    $('[data-speech-count]').textContent=lang==='sv'?`${filtered.length.toLocaleString('sv-FI')} anföranden`:`${filtered.length.toLocaleString('fi-FI')} puheenvuoroa`;
+    paint();$('[data-more]').innerHTML=pagination('speeches',filtered.length);bindPagination('speeches',redraw);
+    loadSpeechTexts(shown).then(paint,paint);
+  };
   const updateAnalytics=()=>{analyticsRoot.setAttribute('aria-busy','true');loadSpeechAnalytics().then(analytics=>{if(analyticsRoot.isConnected){analyticsRoot.innerHTML=speechAnalyticsView(analytics,controls.topic);analyticsRoot.setAttribute('aria-busy','false')}}).catch(()=>{if(analyticsRoot.isConnected){analyticsRoot.innerHTML=`<p class="empty">${lang==='sv'?'Analysen kunde inte laddas.':'Analytiikkaa ei voitu ladata.'}</p>`;analyticsRoot.setAttribute('aria-busy','false')}})};
-  const applyFilters=()=>{filtered=applyCollection(filterSpeechesBySpeaker(queryMatches,controls),extra,config,lang);const pages=Math.max(1,Math.ceil(filtered.length/PAGE.speeches));if(state.speeches>pages)state.speeches=1;redraw();const corpus=applyCollection(filterSpeechesBySpeaker(filterResearchSpeeches(data.speeches,indexedTexts||{}, {...researchSettings,query:''}),controls),extra,config,lang);researchUI.update({corpus,filtered,texts:indexedTexts,query:input.value.trim(),params:shareParams(),generatedAt:data.metadata.generatedAt});};
+  const applyFilters=()=>{filtered=applyCollection(filterSpeechesBySpeaker(queryMatches,controls),extra,config,lang);const pages=Math.max(1,Math.ceil(filtered.length/PAGE.speeches));if(targetPending){targetPending=false;const targetIndex=filtered.findIndex(speech=>speech.id===targetId);if(targetIndex>=0)state.speeches=Math.floor(targetIndex/PAGE.speeches)+1}if(state.speeches>pages)state.speeches=1;redraw();const corpus=applyCollection(filterSpeechesBySpeaker(filterResearchSpeeches(data.speeches,indexedTexts||{}, {...researchSettings,query:''}),controls),extra,config,lang);researchUI.update({corpus,filtered,texts:indexedTexts,query:input.value.trim(),params:shareParams(),generatedAt:data.metadata.generatedAt});};
   partySelect.onchange=event=>{controls.party=event.target.value;state.speeches=1;updateMemberOptions();applyFilters()};
   memberSelect.onchange=event=>{controls.mpId=event.target.value;state.speeches=1;applyFilters()};
   topicSelect.onchange=event=>{controls.topic=event.target.value;state.speeches=1;applyFilters();updateAnalytics()};
@@ -402,6 +448,7 @@ function decorateCards(page){
 }
 function render(position){
   if(!data)return;
+  readingView=readingMode(location.search,readingView);
   const sequence=++routeRenderSequence,r=routeFromHash(location.hash),routeKey=location.hash,renderLanguage=lang,view=readingView;
   const current=()=>sequence===routeRenderSequence&&location.hash===routeKey&&lang===renderLanguage&&readingView===view;
   return preservePageScroll(root,async()=>{
@@ -425,7 +472,7 @@ function render(position){
   let html,pending=null;
   if(r.page==='overview')html=overview();else if(r.page==='votes')html=r.id?voteDetail(r.id):null;else if(r.page==='members')html=members(r.id);else if(r.page==='parties')html=parties(r.id);else if(r.page==='speeches')html=null;else if(r.page==='legislation')html=legislation(r.id);else if(r.page==='sessions')html=sessions(r.id);else if(r.page==='programmes')html=null;else if(r.page==='budget')html=null;else if(r.page==='elections')html=null;else if(r.page==='influence')html=null;else if(r.page==='about')html=about();else html=notFound();
   if(r.page==='votes'&&!r.id)voteList();else if(r.page==='speeches')speeches(r.id,{scrollToTarget:position===undefined&&previousView!==routeKey});else if(r.page==='programmes')pending=viewModule.renderProgrammes(root,lang,e);else if(r.page==='budget')pending=viewModule.renderBudget(root,lang,r.id,e);else if(r.page==='elections')pending=viewModule.renderElections(root,lang,e);else if(r.page==='influence')pending=viewModule.renderInfluence(root,lang,e,data.members,r.id);else if(typeof html==='string')root.innerHTML=html;
-  if(r.page==='votes'&&r.id)bindVoteFilters(r.id);
+  if(r.page==='votes'&&r.id&&data.votes.some(vote=>vote.id===r.id))bindVoteFilters(r.id);
   if(r.page==='legislation'&&r.id){const item=data.legislation.find(matter=>matter.id===r.id);if(item)decorateLegislationDetail(item)}
   if(r.page==='overview')decorateTableCollection('overview-votes',data.votes,voteTools(data.votes),items=>table([t('day'),t('matter'),t('result')],voteRows(items)),voteExportRows,'vahtikissa-uusimmat-aanestykset',8);
   if(r.page==='sessions'&&r.id&&data.sessions.find(item=>item.id===r.id)?.voteIds.length){const session=data.sessions.find(item=>item.id===r.id),ids=new Set(session?.voteIds||[]);decorateTableCollection('session-votes',data.votes.filter(vote=>ids.has(vote.id)),voteTools(data.votes.filter(vote=>ids.has(vote.id))),items=>table([t('day'),t('matter'),t('result')],voteRows(items)),voteExportRows,`vahtikissa-istunto-${r.id}`)}

@@ -30,7 +30,16 @@ export function budgetChange(value, previous) {
 export function budgetTotals(year, metric = 'budget') {
   const sum = items => (items || []).reduce((total, item) => total + (Number(item[metric]) || 0), 0);
   const income = sum(year?.income), expense = sum(year?.expense);
-  const borrowing = (year?.income || []).filter(item => item.code === '15').reduce((total, item) => total + (Number(item[metric]) || 0), 0);
+  const find = (items, code) => {
+    for (const item of items || []) {
+      if (item.code === code) return item;
+      const nested = find(item.children, code);
+      if (nested) return nested;
+    }
+    return null;
+  };
+  // Class 15 also contains repayments of loans owed to the state.
+  const borrowing = Number(find(year?.income, '150301')?.[metric]) || 0;
   return { income, expense, borrowing, revenue: income - borrowing, balance: income - borrowing - expense };
 }
 // A balanced binary treemap preserves positive area ratios without chart dependencies.

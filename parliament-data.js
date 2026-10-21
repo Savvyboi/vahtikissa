@@ -38,7 +38,7 @@ export function createParliamentLoader(fetchJSON = fetchJSONWithTimeout) {
       return index < 0 ? [] : ['session-' + index + '.json'];
     }
     if (route.page === 'speeches') return ['speeches.json'];
-    if (route.page === 'legislation') return ['legislation.json'];
+    if (route.page === 'legislation') return view === 'simple' && !route.id ? ['legislation.json', 'party-votes.json'] : ['legislation.json'];
     if (route.page === 'votes' && view === 'simple') return ['party-votes.json'];
     return [];
   }

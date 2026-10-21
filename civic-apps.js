@@ -40,6 +40,14 @@ const influenceState = {
   tab: 'gifts', query: '', year: 'all', kind: 'all', mp: 'all', party: 'all', actor: 'all',
   method: 'all', category: 'all', excludedCategories: new Set(), categoryQuery: '', limit: 100
 };
+function resetInfluenceState(mp = 'all', tab = 'gifts') {
+  Object.assign(influenceState, {
+    tab, query: '', year: 'all', kind: 'all', mp, party: 'all', actor: 'all',
+    method: 'all', category: 'all', excludedCategories: new Set(), categoryQuery: '',
+    exclusionOpen: false, limit: 100
+  });
+  for (const tabKey of ['gifts', 'interests', 'lobbying']) extraStates.delete('influence-' + tabKey);
+}
 const colors = ['#003b70', '#6f2da8', '#287b70', '#b45309', '#8f3548', '#47682c', '#335c81', '#795548', '#5c5aa7', '#1d6b52', '#9a4d22', '#596273'];
 const partyColors = { '03':'#245b87', '02':'#40577a', '01':'#9a3948', '04':'#2f6b52', '05':'#4b7044', '06':'#9a4055', '07':'#95601e', '08':'#5a5684', '09':'#356c70' };
 const text = {
@@ -249,11 +257,15 @@ export async function renderInfluence(root,lang,escapeHTML,members=[],memberId='
   if(!cache.has('./data/influence.json')) loading(root,lang);
   try{
     const data=await load('./data/influence.json');
+    if(location.hash!==requested||document.documentElement.lang!==lang||root.dataset.view==='simple')return;
     prepareInfluenceData(data,members);
-    if(memberId){
-      const member=members.find(item=>String(item.id)===String(memberId));
-      if(member){influenceState.mp=`${member.firstName||''} ${member.lastName||''}`.trim();influenceState.tab='interests';influenceState.limit=100;}
+    const routeId=String(memberId||''), enteringRoute=root.dataset.influenceRoute!==routeId||!root.querySelector('.influence-page');
+    if(enteringRoute&&(routeId||root.dataset.influenceRoute)){
+      const member=members.find(item=>String(item.id)===routeId);
+      const mp=member?`${member.firstName||''} ${member.lastName||''}`.trim():'all';
+      resetInfluenceState(mp,routeId?'interests':'gifts');
     }
-    if(location.hash===requested&&document.documentElement.lang===lang&&root.dataset.view!=='simple')renderInfluenceContent(root,lang,escapeHTML,data);
-  }catch(error){if(location.hash===requested&&document.documentElement.lang===lang&&root.dataset.view!=='simple')errorView(root,lang,escapeHTML,error,()=>renderInfluence(root,lang,escapeHTML,members))}
+    root.dataset.influenceRoute=routeId;
+    renderInfluenceContent(root,lang,escapeHTML,data);
+  }catch(error){if(location.hash===requested&&document.documentElement.lang===lang&&root.dataset.view!=='simple')errorView(root,lang,escapeHTML,error,()=>renderInfluence(root,lang,escapeHTML,members,memberId))}
 }

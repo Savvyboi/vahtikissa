@@ -133,3 +133,20 @@ test('JSON cache policy can revalidate the small entry point without disabling p
   } });
   assert.equal(policy, 'no-cache');
 });
+
+test('simple legislation party filters receive vote aggregates without full ballots', async () => {
+  const { loader, requests } = loaderFixture();
+  const list = await loader.loadRoute({ page: 'legislation' }, 'simple');
+  const voteId = list.legislation[0].voteIds[0];
+  assert.equal(list.partyVotes[voteId].kok.yes, 1);
+  assert.equal(list.partyVotes[voteId].sd.no, 1);
+  assert.deepEqual(list.ballots, []);
+  assert.equal(loader.routeReady({ page: 'legislation' }, 'simple'), true);
+  assert.equal(requests.length, 3);
+  const full = loaderFixture();
+  await full.loader.loadRoute({ page: 'legislation' }, 'full');
+  assert.equal(full.requests.length, 2, 'Detailed lists keep aggregate data lazy');
+  const detail = loaderFixture();
+  await detail.loader.loadRoute({ page: 'legislation', id: 'HE 1/2026 vp' }, 'simple');
+  assert.equal(detail.requests.length, 2, 'Simple matter details need no party-filter payload');
+});

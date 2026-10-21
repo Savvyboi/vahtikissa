@@ -5,7 +5,8 @@ import { fetchParliamentMembers } from '../scripts/parliament-members.mjs';
 import { parseProgrammes } from '../scripts/sync-programmes.mjs';
 
 test('budget borrowing is separated from revenue when calculating the deficit',()=>{
-  assert.deepEqual(budgetTotals({income:[{code:'11',budget:70},{code:'15',budget:20}],expense:[{budget:90}]}),{income:90,expense:90,revenue:70,borrowing:20,balance:-20});
+  const loans={code:'15',budget:25,children:[{code:'1501',budget:5},{code:'1503',budget:20,children:[{code:'150301',budget:20}]}]};
+  assert.deepEqual(budgetTotals({income:[{code:'11',budget:70},loans],expense:[{budget:90}]}),{income:95,expense:90,revenue:75,borrowing:20,balance:-15});
 });
 test('budget drill-down resolves every level and rejects paths on the wrong side',()=>{
   const moment={code:'290101',budget:5}, chapter={code:'2901',children:[moment]}, main={code:'29',children:[chapter]}, year={expense:[main],income:[]};
