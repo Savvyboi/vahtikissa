@@ -4,6 +4,13 @@ import { createHash } from 'node:crypto';
 export const DEPLOYMENT_FILES = Object.freeze([
   'index.html',
   'app.js',
+  'styles.css',
+  'app-utils.js',
+  'parliament-data.js',
+  'budget-utils.js',
+  'budget-app.js',
+  'civic-apps.js',
+  'speech-research-app.js',
   'data/parliament/core.json',
   'data/budget.json',
   'data/elections-2023.json',
