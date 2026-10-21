@@ -254,6 +254,10 @@ try {
       assert.ok(await article.locator('[role="alert"]').isVisible(), 'Failed transcripts explain the problem');
       await retry.click();
       await retry.waitFor();
+      await page.waitForFunction(() => {
+        const button = document.querySelector('[data-speech-retry]');
+        return button && button.getAttribute('aria-busy') !== 'true';
+      });
       assert.equal(await retry.evaluate(element => element === document.activeElement), true, 'A failed retry keeps its actionable button focused');
       await page.unroute(pattern);
       await retry.click();

@@ -46,7 +46,8 @@ export async function checkNewPages(page,navigate) {
   assert.equal((await page.locator('.budget-explorer-head h2').innerText()).toLocaleLowerCase('fi'),moment.name.fi.toLocaleLowerCase('fi'));
   assert.match(await page.locator('.budget-explorer-head').innerText(),/tarkin taso/);
   assert.equal(await page.locator('.budget-item-metrics > div').count(),3);
-  assert.equal(await page.locator('[data-budget-view], [data-budget-refine], [data-budget-compare]').count(),0,'Leaf items show their figures without irrelevant chart controls');
+  assert.equal(await page.locator('[data-budget-view], [data-budget-tools], [data-budget-compare]').count(),0,'Leaf items show their figures without irrelevant chart controls');
+  assert.equal(await page.locator('[data-budget-refine][data-filter-panel="budget"]').count(),1,'Leaf search keeps the same disclosure as search results');
   await openFilterPanels(page);
   assert.ok(await page.locator('[data-budget-search]').isVisible());
   await page.locator('.budget-back').first().click();
