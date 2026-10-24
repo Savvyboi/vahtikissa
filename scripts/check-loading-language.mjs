@@ -61,12 +61,12 @@ try {
     assert.ok(oldRequest, 'The Finnish platform request must be pending before changing language');
     await page.locator('.language-select').selectOption('sv');
     await page.locator('.programmes-page h1').waitFor();
-    assert.equal(await page.locator('main h1').innerText(), 'Partiprogram');
+    assert.equal(await page.locator('main h1').innerText(), 'Partiprogram · valet 2023');
     const failed = page.waitForEvent('requestfailed', { predicate: request => request.url().endsWith('/data/programmes.json') });
     await oldRequest.abort('failed');
     await failed;
     await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
-    assert.equal(await page.locator('main h1').innerText(), 'Partiprogram', 'A stale failure must not replace a successful view in the new language');
+    assert.equal(await page.locator('main h1').innerText(), 'Partiprogram · valet 2023', 'A stale failure must not replace a successful view in the new language');
     assert.equal(await page.locator('.load-error').count(), 0);
     assert.equal(await page.locator('html').getAttribute('lang'), 'sv');
     assert.equal(await page.locator('main').getAttribute('aria-busy'), 'false');
