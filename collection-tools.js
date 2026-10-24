@@ -65,12 +65,12 @@ export function mountCollectionTools(parent, key, state, config, lang, onChange)
   panel.setAttribute('aria-label', `${config.label || ''}: ${c.tools}`);
   const control = (label, content) => `<label class="filter-control"><span>${e(label)}</span>${content}</label>`;
   const advanced = lang === 'en' ? 'Include, exclude and refine' : lang === 'sv' ? 'Inkludera, uteslut och avgränsa' : 'Sisällytä, sulje pois ja rajaa';
-  panel.innerHTML = `<div class="collection-order">
+  panel.innerHTML = `${config.advancedOrder ? `<details class="collection-advanced" data-advanced ${state.open.__advanced ? 'open' : ''}><summary>${advanced}</summary>` : ''}<div class="collection-order">
     ${config.search ? control(c.search, `<input type="search" data-tool="query" value="${e(state.query)}">`) : ''}
     ${control(c.sort, `<select data-tool="sort">${config.sorts.map(sort => `<option value="${e(sort.key)}" ${state.sort === sort.key ? 'selected' : ''}>${e(sort.label)}</option>`).join('')}</select>`)}
     ${control(c.direction, `<select data-tool="direction"><option value="asc" ${state.direction === 'asc' ? 'selected' : ''}>${c.asc}</option><option value="desc" ${state.direction === 'desc' ? 'selected' : ''}>${c.desc}</option></select>`)}
-  </div><details class="collection-advanced" data-advanced ${state.open.__advanced ? 'open' : ''}><summary>${advanced}</summary><div class="collection-order">
-    ${config.date ? control(c.from, `<input type="date" data-tool="from" value="${e(state.from)}">`) + control(c.to, `<input type="date" data-tool="to" value="${e(state.to)}">`) : ''}
+  </div>${config.advancedOrder ? '' : `<details class="collection-advanced" data-advanced ${state.open.__advanced ? 'open' : ''}><summary>${advanced}</summary>`}<div class="collection-order">
+    ${config.date ? control(`${config.dateLabel ? config.dateLabel + ': ' : ''}${c.from}`, `<input type="date" data-tool="from" value="${e(state.from)}">`) + control(`${config.dateLabel ? config.dateLabel + ': ' : ''}${c.to}`, `<input type="date" data-tool="to" value="${e(state.to)}">`) : ''}
     ${config.number ? control(`${config.number.label}: ${c.min}`, `<input type="number" step="any" data-tool="min" value="${e(state.min)}">`) + control(`${config.number.label}: ${c.max}`, `<input type="number" step="any" data-tool="max" value="${e(state.max)}">`) : ''}
   </div>
   ${(config.facets || []).length ? `<p class="filter-help" id="${key}-help">${c.help}</p><div class="collection-facets">${config.facets.map(facet => {
@@ -120,7 +120,7 @@ export function mountCollectionTools(parent, key, state, config, lang, onChange)
     updateCount(); onChange();
   };
   updateCount();
-  if (!parent.closest('[data-budget-refine]')) foldControls(panel, lang, { key: `collection-${key}`, sort: true, state });
+  if (!config.visible && !parent.closest('[data-budget-refine]')) foldControls(panel, lang, { key: `collection-${key}`, sort: true, state });
   return panel;
 }
 

@@ -64,7 +64,7 @@ test('the three civic applications are separate bilingual menu items', async () 
   assert.match(app, /influence:'Sidonnaisuudet'/);
   assert.match(app, /influence:'Bindningar'/);
   assert.match(app, /renderBudget\(root,lang,r\.id,e\)/);
-  assert.match(app, /renderElections\(root,lang,e\)/);
+  assert.match(app, /renderElections\(root,lang,e,data\.members\)/);
   assert.match(app, /renderInfluence\(root,lang,e,data\.members,r\.id\)/);
 });
 

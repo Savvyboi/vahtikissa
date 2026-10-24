@@ -43,6 +43,7 @@ export function foldControls(toolbar, lang = 'fi', { key, sort = false, state } 
 export function foldFilterToolbars(root, lang) {
   const selectors = '.vote-filters,.member-filters,.legislation-controls,.speech-search-controls,.influence-filters,.election-filters,.civic-toolbar:has([data-election-district]),.programme-filters,.budget-search-controls,.easy-toolbar';
   root.querySelectorAll(selectors).forEach((toolbar, index) => {
+    if (toolbar.closest('[data-visible-controls]')) return;
     // Year/metric navigation stays beside the budget; search/filter blocks fold.
     if (toolbar.classList.contains('easy-toolbar') && (!toolbar.querySelector('input[type="search"]') || toolbar.closest('details'))) return;
     foldControls(toolbar, lang, { key: `${toolbar.classList[0]}-${index}` });

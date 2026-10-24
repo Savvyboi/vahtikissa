@@ -1,5 +1,13 @@
 .site-header{padding-inline:max(22px,calc((100vw - 2000px)/2));}
 /* A calmer reading mode, backed by the same records and routes. */
+.easy-member-card h3 a,.easy-card .mp-name-link{color:var(--blue);text-decoration:underline;text-underline-offset:.2em;font-weight:700}
+.easy-page .member-tabs{margin:1.5rem 0;border:1px solid var(--line);border-radius:var(--radius);background:var(--white)}
+.easy-page .member-insights{display:block;max-width:850px}
+.easy-page .profile-background{font-size:1rem;line-height:1.7}
+.easy-page .profile-background summary{min-height:44px;font-weight:700;cursor:pointer}
+.easy-page .profile-list li{padding:.6rem 0}
+.easy-page .profile-list span{font-size:.95rem}
+.easy-page .influence-common{margin:1rem 0 0}
 .view-toggle{display:inline-flex;align-items:center;gap:.5rem;flex-shrink:0;min-height:44px;padding:.35rem .65rem;border:1px solid var(--line);border-radius:24px;background:var(--white);color:var(--ink);font-size:.78rem;font-weight:700;cursor:pointer;white-space:nowrap}
 .view-toggle-track{position:relative;display:block;width:30px;height:18px;border:1px solid var(--muted);border-radius:20px;background:var(--paper)}
 .view-toggle-track::after{content:"";position:absolute;inset:2px auto 2px 2px;width:12px;border-radius:50%;background:var(--muted)}
@@ -29,7 +37,7 @@ a.easy-card:hover{border-color:var(--blue)}
 .easy-meta a{color:var(--blue)}
 .easy-meta time{font-variant-numeric:tabular-nums}
 .easy-toolbar{display:flex;flex-wrap:wrap;align-items:end;gap:1rem;margin:1.5rem 0;padding:1.2rem;background:var(--white);border:1px solid var(--line);border-radius:10px}
-.easy-field{display:grid;flex:1 1 180px;gap:.4rem;min-width:0;font-size:.85rem;font-weight:700}
+.easy-field{display:grid;flex:1 1 180px;gap:.4rem;min-width:0;font-size:.85rem;font-weight:700;color:var(--ink)}
 .easy-field:first-child{flex-grow:2}
 .easy-field input,.easy-field select,.easy-toolbar>input,.easy-toolbar>select{width:100%;min-width:0;min-height:48px;padding:.7rem .85rem;background:var(--paper);color:var(--ink);border:1px solid var(--muted);border-radius:6px;font-size:1rem;font-weight:400}
 .easy-results{display:grid;gap:1rem}

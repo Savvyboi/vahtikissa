@@ -27,6 +27,7 @@ jobs:
       - run: node scripts/check-audit-regressions.mjs
       - run: npm run test:performance
       - run: npm run test:release
+      - run: npm run test:improvements
       - run: npm run test:browser
       - run: npm run test:charts
       - run: npm run test:loading-language

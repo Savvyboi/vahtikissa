@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { runInNewContext } from 'node:vm';
 import { budgetTotals } from '../budget-utils.js';
+import { collectionState } from '../collection-tools.js';
+import { readInfluenceURL } from '../influence-controls.js';
 
 test('budget net borrowing excludes repayments owed to the state for every metric', () => {
   const year = {
@@ -31,13 +33,15 @@ test('budget borrowing does not misclassify a loan aggregate or repayment when i
 async function influenceHarness({ failFirst = false } = {}) {
   const source = await readFile(new URL('../civic-apps.js', import.meta.url), 'utf8');
   const stateSource = source.slice(source.indexOf('const influenceState ='), source.indexOf('const colors ='));
+  const extraSource = source.slice(source.indexOf('function extraState('), source.indexOf('function extraFacet('));
   const renderSource = source.slice(source.indexOf('export async function renderInfluence(')).replace(/^export /, '');
   const root = { dataset: { view: 'full' }, page: false, querySelector(selector) { return selector === '.influence-page' && this.page ? {} : null; } };
   const location = { hash: '#/influence/123' }, extraStates = new Map();
   const members = [{ id: '123', firstName: 'Ada', lastName: 'Edustaja' }, { id: '124', firstName: 'Bo', lastName: 'Edustaja' }];
   let attempts = 0, retry, paints = 0, api;
   let loader = async () => { if (++attempts === 1 && failFirst) throw new Error('Temporary network failure'); return {}; };
-  api = runInNewContext(stateSource + '\n' + renderSource + '\n({state:influenceState,render:renderInfluence})', {
+  api = runInNewContext(stateSource + '\n' + extraSource + '\n' + renderSource + '\n({state:influenceState,render:renderInfluence})', {
+    collectionState, readInfluenceURL,
     extraStates, cache: new Map([['./data/influence.json', true]]), location, document: { documentElement: { lang: 'fi' } },
     load: (...args) => loader(...args), loading: () => { root.page = false; }, prepareInfluenceData: () => {},
     renderInfluenceContent: () => { root.page = true; paints++; },
@@ -60,10 +64,12 @@ test('focused disclosures discard every stale quick and advanced filter on route
   await h.render();
   for (const [key, value] of Object.entries({ tab: 'interests', mp: 'Ada Edustaja', query: '', year: 'all', kind: 'all', party: 'all', actor: 'all', method: 'all', category: 'all', categoryQuery: '', exclusionOpen: false, limit: 100 })) assert.equal(h.state[key], value, key);
   assert.equal(h.state.excludedCategories.size, 0);
-  assert.equal(h.extraStates.size, 1);
+  assert.equal(h.extraStates.size, 2);
+  assert.equal(h.extraStates.has('influence-interests'), true);
   assert.equal(h.extraStates.has('election-parties'), true);
   Object.assign(h.state, { tab: 'gifts', query: 'chosen filter' });
   h.extraStates.set('influence-gifts', { min: '100' });
+  h.location.hash = '#/influence/123?tab=gifts&query=chosen+filter&min=100';
   await h.render();
   assert.equal(h.state.tab, 'gifts');
   assert.equal(h.state.query, 'chosen filter');

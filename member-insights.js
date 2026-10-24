@@ -8,12 +8,43 @@ const loadProfiles = () => profilePromise ||= fetchJSONWithTimeout('./data/membe
 
 const loadContacts = () => contactsPromise ||= fetchJSONWithTimeout('./data/member-contacts.json').catch(error=>{contactsPromise=null;throw error;});
 
-export function mountMemberInsights(container, member, lang) {
-  const L = (fi,sv) => lang==='sv'?sv:fi, date = value => e(formatDate(value,lang==='sv'?'sv-FI':'fi-FI'));
-  container.innerHTML = '<section class="member-wordcloud" id="member-vocabulary" tabindex="-1" data-wordcloud aria-busy="true"></section><section class="member-profile" id="member-about" tabindex="-1" data-member-profile aria-busy="true"></section>';
+const profileEnglish = {
+  'Ladataan…':'Loading…', 'Tietoja ei voitu ladata.':'The records could not be loaded.', 'Yritä uudelleen':'Try again',
+  'Ei ilmoitettu Eduskunnan tiedoissa':'Not published in Parliament’s records', 'Nykyinen kansanedustaja':'Current MP', 'Entinen kansanedustaja':'Former MP', 'Edustajantoimi keskeytynyt':'Parliamentary service interrupted',
+  'Eduskunnan julkaisemista tiedoista':'From records published by Parliament', 'Tietoja edustajasta':'Background', 'Taustatiedot':'Background', 'Edustajan virallinen sivu':'Official MP page', 'Profiilitiedot tarkistettu':'Profile retrieved',
+  'Edustajantoimi':'Parliamentary service', 'Ammatti tai tutkinto':'Occupation or degree', 'Eduskunnan ilmoittama taustatieto':'Background published by Parliament', 'Vaalipiiri':'Constituency',
+  'Yhteystiedot':'Contact details', 'Sähköposti':'Email', 'Puhelin':'Phone', 'Henkilökohtaista numeroa ei ole julkaistu.':'No personal phone number has been published.',
+  'Nykyiset tehtävät':'Current roles', 'Ei voimassa olevia valiokunta- tai toimielintehtäviä lähdetiedoissa.':'No current committee or parliamentary body roles in the source.',
+  'Henkilötiedot':'Personal details', 'Kotikunta':'Municipality', 'Syntymävuosi ja -paikka':'Birth year and place', 'Koulutus':'Education', 'Koulutustietoja ei ole julkaistu.':'Education details have not been published.',
+  'Työhistoria':'Employment history', 'Työhistoriaa ei ole julkaistu.':'Employment history has not been published.', 'Edustajakaudet ja keskeytykset':'Terms and interruptions', 'Edustajakaudet':'Parliamentary terms', 'Keskeytykset':'Interruptions', 'Ei kirjattuja keskeytyksiä.':'No recorded interruptions.',
+  'Valiokunnat ja muut eduskunnan tehtävät':'Committees and other parliamentary roles', 'Ministeritehtävät':'Ministerial roles', 'Ei kirjattuja ministeritehtäviä.':'No recorded ministerial roles.', 'Tietojen lähde':'Source', 'Alkuperäinen tietue':'Original record',
+  'Eduskunta-avustajat':'Parliamentary assistants', 'Eduskunta ei ole julkaissut avustajan yhteystietoja.':'Parliament has not published assistant contact details.', 'Avustajatiedot tarkistettu':'Assistant details retrieved', 'Yhteystietojen lähde':'Contact details source',
+  'Ammatti, tutkinto ja työhistoria perustuvat Eduskunnan julkaisemiin taustatietoihin. Ne eivät välttämättä kuvaa nykyistä työtä. Puuttuva tieto ei tarkoita, ettei koulutusta tai työkokemusta olisi.':'Occupation, education and employment history come from Parliament’s published background records. They may describe earlier work. Missing records do not mean a person has no education or work experience.'
+};
+const profileText = lang => (fi, sv, en) => lang === 'en' ? en || profileEnglish[fi] || fi : lang === 'sv' ? sv : fi;
+export function memberSectionNavigation(member, lang, { vocabulary = true } = {}) {
+  const L = profileText(lang);
+  return `<nav class="member-tabs" aria-label="${L('Edustajan sivun osiot','Avsnitt på ledamotens sida','Sections on this MP’s page')}">
+    <button type="button" data-member-jump="member-votes">${L('Äänestykset','Omröstningar','Votes')}</button>
+    <button type="button" data-member-jump="member-speeches">${L('Puheet','Anföranden','Speeches')}</button>
+    <button type="button" data-member-jump="member-about">${L('Taustatiedot','Bakgrundsuppgifter','Background')}</button>
+    <a href="#/influence/${encodeURIComponent(member.id)}">${L('Sidonnaisuudet ja lahjat','Bindningar och gåvor','Interests and gifts')}</a>
+    ${vocabulary ? `<button type="button" data-member-jump="member-vocabulary">${L('Sanasto','Ordförråd','Vocabulary')}</button>` : ''}</nav>`;
+}
+export function bindMemberSections(root) {
+  root.querySelectorAll('[data-member-jump]').forEach(button => button.onclick = () => {
+    const target = root.querySelector('#' + button.dataset.memberJump);
+    if (!target) return;
+    target.focus({ preventScroll: true });
+    target.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block: 'start' });
+  });
+}
+export function mountMemberInsights(container, member, lang, { wordcloud = true } = {}) {
+  const L = profileText(lang), date = value => e(formatDate(value,lang==='en'?'en-GB':lang==='sv'?'sv-FI':'fi-FI'));
+  container.innerHTML = (wordcloud ? '<section class="member-wordcloud" id="member-vocabulary" tabindex="-1" data-wordcloud aria-busy="true"></section>' : '') + '<section class="member-profile" id="member-about" tabindex="-1" data-member-profile aria-busy="true"></section>';
   const cloudRoot=container.querySelector('[data-wordcloud]'),profileRoot=container.querySelector('[data-member-profile]');
   const loading = '<p>'+L('Ladataan…','Laddar…')+'</p>';
-  cloudRoot.innerHTML=loading;profileRoot.innerHTML=loading;
+  if (cloudRoot) cloudRoot.innerHTML=loading;profileRoot.innerHTML=loading;
   const failure = (element,retry) => {
     if(!element.isConnected)return;
     element.setAttribute('aria-busy','false');
@@ -45,8 +76,8 @@ export function mountMemberInsights(container, member, lang) {
       const [snapshot,contacts]=await Promise.all([loadProfiles(),loadContacts().catch(()=>null)]);if(!profileRoot.isConnected)return;
       const p=snapshot.members?.[member.id];if(!p)throw new Error('Missing official member profile');
       const value = v => e(localized(v,lang)), missing=L('Ei ilmoitettu Eduskunnan tiedoissa','Inte angivet i riksdagens uppgifter');
-      const shortDate = v => e(new Intl.DateTimeFormat(lang==='sv'?'sv-FI':'fi-FI',{day:'numeric',month:'numeric',year:'numeric',timeZone:'UTC'}).format(new Date(v)));
-      const period = row => row.to ? (row.from?shortDate(row.from)+' – ':'')+shortDate(row.to) : row.from ? (lang==='sv'?'Från '+shortDate(row.from):shortDate(row.from)+' alkaen') : missing;
+      const shortDate = v => e(new Intl.DateTimeFormat(lang==='en'?'en-GB':lang==='sv'?'sv-FI':'fi-FI',{day:'numeric',month:'numeric',year:'numeric',timeZone:'UTC'}).format(new Date(v)));
+      const period = row => row.to ? (row.from?shortDate(row.from)+' – ':'')+shortDate(row.to) : row.from ? (lang==='en'?'From '+shortDate(row.from):lang==='sv'?'Från '+shortDate(row.from):shortDate(row.from)+' alkaen') : missing;
       const row=(label,content)=>'<div><dt>'+label+'</dt><dd>'+(content||missing)+'</dd></div>';
       const list=(items,render,empty=missing)=>items.length?'<ul class="profile-list">'+items.map(item=>'<li>'+render(item)+'</li>').join('')+'</ul>':'<p class="sub">'+empty+'</p>';
       const day=snapshot.metadata.generatedAt.slice(0,10),current=row=>(!row.from||row.from<=day)&&(!row.to||row.to>=day);
@@ -60,14 +91,16 @@ export function mountMemberInsights(container, member, lang) {
       const emailLink = email => '<a href="mailto:'+e(email)+'">'+e(email)+'</a>';
       const phoneLink = phone => '<a href="tel:'+e(phone.replace(/[^+\d]/g,''))+'">'+e(phone)+'</a>';
       const assistantDetails=contact?'<section class="profile-assistants"><h3>'+L('Eduskunta-avustajat','Riksdagsassistenter')+'</h3>'+list(contact.assistants,item=>'<strong>'+e(item.name)+'</strong><div class="profile-contact-links">'+[item.email?emailLink(item.email):'',...[...new Set([item.phone,item.mobile].filter(Boolean))].map(phoneLink)].filter(Boolean).join('')+'</div>',L('Eduskunta ei ole julkaissut avustajan yhteystietoja.','Riksdagen har inte publicerat kontaktuppgifter för en assistent.'))+'<p class="sub">'+L('Avustajatiedot tarkistettu','Assistentuppgifter kontrollerade')+' '+date(contacts.metadata.generatedAt)+'. <a href="'+e(contact.pageUrl)+'" target="_blank" rel="noreferrer">'+L('Yhteystietojen lähde','Källa för kontaktuppgifter')+' ↗</a></p></section>':'';
-      profileRoot.innerHTML='<div class="section-head"><div><span class="eyebrow">'+L('Eduskunnan julkaisemista tiedoista','Ur riksdagens publicerade uppgifter')+'</span><h2>'+L('Tietoja edustajasta','Om ledamoten')+'</h2></div><a href="'+e(p.pageUrl)+'" target="_blank" rel="noreferrer">'+L('Edustajan virallinen sivu','Ledamotens officiella sida')+' ↗</a></div>'
+      profileRoot.innerHTML='<div class="section-head"><div><span class="eyebrow">'+L('Eduskunnan julkaisemista tiedoista','Ur riksdagens publicerade uppgifter')+'</span><h2>'+L('Taustatiedot','Bakgrundsuppgifter','Background')+'</h2></div><a href="'+e(p.pageUrl)+'" target="_blank" rel="noreferrer">'+L('Edustajan virallinen sivu','Ledamotens officiella sida')+' ↗</a></div>'
         +'<p class="sub">'+L('Profiilitiedot tarkistettu','Profiluppgifter kontrollerade')+' '+date(snapshot.metadata.generatedAt)+'</p>'
         +'<dl class="profile-facts profile-basics">'+row(L('Edustajantoimi','Ledamotsuppdrag'),status)+row(L('Ammatti tai tutkinto','Yrke eller examen'),value(p.occupation)+(value(p.occupation)?'<span class="sub">'+L('Eduskunnan ilmoittama taustatieto','Bakgrundsuppgift angiven av riksdagen')+'</span>':''))+row(L('Vaalipiiri','Valkrets'),value(p.district))+'</dl>'
+        +'<div class="profile-background"><p class="research-note">'+L('Koulutus ja työhistoria ovat Eduskunnan julkaisemia taustatietoja. Työhistoria ei ole luettelo nykyisistä tehtävistä. Puuttuva tieto ei tarkoita koulutuksen tai työkokemuksen puuttumista.','Utbildning och arbetshistoria är bakgrundsuppgifter publicerade av riksdagen. Arbetshistoriken är inte en lista över nuvarande uppdrag. Saknade uppgifter betyder inte att utbildning eller arbetserfarenhet saknas.','Education and employment history are background records published by Parliament. Employment history is separate from current roles. Missing records do not mean a person has no education or work experience.')+'</p>'
+        +'<details open data-profile-education><summary>'+L('Koulutus','Utbildning')+'</summary>'+list(p.education,item=>'<strong>'+value(item.degree)+'</strong><span>'+[value(item.institution),item.year].filter(Boolean).join(' · ')+'</span>',L('Koulutustietoja ei ole julkaistu.','Utbildningsuppgifter har inte publicerats.'))+'</details>'
+        +'<details open data-profile-career><summary>'+L('Työhistoria','Arbetshistoria')+'</summary>'+list(career,item=>'<strong>'+e(item.title)+'</strong><span>'+e(item.period.replace(/^(\d{4})-\1$/,'$1').replace(/(\d{4})-(\d{4})/g,'$1–$2'))+'</span>',L('Työhistoriaa ei ole julkaistu.','Arbetshistorik har inte publicerats.'))+'</details>'
+        +'</div>'
         +'<section class="profile-contacts"><h3>'+L('Yhteystiedot','Kontaktuppgifter')+'</h3><dl class="profile-facts">'+row(L('Sähköposti','E-post'),p.email?emailLink(p.email):'')+row(L('Puhelin','Telefon'),p.phone?phoneLink(p.phone):L('Henkilökohtaista numeroa ei ole julkaistu.','Ett personligt nummer har inte publicerats.'))+'</dl>'+assistantDetails+'</section>'
         +'<section class="profile-current"><h3>'+L('Nykyiset tehtävät','Nuvarande uppdrag')+'</h3>'+list(recent(assignments.filter(current)),item=>'<strong>'+e(item.name)+'</strong><span>'+e(item.role)+' · '+period(item)+'</span>',L('Ei voimassa olevia valiokunta- tai toimielintehtäviä lähdetiedoissa.','Inga gällande utskotts- eller organuppdrag i källuppgifterna.'))+list(government.filter(current),item=>'<strong>'+e(item.name)+'</strong><span>'+period(item)+'</span>','')+'</section>'
         +'<div class="profile-details"><details><summary>'+L('Henkilötiedot','Personuppgifter')+'</summary><dl class="profile-facts">'+row(L('Kotikunta','Hemkommun'),e(p.municipality))+row(L('Syntymävuosi ja -paikka','Födelseår och födelseort'),[p.birthYear,e(p.birthPlace)].filter(Boolean).join(' · '))+'</dl></details>'
-        +'<details><summary>'+L('Koulutus','Utbildning')+'</summary>'+list(p.education,item=>'<strong>'+value(item.degree)+'</strong><span>'+[value(item.institution),item.year].filter(Boolean).join(' · ')+'</span>',L('Koulutustietoja ei ole julkaistu.','Utbildningsuppgifter har inte publicerats.'))+'</details>'
-        +'<details><summary>'+L('Työhistoria','Arbetshistoria')+'</summary>'+list(career,item=>'<strong>'+e(item.title)+'</strong><span>'+e(item.period.replace(/^(\d{4})-\1$/,'$1').replace(/(\d{4})-(\d{4})/g,'$1–$2'))+'</span>',L('Työhistoriaa ei ole julkaistu.','Arbetshistorik har inte publicerats.'))+'</details>'
         +'<details><summary>'+L('Edustajakaudet ja keskeytykset','Ledamotsperioder och avbrott')+'</summary><h3>'+L('Edustajakaudet','Ledamotsperioder')+'</h3>'+list(recent(p.terms),item=>period(item))+'<h3>'+L('Keskeytykset','Avbrott')+'</h3>'+list(recent(p.interruptions),item=>'<strong>'+value(item.reason)+'</strong><span>'+period(item)+'</span>',L('Ei kirjattuja keskeytyksiä.','Inga registrerade avbrott.'))+'</details>'
         +'<details><summary>'+L('Valiokunnat ja muut eduskunnan tehtävät','Utskott och övriga riksdagsuppdrag')+'</summary>'+list(recent(assignments),item=>'<strong>'+e(item.name)+'</strong><span>'+[e(item.role),period(item)].filter(Boolean).join(' · ')+'</span>')+'</details>'
         +'<details><summary>'+L('Ministeritehtävät','Ministeruppdrag')+'</summary>'+list(recent(government),item=>'<strong>'+e(item.name)+'</strong><span>'+period(item)+'</span>',L('Ei kirjattuja ministeritehtäviä.','Inga registrerade ministeruppdrag.'))+'</details>'
@@ -75,5 +108,5 @@ export function mountMemberInsights(container, member, lang) {
       profileRoot.setAttribute('aria-busy','false');
     }catch{failure(profileRoot,profiles);}
   }
-  clouds();profiles();
+  if (wordcloud) clouds();profiles();
 }

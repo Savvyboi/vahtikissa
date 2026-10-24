@@ -31,7 +31,10 @@ try {
     for(const route of routes) {
       await visit(route,view);
       const panels=page.locator('[data-filter-panel]');
-      if(['votes','members','speeches','legislation','budget','elections','influence','programmes'].includes(route))assert.ok(await panels.count(),`${view} ${route} has collapsed controls`);
+      if(['votes','members','speeches','legislation','budget','elections','programmes'].includes(route))assert.ok(await panels.count(),`${view} ${route} has collapsed advanced controls`);
+      if(route==='influence'){
+        for(const selector of ['[data-influence-common="query"]','[data-influence-common="period"]','[data-influence-order]','[data-influence-min]'])assert.equal(await page.locator(selector).isVisible(),true,`${view} influence exposes common tasks`);
+      }
       for(const panel of await panels.all()) {
         assert.equal(await panel.evaluate(p=>p.open),false,`${view} ${route} starts collapsed`);
         for(const control of await panel.locator('input:not([type="hidden"]), select').all())assert.equal(await control.isVisible(),false,`${view} ${route} hides fields`);
@@ -79,11 +82,12 @@ try {
     await page.setViewportSize({width:1440,height:1000});
   }
   // Views which rebuild their markup must retain both disclosure state and focus.
-  for(const [route,selector,view] of [['budget','[data-budget-search]','full'],['programmes','[data-programme-query]','full'],['influence','[data-influence-search]','full'],['budget','[data-easy-filter="query"]','simple'],['influence','[data-easy-filter="query"]','simple']]) {
+  for(const [route,selector,view] of [['budget','[data-budget-search]','full'],['programmes','[data-programme-query]','full'],['influence','[data-influence-common="query"]','full'],['budget','[data-easy-filter="query"]','simple'],['influence','[data-influence-common="query"]','simple']]) {
     await visit(route,view);
     const input=page.locator(selector).first(),panel=input.locator('xpath=ancestor::details[@data-filter-panel]');
-    await panel.locator(':scope > summary').click();await input.fill('zzzz');
-    assert.equal(await panel.evaluate(p=>p.open),true,route+' remains open');
+    if(route!=='influence')await panel.locator(':scope > summary').click();
+    await input.fill('zzzz');
+    if(route!=='influence')assert.equal(await panel.evaluate(p=>p.open),true,route+' remains open');
     assert.equal(await input.evaluate(e=>e===document.activeElement),true,route+' keeps keyboard focus');
     await input.fill('');
   }
@@ -110,5 +114,5 @@ try {
   }
   assert.deepEqual(errors,[]);
   await context.close();
-  console.log('Release regressions passed: collapsed panels on 28 pages, keyboard control, active counts, rerender focus, themes, mobile, malformed URLs and blocked browser storage.');
+  console.log('Release regressions passed: visible influence controls, collapsible advanced panels, keyboard control, active counts, rerender focus, themes, mobile, malformed URLs and blocked browser storage.');
 } finally {await browser?.close();server?.kill();}

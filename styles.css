@@ -432,6 +432,52 @@ html[data-theme="dark"] .nav a.nav-civic,html[data-theme="contrast"] .nav a.nav-
 
 .filter-panel .filters>input,.filter-panel .filters>select{min-width:0;max-width:100%;width:100%}@media(max-width:600px){.filter-panel .election-filters,.filter-panel .influence-filters{grid-template-columns:minmax(0,1fr)}}
 
+/* Names and record boundaries remain readable in every colour theme. */
+.member-identity .row-link,.mp-name-link,.ballot-person>a:first-child{color:var(--blue);font-weight:700;text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:.2em}
+.member-identity .row-link,.influence-card h2 .mp-name-link{font-size:1.08rem;line-height:1.4}
+tbody tr:nth-child(even){background:color-mix(in srgb,var(--paper) 55%,var(--white))}
+tbody tr:hover{background:var(--light-blue)}
+.member-identity .sub{margin-top:.4rem;font-size:.85rem}
+.party-label{display:inline-flex;align-items:baseline;gap:.45rem;color:var(--ink);line-height:1.5}
+.party-label::before{content:"";display:inline-block;width:.5rem;height:.8rem;flex:none;border-radius:2px;background:var(--party-accent,var(--party))}
+[data-party="kok"]{--party-accent:#245b87}[data-party="ps"]{--party-accent:#be9716}[data-party="sd"]{--party-accent:#a33b4a}[data-party="kesk"]{--party-accent:#2f6b52}[data-party="vihr"]{--party-accent:#4b7044}[data-party="vas"]{--party-accent:#b34055}[data-party="r"]{--party-accent:#95601e}[data-party="kd"]{--party-accent:#5a5684}[data-party="liik"]{--party-accent:#8f3b7f}
+html[data-theme="contrast"] .party-label::before{border:1px solid var(--ink)}
+.influence-common{display:grid;grid-template-columns:1.25fr 1.3fr 1.3fr 1fr;align-items:end;gap:.8rem;padding:1rem 0}
+.influence-common .filter-control{font-size:.85rem;color:var(--ink);min-width:0}
+.influence-common input,.influence-common select{width:100%;min-width:0;min-height:48px;padding:.65rem .7rem;border:1px solid var(--muted);border-radius:6px;background:var(--white);color:var(--ink);font-size:.95rem}
+.influence-common input::placeholder{color:var(--muted);opacity:1}
+.influence-selection{margin:.4rem 0;font-size:.95rem;font-weight:700;line-height:1.6;color:var(--ink)}
+.influence-totals>summary{padding:.6rem 0;min-height:44px;font-weight:700;color:var(--blue);cursor:pointer}
+.influence-totals .influence-stats{margin:.5rem 0 1rem}
+.influence-coverage{display:block;margin-top:.35rem}
+.influence-date-note{color:var(--muted);font-size:.88rem;line-height:1.65;max-width:85ch;margin:.5rem 0 1rem}
+.influence-extra>summary{min-height:44px;padding:.65rem 0;font-weight:700;cursor:pointer}
+.influence-extra .influence-filters{margin-top:.6rem}
+.influence-filter-panel .collection-tools{margin-top:.75rem}
+.influence-card{line-height:1.65}
+.influence-list{gap:1.1rem}
+.programme-entry{padding:1.35rem;margin:1.7rem 0;border:1px solid var(--line);border-left:4px solid var(--blue);border-radius:var(--radius);background:var(--white)}
+.programme-entry h2{font-size:1.55rem;line-height:1.35}.programme-entry a{color:var(--blue);text-underline-offset:4px}
+.programme-entry p{margin:.65rem 0 0;max-width:78ch;font-size:.95rem;color:var(--muted)}
+.member-tabs{flex-wrap:wrap;gap:.25rem}
+#member-votes,#member-speeches,#member-about,#member-vocabulary{scroll-margin-top:10rem}
+.profile-background>details{border-bottom:1px solid var(--line)}
+.member-page .profile-background .profile-list li{font-size:.88rem;line-height:1.6}
+.member-page .profile-background .profile-list span{font-size:.8rem}
+.member-page .profile-background summary{font-size:.95rem;min-height:44px}
+.member-page .member-profile h2{font-size:1.35rem}
+.member-page .member-profile .research-note,.member-page .member-profile .sub{font-size:.85rem;line-height:1.65}
+.member-page .member-profile .profile-facts{font-size:.9rem}.member-page .member-profile .profile-facts dt{font-size:.8rem}
+.site-footer .brand{color:var(--ink)}
+/* The owner's ASCII portrait keeps a light canvas; frame it against each theme. */
+.brand-mark:has(img){background:#f6f3ec;border:1px solid var(--muted);border-radius:7px;overflow:hidden}
+html[data-theme="dark"] .brand-mark:has(img){border-color:#aab4c5}
+html[data-theme="contrast"] .brand-mark:has(img){border:2px solid #fff}
+html[data-theme="contrast"] .cat-character{filter:grayscale(1) contrast(1.8)}
+@media(max-width:1000px){.influence-common{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.influence-common{grid-template-columns:minmax(0,1fr);gap:.75rem}.influence-filter-panel{padding:1rem}.influence-card h2 .mp-name-link{font-size:1.15rem}.programme-entry{padding:1rem}.member-tabs button,.member-tabs a{font-size:.85rem;min-height:44px}#member-votes,#member-speeches,#member-about,#member-vocabulary{scroll-margin-top:12rem}}
+
+
 
 /* Native disclosures expose participation guidance to touch and keyboard users. */
 .metric-help{max-width:30ch}

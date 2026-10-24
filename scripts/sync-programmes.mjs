@@ -2,7 +2,10 @@ import { writeFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import { retryDelayMs } from './http-retry.mjs';
 import { fetchParliamentMembers, parliamentaryGroupCode } from './parliament-members.mjs';
-export const SOURCE='https://www.fsd.tuni.fi/pohtiva/vaalit/6';
+// An election edition is a fixed collection, not an alias for the latest programmes.
+// See docs/programme-collections.md before adding another election.
+export const PROGRAMME_COLLECTION = Object.freeze({ id:'parliament-2023', electionYear:2023, name:'Eduskuntavaalit 2023', source:'https://www.fsd.tuni.fi/pohtiva/vaalit/6', file:'programmes.json' });
+export const SOURCE=PROGRAMME_COLLECTION.source;
 const API='https://api.eduskunta.fi/api/v1';
 const parties={
   kok:{fi:'Kansallinen Kokoomus',sv:'Samlingspartiet'},ps:{fi:'Perussuomalaiset',sv:'Sannfinländarna'},
@@ -50,8 +53,8 @@ export async function syncProgrammes() {
   const [html, {members,activeIds}]=await Promise.all([request(SOURCE,false),fetchParliamentMembers(path=>request(`${API}${path}`),{activeOnly:true})]);
   const represented=new Map();
   members.forEach(member=>{const code=parliamentaryGroupCode(member);represented.set(code,(represented.get(code)||0)+1);});
-  const output={metadata:{generatedAt:new Date().toISOString(),source:SOURCE,membershipSource:`${API}/reference-data/kansanedustajat`,collection:'Eduskuntavaalit 2023',activeMemberCount:activeIds.length},parties:parseProgrammes(html,represented)};
-  await writeFile(new URL('../data/programmes.json',import.meta.url),JSON.stringify(output)+'\n');
+  const output={metadata:{generatedAt:new Date().toISOString(),source:SOURCE,membershipSource:`${API}/reference-data/kansanedustajat`,collection:PROGRAMME_COLLECTION.name,collectionId:PROGRAMME_COLLECTION.id,electionYear:PROGRAMME_COLLECTION.electionYear,activeMemberCount:activeIds.length},parties:parseProgrammes(html,represented)};
+  await writeFile(new URL('../data/'+PROGRAMME_COLLECTION.file,import.meta.url),JSON.stringify(output)+'\n');
   console.log(`Programmes: ${output.parties.length} represented parties, ${output.parties.reduce((n,p)=>n+p.programmes.length,0)} source documents; ${activeIds.length} current MPs checked.`);
   return output;
 }

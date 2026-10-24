@@ -61,7 +61,7 @@ try {
       return `<text x="0" y="${y*10+8}" xml:space="preserve" textLength="${width}" lengthAdjust="spacingAndGlyphs">${runs.map(run=>`<tspan fill="${run.color}">${escape(run.text)}</tspan>`).join('')}</text>`;
     }).join('\n');
     const title = index ? 'Vahtikissa — ASCII portrait of the orange cat' : 'Vahtikissa — ASCII cat watching from a basket';
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-10 -10 ${width+20} ${height+20}" role="img" aria-labelledby="title"><title id="title">${title}</title><rect x="-10" y="-10" width="${width+20}" height="${height+20}" rx="24" fill="#f6f3ec"/><g font-family="monospace" font-size="10">${text}</g></svg>\n`;
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" id="contrast" viewBox="-10 -10 ${width+20} ${height+20}" role="img" aria-labelledby="title"><title id="title">${title}</title><style>svg:target rect{fill:#fff}svg:target tspan{fill:#000}</style><rect x="-10" y="-10" width="${width+20}" height="${height+20}" rx="24" fill="#f6f3ec"/><g font-family="monospace" font-size="10">${text}</g></svg>\n`;
     await writeFile(new URL(`../assets/cat-${index?'logo':'character'}.svg`,import.meta.url),svg);
     await writeFile(new URL(`../assets/cat-${index?'logo':'character'}.txt`,import.meta.url),rows.map(row=>row.map(cell=>cell.char).join('').trimEnd()).join('\n')+'\n');
   }
