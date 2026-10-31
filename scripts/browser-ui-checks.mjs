@@ -51,7 +51,7 @@ export async function checkUI(page, navigate, data) {
       assert.ok(link && !/^javascript:/i.test(link));links++;
       if(!link.startsWith('#/'))continue;
       const [route,...parts]=link.slice(2).split('?')[0].split('/');
-      assert.ok([...routes.map(item=>item.split('/')[0]),'speeches'].includes(route),`Unknown route ${link}`);
+      assert.ok([...routes.map(item=>item.split('/')[0]),'speeches','following'].includes(route),`Unknown route ${link}`);
       if(parts.length&&valid[route])assert.ok(valid[route].has(decodeURIComponent(parts.join('/'))),`Missing route target ${link}`);
     }
   }
@@ -88,12 +88,12 @@ export async function checkUI(page, navigate, data) {
   assert.equal(await page.locator('html').getAttribute('data-theme'),'contrast');
   assert.equal(await page.locator('html').getAttribute('lang'),'en');
   await page.locator('.theme-select').selectOption('light');await page.locator('.language-select').selectOption('fi');
-  console.log(`${fields} filter interactions; ${links} rendered links; ${data.members.length} decoded portraits; all 11 flat menu routes at 10 phone/tablet/desktop sizes in Finnish, Swedish and English passed.`);
+  console.log(`${fields} filter interactions; ${links} rendered links; ${data.members.length} decoded portraits; all primary menu routes at 10 phone/tablet/desktop sizes in Finnish, Swedish and English passed.`);
 }
 
 /** Exercise flat navigation independently of the longer collection/filter checks. */
 export async function checkPrimaryNavigation(page) {
-  const primaryRoutes=['overview','sessions','votes','members','parties','programmes','speeches','legislation','budget','elections','influence'];
+  const primaryRoutes=['overview','sessions','votes','members','following','parties','programmes','speeches','legislation','budget','elections','influence'];
   const viewports=[{width:320,height:568},{width:375,height:667},{width:390,height:844},
     {width:844,height:390},{width:1024,height:768},{width:1180,height:820},
     {width:1280,height:800},{width:1400,height:900},{width:1440,height:1000},{width:1920,height:1080}];
@@ -108,7 +108,8 @@ export async function checkPrimaryNavigation(page) {
         assert.equal(await menu.getAttribute('aria-expanded'),'true');
         assert.equal(await page.locator('.nav > a').first().evaluate(element=>element===document.activeElement),true);
       }
-      assert.equal(await page.locator('.nav > a').count(),11,'Every view has a direct menu link');
+      assert.deepEqual(await page.locator('.nav > a').evaluateAll(items=>items.map(item=>item.dataset.page)),
+        primaryRoutes,'Every primary view has a direct menu link, including Following');
       assert.equal(await page.locator('.nav details').count(),0,'The menu uses the original flat structure');
       const boxes=await page.locator('.nav > a').evaluateAll(elements=>elements.map(element=>{
         const box=element.getBoundingClientRect();return {text:element.textContent,left:box.left,right:box.right,top:box.top,bottom:box.bottom};

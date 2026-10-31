@@ -89,7 +89,9 @@ export async function checkSimpleMode(browser,url){
         const menu=page.locator('.menu-button');
         if(await menu.isVisible()&&await menu.getAttribute('aria-expanded')!=='true')await menu.click();
         const links=page.locator('.nav > a:visible');
-        assert.equal(await links.count(),7,'Simple mode keeps seven primary sections');
+        assert.deepEqual(await links.evaluateAll(items=>items.map(item=>item.dataset.page)),
+          ['overview','votes','members','following','speeches','legislation','budget','influence'],
+          'Simple mode exposes its primary sections, including Following');
         const boxes=await links.evaluateAll(items=>items.map(item=>{const r=item.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,text:item.textContent}}));
         for(const box of boxes)assert.ok(box.left>=0&&box.right<=viewport.width+1&&box.top>=0&&box.bottom<=viewport.height,language+' menu at '+viewport.width+': '+box.text);
         if(await menu.isVisible())await page.keyboard.press('Escape');
