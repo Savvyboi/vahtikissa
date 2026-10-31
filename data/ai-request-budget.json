@@ -1,1 +1,1 @@
-{"version":1,"day":"2026-10-31","used":150,"reservations":[{"id":"dcdf49da-c806-45a6-8914-1e2c875bc489","allocated":150,"actual":null,"startedAt":"2026-10-31T02:47:54.224Z"}]}
+{"version":1,"day":"2026-10-31","used":150,"reservations":[{"id":"dcdf49da-c806-45a6-8914-1e2c875bc489","allocated":150,"actual":150,"startedAt":"2026-10-31T02:47:54.224Z","settledAt":"2026-10-31T02:58:51.895Z"}],"programmesCheckedDay":"2026-10-31"}
