@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://savvyboi.github.io/vahtikissa/sitemap.xml

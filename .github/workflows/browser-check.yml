@@ -24,13 +24,17 @@ jobs:
       - run: npm ci
       - run: npm run check
       - run: npx playwright install --with-deps chromium
+      - run: npm run build:data
+      - run: npm run validate:networks
       - run: node scripts/check-audit-regressions.mjs
+      - run: npm run test:network-browser
       - run: npm run test:performance
       - run: npm run test:release
       - run: npm run test:improvements
       - run: npm run test:browser
       - run: npm run test:charts
       - run: npm run test:loading-language
+      - run: npm run test:seo
       - run: npm run test:ai-browser
       - run: npm run test:following
       - run: npm run test:vote-reading

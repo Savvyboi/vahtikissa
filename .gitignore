@@ -10,6 +10,7 @@ data/ai-insights.json.tmp
 .hermes-tmp.*/
 
 data/parliament/
+data/networks/
 
 data/ai-sources/*.tmp
 data/ai-request-budget.json.tmp

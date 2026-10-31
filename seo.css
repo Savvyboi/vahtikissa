@@ -1,0 +1,5 @@
+.site-introduction .loading{height:auto;display:flex;align-items:center;justify-content:flex-start;gap:.75rem;margin:1.5rem 0;text-align:left}
+.site-introduction .spinner{width:20px;height:20px;margin:0;flex-shrink:0}
+.site-introduction .cards{margin-top:1.25rem}
+.site-introduction .section>p{max-width:85ch;color:var(--muted)}
+.site-introduction p a{color:var(--blue)}

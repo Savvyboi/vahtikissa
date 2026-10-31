@@ -1,24 +1,68 @@
 <!doctype html>
-<html lang="fi">
+<html lang="fi" data-view="full">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="description" content="Vahtikissa näyttää Eduskunnan äänestykset, puheenvuorot ja lakiasiat kansanedustajittain ja puolueittain.">
+  <meta name="description" content="Seuraa kansanedustajien äänestyksiä, puheenvuoroja ja lakiasioita. Tutki puolueita, valtion budjettia ja sidonnaisuuksia Vahtikissan avoimesta datasta.">
+  <meta name="robots" content="index, follow, max-image-preview:large">
   <meta name="theme-color" content="#f5f2ea">
   <meta name="color-scheme" content="light dark">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Vahtikissa">
-  <meta property="og:title" content="Vahtikissa – seuraa eduskunnan työtä">
-  <meta property="og:description" content="Äänestykset, puheenvuorot, lakiasiat, budjetti ja avoimuustiedot helposti tutkittavassa muodossa.">
+  <meta property="og:title" content="Vahtikissa – eduskunnan äänestykset ja kansanedustajat">
+  <meta property="og:description" content="Seuraa kansanedustajien äänestyksiä, puheenvuoroja ja lakiasioita. Tutki puolueita, valtion budjettia ja sidonnaisuuksia Vahtikissan avoimesta datasta.">
+  <meta property="og:url" content="https://savvyboi.github.io/vahtikissa/">
+  <meta property="og:locale" content="fi_FI">
+  <meta property="og:locale:alternate" content="sv_FI">
+  <meta property="og:locale:alternate" content="en_GB">
   <meta property="og:image" content="https://savvyboi.github.io/vahtikissa/og-image.png">
   <meta property="og:image:type" content="image/png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   <meta property="og:image:alt" content="Vahtikissa – riippumaton eduskunnan avoimen datan palvelu">
   <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Vahtikissa – eduskunnan äänestykset ja kansanedustajat">
+  <meta name="twitter:description" content="Seuraa kansanedustajien äänestyksiä, puheenvuoroja ja lakiasioita. Tutki puolueita, valtion budjettia ja sidonnaisuuksia Vahtikissan avoimesta datasta.">
+  <meta name="twitter:image" content="https://savvyboi.github.io/vahtikissa/og-image.png">
+  <meta name="twitter:image:alt" content="Vahtikissa – riippumaton eduskunnan avoimen datan palvelu">
   <link rel="canonical" href="https://savvyboi.github.io/vahtikissa/">
-  <title>Vahtikissa</title>
-  <link rel="icon" type="image/svg+xml" href="assets/cat-logo.svg">
+  <link rel="sitemap" type="application/xml" href="sitemap.xml">
+  <title>Vahtikissa – eduskunnan äänestykset ja kansanedustajat</title>
+  <link rel="icon" href="favicon.ico" sizes="16x16 32x32 48x48">
+  <link rel="icon" href="favicon-96x96.png" type="image/png" sizes="96x96">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" sizes="any">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png" sizes="180x180">
+  <script type="application/ld+json" id="site-structured-data">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebSite",
+        "@id": "https://savvyboi.github.io/vahtikissa/#website",
+        "url": "https://savvyboi.github.io/vahtikissa/",
+        "name": "Vahtikissa",
+        "alternateName": "Vaktkatt",
+        "description": "Riippumaton eduskunnan avoimen datan palvelu: äänestykset, kansanedustajat, puheenvuorot, lakiasiat ja valtion budjetti.",
+        "inLanguage": ["fi", "sv", "en"]
+      },
+      {
+        "@type": "WebApplication",
+        "@id": "https://savvyboi.github.io/vahtikissa/#application",
+        "url": "https://savvyboi.github.io/vahtikissa/",
+        "name": "Vahtikissa",
+        "alternateName": "Vaktkatt",
+        "description": "Tutki kansanedustajien äänestyksiä, puheenvuoroja ja sidonnaisuuksia sekä puolueohjelmia, vaalituloksia ja valtion budjettia.",
+        "applicationCategory": "ReferenceApplication",
+        "operatingSystem": "Any",
+        "browserRequirements": "Requires JavaScript",
+        "isAccessibleForFree": true,
+        "inLanguage": ["fi", "sv", "en"],
+        "image": "https://savvyboi.github.io/vahtikissa/og-image.png",
+        "isPartOf": {"@id": "https://savvyboi.github.io/vahtikissa/#website"}
+      }
+    ]
+  }
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,600;6..72,700&display=swap" rel="stylesheet">
@@ -28,6 +72,9 @@
   <link rel="stylesheet" href="simple.css">
   <link rel="stylesheet" href="ai-insights.css">
   <link rel="stylesheet" href="following.css">
+  <link rel="stylesheet" href="relationships.css">
+  <link rel="stylesheet" href="seo.css">
+  <noscript><style>.site-introduction .loading{display:none}</style></noscript>
   <script type="module" src="app.js"></script>
 </head>
 <body>
@@ -37,20 +84,48 @@
     <button class="view-toggle" type="button" role="switch" aria-checked="false" aria-label="Helppo näkymä"><span class="view-toggle-track" aria-hidden="true"></span><span data-view-label>Helppo näkymä</span></button>
     <button class="menu-button" aria-label="Avaa valikko" aria-expanded="false" aria-controls="main-navigation">Valikko</button>
     <nav class="nav" id="main-navigation" aria-label="Päänavigaatio">
-      <a data-page="overview" href="#/overview">Yleiskuva</a><a data-page="sessions" href="#/sessions">Istunnot</a><a data-page="votes" href="#/votes">Äänestykset</a><a data-page="members" href="#/members">Kansanedustajat</a><a data-page="following" href="#/following">Seuratut</a><a data-page="parties" href="#/parties">Puolueet</a><a data-page="programmes" href="#/programmes">Puolueohjelmat</a><a data-page="speeches" href="#/speeches">Puheet</a><a data-page="legislation" href="#/legislation">Lakiasiat</a><a class="nav-civic nav-new-section" data-page="budget" href="#/budget">Budjetti</a><a class="nav-civic" data-page="elections" href="#/elections">Vaalit 2023</a><a class="nav-civic" data-page="influence" href="#/influence">Sidonnaisuudet</a>
+      <a data-page="overview" href="#/overview">Yleiskuva</a><a data-page="sessions" href="#/sessions">Istunnot</a><a data-page="votes" href="#/votes">Äänestykset</a><a data-page="members" href="#/members">Kansanedustajat</a><a data-page="following" href="#/following">Seuratut</a><a data-page="parties" href="#/parties">Puolueet</a><a data-page="programmes" href="#/programmes">Puolueohjelmat</a><a data-page="speeches" href="#/speeches">Puheet</a><a data-page="relationships" href="#/relationships">Suhteet</a><a data-page="legislation" href="#/legislation">Lakiasiat</a><a class="nav-civic nav-new-section" data-page="budget" href="#/budget">Budjetti</a><a class="nav-civic" data-page="elections" href="#/elections">Vaalit 2023</a><a class="nav-civic" data-page="influence" href="#/influence">Sidonnaisuudet</a>
     </nav>
     <label class="theme-control"><span class="theme-icon" aria-hidden="true">☀</span><span class="sr-only">Väriteema</span><select class="theme-select" aria-label="Väriteema" title="Väriteema"><option value="light">Vaalea</option><option value="dark">Tumma</option><option value="contrast">Korkea kontrasti</option></select></label>
     <label class="language-control"><span class="sr-only">Kieli</span><select class="language-select" aria-label="Kieli"><option value="fi" lang="fi">Suomi</option><option value="sv" lang="sv">Svenska</option><option value="en" lang="en">English</option></select></label>
     <button class="search-button" type="button" aria-label="Avaa haku" aria-keyshortcuts="Control+k Meta+k"><span data-search-label>Hae</span><kbd aria-hidden="true">Ctrl K</kbd></button>
   </header>
   <p id="route-status" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></p>
-  <main id="content" tabindex="-1" aria-busy="true"><section class="loading"><span class="spinner" aria-hidden="true"></span><p>Ladataan eduskunnan avointa dataa…</p></section></main>
+  <main id="content" tabindex="-1" aria-busy="false">
+    <div class="page site-introduction" lang="fi">
+      <header class="page-head">
+        <div>
+          <span class="eyebrow">Vahtikissa · eduskunnan avoin data</span>
+          <h1>Eduskunnan äänestykset ja kansanedustajat</h1>
+          <p class="lead">Miten sinun edustajasi toimii? Vahtikissa kokoaa kansanedustajien äänestykset, puheenvuorot ja lakiasiat helposti tutkittavaksi 2.4.2023 alkaen.</p>
+        </div>
+      </header>
+      <div class="loading" role="status"><span class="spinner" aria-hidden="true"></span><p>Ladataan eduskunnan avointa dataa…</p></div>
+      <section aria-labelledby="explore-heading">
+        <h2 id="explore-heading">Tutki eduskunnan työtä</h2>
+        <div class="cards">
+          <a class="card" href="#/votes"><h3>Eduskunnan äänestykset</h3><p>Katso äänestystulokset, annetut vaihtoehdot ja jokaisen kansanedustajan ääni. Hae äänestyksiä aiheen tai asiakirjatunnuksen perusteella.</p></a>
+          <a class="card" href="#/members"><h3>Kansanedustajat</h3><p>Löydä edustajasi nimellä tai puolueella. Tutki äänestyksiä, osallistumista, puheenvuoroja ja virallisia taustatietoja.</p></a>
+          <a class="card" href="#/legislation"><h3>Lakiasiat ja ehdotukset</h3><p>Seuraa valtiopäiväasioiden käsittelyä ja niihin liittyviä äänestyksiä. Avaa alkuperäiset asiakirjat Eduskunnan lähteestä.</p></a>
+          <a class="card" href="#/speeches"><h3>Kansanedustajien puheet</h3><p>Hae puheenvuoroja puhujan, aiheen tai tekstin perusteella ja lue kokonaisia puheita niiden alkuperäisellä kielellä.</p></a>
+          <a class="card" href="#/budget"><h3>Valtion budjetti</h3><p>Tutki talousarviota vuodesta 2020 alkaen. Vertaa määrärahoja ja toteutuneita menoja vuosittain ja hallinnonaloittain.</p></a>
+          <a class="card" href="#/influence"><h3>Sidonnaisuudet, lahjat ja lobbaus</h3><p>Tutki ilmoitettuja sidonnaisuuksia, lahjoja ja avoimuusrekisteriin ilmoitettuja lobbausyhteydenottoja lähdetietoineen.</p></a>
+        </div>
+        <p>Tutustu myös <a href="#/sessions">täysistuntoihin</a>, <a href="#/parties">eduskuntapuolueisiin</a>, <a href="#/programmes">puolueohjelmiin</a> ja <a href="#/elections">vuoden 2023 eduskuntavaalien tuloksiin</a>.</p>
+      </section>
+      <section class="section" aria-labelledby="sources-heading">
+        <h2 id="sources-heading">Avoimet lähteet ja menetelmät</h2>
+        <p>Vahtikissa on maksuton ja riippumaton palvelu. Tiedot perustuvat <a href="https://api.eduskunta.fi/">Eduskunnan avoimeen dataan</a>, <a href="https://avoindata.tutkihallintoa.fi/api-details#api=valtiontalous">Valtiokonttorin budjettitietoihin</a>, <a href="https://pxdata.stat.fi/PxWeb/pxweb/fi/StatFin/StatFin__evaa/">Tilastokeskuksen vaalituloksiin</a>, <a href="https://www.fsd.tuni.fi/pohtiva/vaalit/6">Pohtivan puolueohjelmiin</a> ja <a href="https://www.avoimuusrekisteri.fi/">avoimuusrekisteriin</a>.</p>
+        <p>Vahtikissa ei ole Eduskunnan virallinen palvelu. Tilastot kuvaavat julkaistua aineistoa. Lue <a href="#/about">tietojen lähteistä, laskentamenetelmistä ja rajoituksista</a>. Käyttöliittymässä on suomen- ja ruotsinkielisiä näkymiä sekä englanninkielistä opastusta.</p>
+      </section>
+    </div>
+  </main>
   <button class="back-to-top" type="button" aria-label="Takaisin ylös" title="Takaisin ylös" hidden><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m6 12 6-6 6 6M12 6v12"/></svg></button>
   <footer class="site-footer">
     <div>
       <a class="brand small" href="#/overview"><span class="brand-mark" aria-hidden="true"><img src="assets/cat-logo.svg" alt="" width="44" height="44"></span><span class="brand-name">Vahtikissa</span></a>
       <p class="site-footer-note">Riippumaton avoimen datan palvelu. Ei ole Eduskunnan virallinen palvelu.</p>
-      <p class="footer-updated">Eduskunnan dataa ladataan…</p>
+      <p class="footer-updated">Eduskunnan tiedot perustuvat julkaistuun avoimeen dataan.</p>
     </div>
     <div class="footer-links">
       <strong class="footer-data">Data ja avoimuus</strong>
@@ -71,6 +146,6 @@
     <p id="search-status" class="search-status" role="status" aria-live="polite"></p>
     <div class="search-results"></div>
   </section>
-  <noscript><section class="noscript-notice"><h1>Vahtikissa tarvitsee JavaScriptin</h1><p>Palvelun interaktiiviset näkymät eivät toimi ilman JavaScriptiä. Viralliset tiedot ovat saatavilla <a href="https://www.eduskunta.fi/">Eduskunnan verkkosivuilta</a> ja <a href="https://api.eduskunta.fi/">avoimen datan rajapinnasta</a>.</p></section></noscript>
+  <noscript><section class="noscript-notice"><h2>Vahtikissa tarvitsee JavaScriptin</h2><p>Palvelun interaktiiviset näkymät eivät toimi ilman JavaScriptiä. Viralliset tiedot ovat saatavilla <a href="https://www.eduskunta.fi/">Eduskunnan verkkosivuilta</a> ja <a href="https://api.eduskunta.fi/">avoimen datan rajapinnasta</a>.</p></section></noscript>
 </body>
 </html>

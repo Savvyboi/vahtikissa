@@ -1,0 +1,100 @@
+import assert from 'node:assert/strict';
+import { readFile, mkdir } from 'node:fs/promises';
+import { spawn } from 'node:child_process';
+import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
+import { chromium } from 'playwright';
+
+const require=createRequire(import.meta.url),port=process.env.NETWORK_TEST_PORT||'4214',url=process.env.BROWSER_TEST_URL||`http://localhost:${port}`;
+const server=process.env.BROWSER_TEST_URL?null:spawn(process.execPath,['server.mjs'],{cwd:new URL('..',import.meta.url),env:{...process.env,PORT:port},windowsHide:true,stdio:'ignore'});
+const manifest=JSON.parse(await readFile(new URL('../data/networks/index.json',import.meta.url),'utf8'));
+let browser;
+try{
+  for(let n=0;n<150;n++){try{if((await fetch(url)).ok)break;}catch{}await new Promise(resolve=>setTimeout(resolve,100));}
+  browser=await chromium.launch({headless:true,...(process.env.BROWSER_CHANNEL?{channel:process.env.BROWSER_CHANNEL}:{})});
+  const context=await browser.newContext({viewport:{width:1280,height:950},reducedMotion:'reduce',acceptDownloads:true});
+  const page=await context.newPage(),errors=[],requests=[];
+  page.on('pageerror',error=>errors.push(error.message));page.on('request',r=>requests.push(new URL(r.url()).pathname));
+  await page.goto(`${url}/?view=full#/overview`);await page.locator('main[aria-busy="false"] h1').waitFor();
+  assert.equal(requests.some(p=>p.includes('/networks/')||p.endsWith('/relationships-app.js')),false,'Homepage keeps analytics lazy');
+  await page.locator('.language-select').selectOption('en');await page.locator('main[aria-busy="false"] h1').waitFor();
+  const menu=page.locator('.menu-button');if(await menu.isVisible()&&await menu.getAttribute('aria-expanded')!=='true')await menu.click();
+  await page.locator('.nav [data-page="relationships"]').click();
+  const ready=()=>page.waitForFunction(()=>document.querySelector('.relationship-status')?.textContent==='Analysis ready.');
+  async function exportJSON(){const event=page.waitForEvent('download');await page.locator('[data-network-export="json"]').click();return JSON.parse(await readFile(await(await event).path(),'utf8'));}
+  await ready();
+  const feature=page.locator('[name="feature"]');
+  for(const id of manifest.config.features){
+    await feature.selectOption(id);await ready();
+    assert.equal(await page.locator('[data-network-result] h2').count(),1,id+' has a heading');
+    assert.equal(await page.locator('[data-network-result] table').count()>0,true,id+' has table equivalence');
+    const downloadPromise=page.waitForEvent('download');await page.locator('[data-network-export="json"]').click();const download=await downloadPromise;
+    const exported=JSON.parse(await readFile(await download.path(),'utf8'));
+    assert.ok(exported.length,id+' export has rows or unavailable state');assert.equal(exported[0].manifestId,manifest.id);assert.equal(exported[0].feature,id);
+    if(id==='directed-references')assert.match(await page.locator('[data-network-result]').innerText(),/Independent human evaluation is pending/);
+    if(id==='communities')assert.match(await page.locator('[data-network-result]').innerText(),/assignments are withheld/);
+    console.log(`Browser: ${id}, ${exported.length} exported rows.`);
+  }
+  await feature.selectOption('vote-neighbours');await ready();
+  await page.locator('[name="period"]').selectOption('year-2026');await ready();
+  await feature.selectOption('network-explorer');await ready();
+  const graphExport=await exportJSON();assert.equal(JSON.parse(graphExport[0].filters).scope,'all','Graph exports use the actual full-window scope');
+  const edge=page.locator('[data-graph-edge]').first();await page.locator('.relationship-graph').scrollIntoViewIfNeeded();
+  const edgePoint=await edge.evaluate(element=>{const box=element.querySelector('line').getBoundingClientRect();return {x:box.x+box.width/2,y:box.y+box.height/2};});await page.mouse.click(edgePoint.x,edgePoint.y);
+  await page.locator('[data-ballot-list] table').waitFor();
+  assert.match(await page.locator('[data-network-evidence]').innerText(),/All stored votes/,'Graph evidence uses the full window after a narrow voting filter');
+  await feature.selectOption('party-heatmap');await ready();
+  await page.locator('.relationship-matrix [data-party-a]').first().click();await page.locator('[data-network-evidence] table').waitFor();
+  assert.match(await page.locator('[data-network-evidence]').innerText(),/All contributing roll calls/);
+  await feature.selectOption('cross-party-profiles');await ready();
+  await page.locator('[data-cross-party]').first().click();await page.locator('[data-network-evidence] table').waitFor();
+  assert.match(await page.locator('[data-network-evidence]').innerText(),/equal-event alignment/);
+  await feature.selectOption('vote-neighbours');await ready();
+  await page.locator('[data-pair]').first().focus();await page.keyboard.press('Enter');await page.locator('[data-ballot-list] table').waitFor();
+  assert.match(await page.locator('[data-network-evidence]').innerText(),/All common eligible ballots/);
+  await page.locator('[data-vote-file]').first().click();await page.locator('[data-network-evidence] blockquote, [data-network-evidence] h4').first().waitFor();
+  await feature.selectOption('keyword-comparisons');await ready();
+  await page.locator('.relationship-table [data-point]').first().click();await page.locator('[data-point-all]').waitFor();await page.locator('[data-point-all]').click();await page.locator('[data-network-evidence] table').waitFor();
+  const speech=page.locator('[data-network-evidence] [data-speech]').first();if(await speech.count()){await speech.click();await page.locator('[data-network-evidence] blockquote').waitFor();}
+  await page.locator('details:has([data-custom-speech]) > summary').click();
+  await page.locator('[data-custom-speech] [name="query"]').fill('talous');
+  const months=manifest.speechMonths.slice(-3);await page.locator('[data-custom-speech] [name="start"]').selectOption(months[0].month);
+  await page.locator('[data-custom-speech] [name="exclude"]').fill('ilmasto');
+  const customStarted=Date.now();await page.locator('[data-custom-speech] button').click();await ready();
+  const customRows=await exportJSON(),customFilters=JSON.parse(customRows[0].filters);
+  assert.equal(customFilters.query,'talous');assert.equal(customFilters.exclude,'ilmasto');assert.equal(customFilters.dateFrom,months[0].month+'-01');
+  assert.equal(await page.locator('[data-preset]').inputValue(),'custom','Custom results are labelled as custom');
+  await page.locator('[name="q"]').fill('KOK');await page.waitForFunction(()=>new URLSearchParams(location.hash.split('?')[1]).get('q')==='KOK');await ready();
+  const retained=await exportJSON();assert.equal(JSON.parse(retained[0].filters).query,'talous','Table filtering retains the calculated custom query');
+  await page.locator('[name="q"]').fill('');await page.waitForFunction(()=>new URLSearchParams(location.hash.split('?')[1]).get('q')==='');await ready();
+  console.log(`Custom three-month speech calculation and export: ${Date.now()-customStarted} ms including loading, ${(months.reduce((n,m)=>n+m.bytes,0)/1e6).toFixed(2)} MB selected corpus.`);
+  await feature.selectOption('phrase-uptake');await ready();await page.locator('details:has([data-custom-speech]) > summary').click();await page.locator('[data-custom-speech] [name="query"]').fill('talous');await page.locator('[data-custom-speech] button').click();await ready();
+  assert.match(await page.locator('[data-speech-results]').innerText(),/First observed use in the selected searched window/);
+  await feature.selectOption('committee-overlap');await ready();
+  await page.locator('[data-committee-dates] [name="from"]').fill('2025-01-01');await page.locator('[data-committee-dates] button').click();await ready();
+  const committeeExport=await exportJSON();assert.equal(JSON.parse(committeeExport[0].filters).from,'2025-01-01');
+  await page.locator('[data-committee-pair]').first().click();await page.locator('[data-network-evidence] pre').waitFor();assert.match(await page.locator('[data-network-evidence]').innerText(),/membershipRecords/);
+  await feature.selectOption('lobbying-network');await ready();await page.locator('[data-declaration]').first().click();await page.locator('[data-network-evidence] pre').waitFor();assert.match(await page.locator('[data-network-evidence]').innerText(),/Original declaration rows/);
+  const lobbyingExport=await exportJSON();assert.ok(JSON.parse(lobbyingExport[0].filters).organisationId);
+  await feature.selectOption('committee-overlap');await ready();
+  await page.addScriptTag({path:require.resolve('axe-core/axe.min.js')});
+  for(const theme of ['light','dark','contrast']){
+    await page.locator('.theme-select').selectOption(theme);
+    await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+    const violations=await page.evaluate(async()=> (await axe.run('.relationships-page')).violations.map(v=>({id:v.id,targets:v.nodes.map(n=>n.target)})));
+    assert.deepEqual(violations,[],`Relationships ${theme} accessibility`);
+  }
+  await mkdir(new URL('../.hermes-tmp.networks/',import.meta.url),{recursive:true});
+  await page.screenshot({path:fileURLToPath(new URL('../.hermes-tmp.networks/relationships-desktop.png',import.meta.url)),fullPage:false});
+  for(const width of [320,390]){
+    await page.setViewportSize({width,height:850});
+    for(const id of manifest.config.features){await feature.selectOption(id);await ready();const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth);assert.equal(overflow,false,`${id}: no horizontal page overflow at ${width}`);}
+  }
+  await page.screenshot({path:fileURLToPath(new URL('../.hermes-tmp.networks/relationships-mobile.png',import.meta.url)),fullPage:false});
+  for(const lang of ['fi','sv','en']){await page.locator('.language-select').selectOption(lang);await page.locator('main[aria-busy="false"] h1').waitFor();assert.equal(await feature.count(),1);}
+  await page.goto(`${url}/?view=simple#/relationships?feature=party-heatmap`);await ready();assert.ok(await page.locator('.relationship-table').count());
+  assert.deepEqual(errors,[],'No runtime errors');
+  const metrics=await page.evaluate(()=>({bytes:performance.getEntriesByType('resource').filter(r=>r.name.includes('/networks/')).reduce((n,r)=>n+r.decodedBodySize,0)}));
+  console.log(`Relationships browser checks passed; initial simple heatmap data ${(metrics.bytes/1e6).toFixed(2)} MB.`);
+  await context.close();
+}finally{await browser?.close();server?.kill();}

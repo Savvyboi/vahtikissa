@@ -11,6 +11,7 @@ import { checkMobileLayouts } from './browser-mobile-checks.mjs';
 import { checkStartupRecovery, checkSeamlessNavigation, followPrimaryNavigation } from './browser-navigation-checks.mjs';
 import { checkNewPages } from './check-new-pages.mjs';
 import { checkResearch } from './check-research.mjs';
+import { siteMetadata } from '../seo.js';
 
 const require = createRequire(import.meta.url);
 const data = JSON.parse(await readFile(new URL('../data/parliament.json',import.meta.url),'utf8'));
@@ -40,8 +41,8 @@ try {
     await page.locator('main[aria-busy="false"] h1').waitFor();
     await openFilterPanels(page);
     assert.equal(await page.locator('.share-tools, [data-share]').count(),0);
-    const brand=await page.locator('html').getAttribute('lang')==='sv'?'Vaktkatt':'Vahtikissa';
-    assert.ok((await page.title()).endsWith(' | '+brand),'The document title identifies the current view and localized brand');
+    const language=await page.locator('html').getAttribute('lang'),[pageName,...id]=route.split('/');
+    assert.equal(await page.title(),siteMetadata(language,{page:pageName,id:id.join('/')||null},await page.locator('main h1').innerText()).title,'The document title identifies the current view and localized brand');
   }
   async function audit(label) {
     // Start each independent accessibility audit at the page top.

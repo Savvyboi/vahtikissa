@@ -3,6 +3,7 @@ import { snapshotNote } from './data-freshness.js';
 import { readingMode, readingModeURL } from './reading-mode.js';
 import { createParliamentLoader } from './parliament-data.js';
 import { setupBackToTop } from './back-to-top.js';
+import { updatePageMetadata } from './seo.js';
 import { filterItems, percent, routeFromHash, pageSlice, choiceLabel, formatDate, escapeHTML, localizedSearchFields, memberMatchesQuery, parliamentMatterUrl, isLongSpeech, filterBallots, voteOutcome, filterVotes, filterAndSortMembers, paginationItems, searchSpeeches, voteAlternatives, brandName, decodeSpeechSearchIndex, filterAndSortLegislation, legislationMatterType, legislationStatusTone, legislationPhase, speechParagraphs, filterSpeechesBySpeaker, fetchJSONWithTimeout, policyTopicKeys, policyTopicLabel, policyTopicOptions, committeeOptions } from './app-utils.js';
 import { mountMemberInsights, memberSectionNavigation, bindMemberSections } from './member-insights.js';
 import { mountResearchControls } from './speech-research-app.js';
@@ -18,6 +19,7 @@ let data;
 const parliamentLoader = createParliamentLoader();
 let routeRenderSequence = 0;
 function loadViewModule(route, view) {
+  if (route.page === 'relationships') return import('./relationships-app.js');
   if (route.page === 'following') return import('./following-app.js');
   if (view === 'simple') return import('./simple-mode.js');
   if (route.page === 'programmes') return import('./programmes-app.js');
@@ -55,10 +57,18 @@ const copy = {
 copy.en = {overview:'Overview',sessions:'Plenary sessions',votes:'Votes',members:'Members of Parliament',parties:'Parties',programmes:'Party platforms',speeches:'Speeches',legislation:'Legislation',budget:'Budget',elections:'2023 elections',influence:'Interests & lobbying',search:'Search',menu:'Menu',loading:'Loading open parliamentary data…',updated:'Updated',day:'Date',matter:'Matter',result:'Result',yes:'yes',no:'no',abstain:'abstained',absent:'absent',showMore:'Show more',showAll:'Show all',readMore:'Read full speech',readLess:'Show less',latestVotes:'Latest votes',parliament:'Parliament',hero:'How does your MP act?',heroLead:'Explore votes, speeches, party positions and legislation since 2 April 2023.',voteRecords:'individual parliamentary votes recorded',participation:'Participation',partyLine:'Party alignment',recordedVotes:'recorded votes',speechTurns:'speeches',vote:'Vote',background:'Background',stage:'Stage',officialMatter:'Parliamentary matter',minutes:'Minutes',officialVote:'Official voting record',openOfficial:'Open parliamentary source ↗',votesByParty:'Votes by party',recentVotes:'Votes',mpSpeeches:'Speeches',mpActivity:'MP activity during the reporting period.',howVoted:'Voted',allVotes:'All recorded plenary votes since April 2023.',allSpeeches:'Speeches by MPs and their related agenda items.',allLaws:'Parliamentary matters linked to votes and amendments.',searchVotes:'Search by topic or document number…',searchSpeeches:'Search a word, phrase, speaker or topic…',searchMembers:'Search by name or party…',searchLaws:'Search by document number or topic…',all:'All',moreYes:'More YES votes',moreNo:'More NO votes',tie:'Tie',whatWasVoted:'What was the vote about?',voterFilter:'Filter MPs by vote',voteMeaning:'YES and NO refer to the alternatives described above.',noData:'No results.',independent:'An independent open data service. This is not an official service of the Finnish Parliament.',about:'About this service',data:'Data'};
 const ui = (fi,sv,en=fi) => lang==='en'?en:lang==='sv'?sv:fi;
 copy.fi.following = 'Seuratut'; copy.sv.following = 'Följer'; copy.en.following = 'Following';
+copy.fi.relationships = 'Suhteet'; copy.sv.relationships = 'Relationer'; copy.en.relationships = 'Relationships';
 const locale = () => lang==='en'?'en-GB':lang==='sv'?'sv-FI':'fi-FI';
 const t = key => copy[lang][key] || copy.fi[key] || key;
 const titleFor = party => partyNames[party]?.[lang] || partyNames[party]?.fi || String(party || '').toUpperCase();
 const href = (page,id) => `#/${page}${id ? `/${encodeURIComponent(id)}` : ''}`;
+function decorateRelationshipsEntry(route){
+  if(route.page!=='members'||!route.id||root.querySelector('[data-relationship-entry]'))return;
+  const heading=root.querySelector('h1');if(!heading)return;
+  const entry=document.createElement('p');entry.dataset.relationshipEntry='';
+  const link=document.createElement('a');link.href='#/relationships?mp='+encodeURIComponent(route.id);
+  link.textContent=ui('Tutki edustajan suhteita ja aihehuomiota →','Utforska ledamotens relationer och ämnen →','Explore this MP’s relationships and topic attention →');entry.append(link);heading.after(entry);
+}
 const choice = key => choiceLabel(key,lang);
 const fmtDate = value => formatDate(value,locale());
 const topicOptionsHTML = selected => `<option value="all">${lang==='sv'?'Alla ämnen':'Kaikki aihealueet'}</option>${policyTopicOptions(lang).map(topic=>`<option value="${e(topic.key)}" ${selected===topic.key?'selected':''}>${e(topic.label)}</option>`).join('')}`;
@@ -121,7 +131,7 @@ const englishGuides = {
 };
 function updateRouteContext(route,{announce=true}={}){
   const fallback=t(route.page)||t('overview'),heading=root.querySelector('h1')?.textContent?.trim(),label=heading||fallback;
-  document.title=label+' | '+brandName(lang);root.setAttribute('aria-busy','false');
+  updatePageMetadata({lang,route,heading});root.setAttribute('aria-busy','false');
   if(readingView!=='simple'&&lang==='en'&&!root.querySelector('.load-error')&&englishGuides[route.page]&&!root.querySelector('.language-note')){
     const note=document.createElement('aside');note.className='language-note';note.setAttribute('aria-label','English guide');
     const guide=document.createElement('p');guide.textContent=englishGuides[route.page];note.append(guide);
@@ -140,8 +150,8 @@ function updateRouteContext(route,{announce=true}={}){
   if(announce){const status=$('#route-status');status.textContent='';requestAnimationFrame(()=>{status.textContent=ui(label+' avattu',label+' har öppnats',label+' opened')})}
 }
 function applyChrome(){
-  const brand=brandName(lang),menuOpen=$('.menu-button').getAttribute('aria-expanded')==='true';document.documentElement.lang=lang;document.title=brand;
-  document.querySelector('meta[name="description"]').content=ui('Vahtikissa näyttää Eduskunnan äänestykset, budjetin, vaalitulokset, lahjat ja lobbauksen.','Vaktkatt visar riksdagens omröstningar, budget, valresultat, gåvor och lobbning.','Explore Finland’s Parliament: votes, speeches, state budget, elections, gifts and lobbying.');
+  const brand=brandName(lang),menuOpen=$('.menu-button').getAttribute('aria-expanded')==='true';document.documentElement.lang=lang;
+  updatePageMetadata({lang,route:routeFromHash(location.hash)});
   $('.skip').textContent=ui('Siirry sisältöön','Hoppa till innehållet','Skip to content');$('.nav').setAttribute('aria-label',ui('Päänavigaatio','Huvudnavigation','Main navigation'));
   document.querySelectorAll('.brand').forEach(x=>x.setAttribute('aria-label',ui('Vahtikissan etusivu','Vaktkatts startsida','Vahtikissa home')));document.querySelectorAll('.brand > span:last-child').forEach(x=>x.textContent=brand);
   document.querySelectorAll('.nav a').forEach(a=>a.textContent=t(a.dataset.page));
@@ -176,7 +186,7 @@ function applyLocalizedExtras(){
   const select=$('.theme-select'),labels=ui(['Vaalea','Tumma','Korkea kontrasti'],['Ljus','Mörk','Hög kontrast'],['Light','Dark','High contrast']);
   select.setAttribute('aria-label',ui('Väriteema','Färgtema','Colour theme'));select.previousElementSibling.textContent=select.getAttribute('aria-label');[...select.options].forEach((option,index)=>option.textContent=labels[index]);select.title=select.getAttribute('aria-label');
   $('.footer-data').textContent=ui('Data ja avoimuus','Data och öppenhet','Data and transparency');$('.footer-repository').textContent=ui('Lähdekoodi GitHubissa ↗','Källkod på GitHub ↗','Source code on GitHub ↗');$('.footer-about').textContent=ui('Tietoa palvelusta ja menetelmistä','Om tjänsten och metoderna','About this service and methods');
-  document.querySelector('meta[property="og:title"]').content=ui('Vahtikissa – seuraa eduskunnan työtä','Vaktkatt – följ riksdagens arbete','Vahtikissa – follow Finland’s Parliament');document.querySelector('meta[property="og:description"]').content=document.querySelector('meta[name="description"]').content;updateFooterTimestamp();
+  updateFooterTimestamp();
 }
 function applyTheme(){document.documentElement.dataset.theme=theme;document.querySelectorAll('.brand-mark img').forEach(logo=>logo.setAttribute('src','assets/cat-logo.svg'+(theme==='contrast'?'#contrast':'')));$('.theme-select').value=theme;$('.theme-select').title=ui('Väriteema','Färgtema','Colour theme');$('.theme-icon').textContent=theme==='dark'?'☾':theme==='contrast'?'◐':'☀';document.querySelector('meta[name="theme-color"]').content=theme==='dark'?'#101828':theme==='contrast'?'#000000':'#f5f2ea'}
 function resultBar(v){const total=v.total||v.yes+v.no+v.abstain+v.absent||1;return `<div class="result" role="img" aria-label="${t('yes')} ${v.yes}, ${t('no')} ${v.no}, ${t('abstain')} ${v.abstain}, ${t('absent')} ${v.absent}"><span style="width:${percent(v.yes,total)}%"></span><span style="width:${percent(v.no,total)}%"></span><span style="width:${percent(v.abstain,total)}%"></span><span style="width:${percent(v.absent,total)}%"></span></div><div class="vote-numbers"><span><b>${v.yes}</b> ${t('yes')}</span><span><b>${v.no}</b> ${t('no')}</span><span>${v.abstain} ${t('abstain')}</span><span>${v.absent} ${t('absent')}</span></div>`}
@@ -462,6 +472,12 @@ function render(position){
   const previousView=root.dataset.route;
   root.dataset.route=location.hash;
   root.setAttribute('aria-busy','true');document.querySelectorAll('.nav a').forEach(a=>{const active=a.dataset.page===r.page;a.classList.toggle('active',active);if(active)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current')});
+  if(r.page==='relationships'){
+    const relationshipCurrent=()=>sequence===routeRenderSequence&&lang===renderLanguage&&readingView===view&&routeFromHash(location.hash).page==='relationships';
+    await viewModule.renderRelationships(root,{lang,view,current:relationshipCurrent});
+    if(relationshipCurrent())updateRouteContext(routeFromHash(location.hash));
+    return;
+  }
   if(r.page==='following'){
     const ai = aiInsightsState();
     const pending = viewModule.renderFollowing(root,{data,lang,view,parliamentLoader,aiIndex:ai.loadFailed?null:ai.index,current,refresh:async()=>{parliamentLoader.clear();await loadAIInsights({refresh:true});return render(currentScrollPosition())}});
@@ -473,7 +489,7 @@ function render(position){
   if(readingView==='simple'){
     const pending=viewModule.renderSimple(root,{data,lang,route:r,loadSpeechTexts,speechTexts,titleFor});
     if(previousView!==undefined&&previousView!==routeKey)root.focus({preventScroll:true});
-    const finish=()=>{if(current()){decorateAI(root,{route:r,data,lang,rerender:render});followingControls?.decorateMemberFollowing(root,{route:r,data,lang});updateRouteContext(r)}};
+    const finish=()=>{if(current()){decorateAI(root,{route:r,data,lang,rerender:render});followingControls?.decorateMemberFollowing(root,{route:r,data,lang});decorateRelationshipsEntry(r);updateRouteContext(r)}};
     if(pending?.then)return await pending.finally(finish);
     finish();return;
   }
@@ -490,6 +506,7 @@ function render(position){
   if(pending)return await pending.finally(()=>{if(current()){decorateAI(root,{route:r,data,lang,rerender:render});updateRouteContext(r)}});
   decorateAI(root,{route:r,data,lang,rerender:render});
   followingControls?.decorateMemberFollowing(root,{route:r,data,lang});
+  decorateRelationshipsEntry(r);
   updateRouteContext(r);
   } catch(error) { if(current()){root.dataset.route=routeKey;loadError(error)} }
   },position);
@@ -572,6 +589,6 @@ function setup(){
   $('.skip').onclick=event=>{event.preventDefault();root.focus({preventScroll:true});root.scrollIntoView({block:'start',behavior:'instant'})};
 }
 let setupComplete=false,lastLoadError=null;
-function loadingView(){root.setAttribute('aria-busy','true');root.innerHTML=`<section class="loading" role="status"><span class="spinner" aria-hidden="true"></span><p>${t('loading')}</p></section>`}
+function loadingView(){root.setAttribute('aria-busy','true');if(lang==='fi'&&routeFromHash(location.hash).page==='overview'&&root.querySelector('.site-introduction'))return;root.innerHTML=`<section class="loading" role="status"><span class="spinner" aria-hidden="true"></span><p>${t('loading')}</p></section>`}
 function loadError(error){lastLoadError=error;const timeout=error?.name==='TimeoutError';root.setAttribute('aria-busy','false');root.innerHTML=`<div class="page"><section class="load-error" role="alert"><span class="eyebrow">${ui('Latausvirhe','Laddningsfel','Loading error')}</span><h1>${ui('Tietoja ei voitu ladata','Uppgifterna kunde inte laddas','The data could not be loaded')}</h1><p>${lang==='en'?(timeout?'Loading took too long. Check your connection and try again.':'Check your connection and try again.'):lang==='sv'?(timeout?'Laddningen tog för lång tid. Kontrollera anslutningen och försök igen.':'Kontrollera anslutningen och försök igen.'):(timeout?'Lataus kesti liian kauan. Tarkista verkkoyhteys ja yritä uudelleen.':'Tarkista verkkoyhteys ja yritä uudelleen.')}</p><details><summary>${ui('Tekniset tiedot','Tekniska detaljer','Technical details')}</summary><code>${e(error?.message||'Unknown error')}</code></details><button type="button" data-retry>${ui('Yritä uudelleen','Försök igen','Try again')}</button></section></div>`;root.querySelector('[data-retry]').onclick=boot;if(!$('.search-panel').hidden)$('#global-search').dispatchEvent(new Event('input'));updateRouteContext({page:'overview'})}
 async function boot(){const retrying=!!lastLoadError;lastLoadError=null;if(retrying)parliamentLoader.clear();if(!setupComplete){setup();setupComplete=true}applyChrome();applyViewChrome();applyLocalizedExtras();applyTheme();loadingView();try{data=await parliamentLoader.loadCore();applyChrome();applyViewChrome();applyLocalizedExtras();updateFooterTimestamp();await render(savedScrollPosition());if(!$('.search-panel').hidden)$('#global-search').dispatchEvent(new Event('input'))}catch(error){loadError(error)}}boot();

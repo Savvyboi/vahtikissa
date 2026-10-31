@@ -90,8 +90,8 @@ export async function checkSimpleMode(browser,url){
         if(await menu.isVisible()&&await menu.getAttribute('aria-expanded')!=='true')await menu.click();
         const links=page.locator('.nav > a:visible');
         assert.deepEqual(await links.evaluateAll(items=>items.map(item=>item.dataset.page)),
-          ['overview','votes','members','following','speeches','legislation','budget','influence'],
-          'Simple mode exposes its primary sections, including Following');
+          ['overview','votes','members','following','speeches','relationships','legislation','budget','influence'],
+          'Simple mode exposes its primary sections, including Following and Relationships');
         const boxes=await links.evaluateAll(items=>items.map(item=>{const r=item.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,text:item.textContent}}));
         for(const box of boxes)assert.ok(box.left>=0&&box.right<=viewport.width+1&&box.top>=0&&box.bottom<=viewport.height,language+' menu at '+viewport.width+': '+box.text);
         if(await menu.isVisible())await page.keyboard.press('Escape');

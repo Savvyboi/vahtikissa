@@ -32,6 +32,18 @@ The visual and information hierarchy is inspired by the public-facing `mijnkamer
 - Netlify configuration as an alternative
 - Node's dependency-free test suite
 
+## Search metadata and site icons
+
+The homepage delivers a readable Finnish introduction and source links in its HTML, before JavaScript runs. It remains visible while the initial homepage data loads. Titles, descriptions and Open Graph/Twitter metadata follow the current view and interface language. The page includes `WebSite` and `WebApplication` structured data and uses `https://savvyboi.github.io/vahtikissa/` as its stable canonical URL.
+
+`sitemap.xml` lists the homepage. Interactive views still use hash routes, which are not separate crawlable pages; they are deliberately absent from the sitemap. Social crawlers that do not run JavaScript receive the homepage preview. Individually indexed MPs or sections would require real page URLs with their own HTML and canonical links, following [Google's JavaScript SEO guidance](https://developers.google.com/search/docs/crawling-indexing/javascript/javascript-seo-basics).
+
+`robots.txt` allows crawling and points to the sitemap. On GitHub project Pages, search engines consult the host's `/robots.txt`, so the project-level `/vahtikissa/robots.txt` cannot control crawling. Submit `https://savvyboi.github.io/vahtikissa/sitemap.xml` directly in Search Console. On a root-domain deployment the included robots file is effective; update the public URLs in `index.html`, `seo.js`, `sitemap.xml` and `robots.txt` if the domain changes. See [Google's robots.txt location rules](https://developers.google.com/crawling/docs/robots-txt/create-robots-txt).
+
+The square cat favicons are derived from `assets/cat-logo.svg`, with SVG, PNG, multi-size ICO and Apple touch icon variants. Regenerate after changing the logo with `npm run build:favicons`. This uses the development Playwright dependency; set `BROWSER_CHANNEL=msedge` or `chrome` if using an installed browser instead of Playwright's bundled Chromium. The site deploys the generated files directly and needs no browser at deployment time.
+
+Run `npm run test:seo` for browser checks of static content, icon delivery, localized metadata, route changes and canonical URLs. The dependency-free `npm test` suite also checks the static SEO assets and metadata helpers.
+
 ## Data source and caveats
 
 The Parliament importer uses the current structured API at `https://api.eduskunta.fi/api/v1`. It creates asynchronous yearly dataset exports for the `aanestys`, `puheenvuoro` and `valtiopaivaasia` categories, downloads the resulting NDJSON, and publishes a static dataset. The shared member importer reads current MP IDs from `/reference-data/kansanedustajat` and fetches authoritative records from `/kansanedustajat/{id}` for current MPs and former MPs tracked in the dataset, with at most six requests in flight and request starts spaced 400 ms apart to stay below the API limit of 180 GET requests per minute per IP. The API no longer exposes the bulk `/kansanedustajat` route. Finnish and Swedish matter titles, stages, document identifiers and agenda metadata are retained. Speech text is preserved in full and shown in the language in which Parliament publishes the transcript. This avoids thousands of legacy table requests and keeps the scheduled run bounded. The prior low-level table implementation is retained as `scripts/sync-data-legacy.mjs` for reference only.
@@ -181,3 +193,10 @@ MP pages now offer browser-local following. **Seuratut / Följer / Following** c
 Programme-derived theme and promise tags connect party programmes with proposals and votes. Users can filter and follow themes locally. Proposal and vote pages include a collapsed AI brief panel with Finnish, Swedish and English tabs, an accuracy notice and original source links. Briefs currently summarise published record metadata; full legal text is not present in the dataset.
 
 Generation uses an offline, cached OpenRouter pipeline with a free model and a server-side Actions secret. Add OPENROUTER_API_KEY, then run the Daily AI briefs and programme tags workflow to start the bounded backfill. No key is embedded in the site; no AI requests are made by visitors. See [setup, method and limits](docs/ai-insights.md).
+# Parliamentary relationships
+
+The Relationships research view implements the 14 approved voting, speech,
+institutional and declared-lobbying analyses. Run `npm run build:data` to prepare
+the local, immutable evidence payloads. See [methods, commands and publication
+gates](docs/network-analytics.md). Reference person rankings and unreviewed
+lobbying identities remain gated; unstable community assignments are withheld.

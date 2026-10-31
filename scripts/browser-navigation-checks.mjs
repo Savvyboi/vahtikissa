@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { siteMetadata } from '../seo.js';
 
 /** Follow primary navigation through the same visible controls as a keyboard or pointer user. */
 export async function followPrimaryNavigation(page, route) {
@@ -40,7 +41,7 @@ export async function checkStartupRecovery(browser, url) {
     await page.locator('[data-retry]').click();
     await page.locator('main[aria-busy="false"] h1').waitFor();
     assert.equal(await page.locator('.load-error').count(), 0);
-    assert.equal(await page.title(),await page.locator('main h1').innerText()+' | Vahtikissa');
+    assert.equal(await page.title(),siteMetadata().title);
     console.log('Initial skip link, bounded loading timeout and successful retry passed.');
   } finally {
     await context.close();
