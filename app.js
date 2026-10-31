@@ -6,7 +6,7 @@ import { setupBackToTop } from './back-to-top.js';
 import { updatePageMetadata } from './seo.js';
 import { filterItems, percent, routeFromHash, pageSlice, choiceLabel, formatDate, escapeHTML, localizedSearchFields, memberMatchesQuery, parliamentMatterUrl, isLongSpeech, filterBallots, voteOutcome, filterVotes, filterAndSortMembers, paginationItems, searchSpeeches, voteAlternatives, brandName, decodeSpeechSearchIndex, filterAndSortLegislation, legislationMatterType, legislationStatusTone, legislationPhase, speechParagraphs, filterSpeechesBySpeaker, fetchJSONWithTimeout, policyTopicKeys, policyTopicLabel, policyTopicOptions, committeeOptions } from './app-utils.js';
 import { mountMemberInsights, memberSectionNavigation, bindMemberSections } from './member-insights.js';
-import { mountResearchControls } from './speech-research-app.js';
+let mountResearchControls;
 import { filterResearchSpeeches, matchRanges } from './speech-research.js';
 import { bindExportButtons, exportButtons, safeFilename } from './data-tools.js';
 import { collectionState, applyCollection, facetOptions, mountCollectionTools, preserveFocus, collapseQuickFilters } from './collection-tools.js';
@@ -22,6 +22,7 @@ function loadViewModule(route, view) {
   if (route.page === 'relationships') return import('./relationships-app.js');
   if (route.page === 'following') return import('./following-app.js');
   if (view === 'simple') return import('./simple-mode.js');
+  if (route.page === 'speeches') return import('./speech-research-app.js').then(module=>{mountResearchControls=module.mountResearchControls;return module;});
   if (route.page === 'programmes') return import('./programmes-app.js');
   if (['budget', 'elections', 'influence'].includes(route.page)) return import('./civic-apps.js');
   return Promise.resolve(null);

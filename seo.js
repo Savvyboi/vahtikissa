@@ -1,4 +1,4 @@
-export const SITE_URL = 'https://savvyboi.github.io/vahtikissa/';
+export const SITE_URL = 'https://vahtikissa.fi/';
 export const SITE_NAME = 'Vahtikissa';
 
 const copy = {

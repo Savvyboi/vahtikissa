@@ -34,6 +34,7 @@ jobs:
           node-version: 22
       - run: npm run check
       - run: npm run build:data
+      - run: npm run validate:networks
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

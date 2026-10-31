@@ -153,4 +153,3 @@ Relevant existing foundations: [ingestion](../scripts/sync-data.mjs), [member hi
 ## 7. Options to select for implementation
 
 Selection now lives in the [coding-agent implementation checklist](social-network-coding-agent-plan.md#1-choose-the-implementation-scope), with independently selectable features, calculation dependencies and acceptance criteria. Use that checklist or a complete generated handoff so there is only one authoritative selection per implementation run.
-

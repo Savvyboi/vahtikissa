@@ -36,7 +36,7 @@ introduced.
 
 ## Snapshot, provenance and limits
 
-Final manifest: `ee7386eaa3b368e631d9044b`.
+Initial local implementation manifest: `ee7386eaa3b368e631d9044b`.
 
 - Parliamentary snapshot: `2026-10-20T16:41:01.472Z`.
 - Profile snapshot: `2026-10-20T16:41:01.117Z`.
@@ -140,3 +140,35 @@ Generated outputs are ignored under `data/networks/`; verification screenshots,
 the unreviewed review template and evaluation artifacts are ignored under
 `.hermes-tmp.networks/`. Both use ASCII paths. Earlier immutable build generations
 remain available so already-open readers do not lose their matching evidence.
+
+## Release follow-up, 1 November 2026
+
+The user subsequently authorized pushing and deploying after verification.
+The release integrates production `main` at `e1f0813`, preserving upstream site
+fixes and automated data updates rather than replacing production with the older
+implementation snapshot. Local scratch attachments, the planning HTML preview
+and the video are excluded from Git and the release.
+
+The integrated source snapshot is dated `2026-10-31T08:33:06.949Z`, with 2,806
+votes, 558,394 ballots and 40,783 speeches. Its local network manifest is
+`a8b3a0149b3a9111dcfcaf1c`, containing 8,063 verified payloads. Deployment builds
+generate their own exact-byte manifest, including their source/method hashes;
+that identifier may differ across checkouts with different source line endings.
+
+The integrated unit/data suite has 267 passing tests. Focused network, payload,
+chart, release, improvement, loading/language, audit-regression, SEO, AI-panel,
+following and vote-reading checks pass. Homepage JavaScript is 226,339 bytes,
+below the existing 230,000-byte budget, after deferring speech research controls
+until the detailed speech view is opened. The three-month transcript check loads
+8.92 MB and completed in approximately 1.52 seconds locally.
+The complete browser suite also passes, including 718 filter interactions,
+6,484 rendered link checks, 219 portrait decodes, all primary menu routes at ten
+viewport sizes in FI/SV/EN, mobile layouts and theme accessibility. Its budget
+history check now waits for the expected SPA route before asserting the result.
+
+The canonical, social and sitemap URLs use the verified production HTTPS origin
+`https://vahtikissa.fi/`. The old GitHub Pages address redirects to HTTP on the
+custom domain. Deployment preparation now validates network payloads, and the
+existing live asset verifier additionally checks the new frontend modules,
+metadata files, icons and network index. Scientific publication gates remain
+closed as described above.

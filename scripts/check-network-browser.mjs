@@ -7,7 +7,7 @@ import { chromium } from 'playwright';
 
 const require=createRequire(import.meta.url),port=process.env.NETWORK_TEST_PORT||'4214',url=process.env.BROWSER_TEST_URL||`http://localhost:${port}`;
 const server=process.env.BROWSER_TEST_URL?null:spawn(process.execPath,['server.mjs'],{cwd:new URL('..',import.meta.url),env:{...process.env,PORT:port},windowsHide:true,stdio:'ignore'});
-const manifest=JSON.parse(await readFile(new URL('../data/networks/index.json',import.meta.url),'utf8'));
+const manifest=process.env.BROWSER_TEST_URL?await fetch(new URL('data/networks/index.json',url+'/')).then(response=>{if(!response.ok)throw Error('Live relationship manifest is unavailable');return response.json();}):JSON.parse(await readFile(new URL('../data/networks/index.json',import.meta.url),'utf8'));
 let browser;
 try{
   for(let n=0;n<150;n++){try{if((await fetch(url)).ok)break;}catch{}await new Promise(resolve=>setTimeout(resolve,100));}

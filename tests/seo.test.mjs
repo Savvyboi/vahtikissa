@@ -6,7 +6,7 @@ import { SITE_NAME, SITE_URL, siteMetadata } from '../seo.js';
 const source = path => readFile(new URL('../' + path, import.meta.url), 'utf8');
 
 test('homepage metadata gives every supported language a descriptive title and snippet', () => {
-  assert.equal(SITE_URL, 'https://savvyboi.github.io/vahtikissa/');
+  assert.equal(SITE_URL, 'https://vahtikissa.fi/');
   assert.equal(SITE_NAME, 'Vahtikissa');
   assert.equal(siteMetadata().title, 'Vahtikissa – eduskunnan äänestykset ja kansanedustajat');
   const locales = { fi: 'fi_FI', sv: 'sv_FI', en: 'en_GB' };
@@ -75,7 +75,7 @@ test('sitemap lists real canonical pages and crawler discovery does not block si
   assert.ok(urls.every(url => !new URL(url).hash && !new URL(url).search));
   assert.match(sitemap, /http:\/\/www\.sitemaps\.org\/schemas\/sitemap\/0\.9/);
   assert.match(robots, /User-agent:\s*\*/i);
-  assert.match(robots, /Sitemap:\s*https:\/\/savvyboi\.github\.io\/vahtikissa\/sitemap\.xml/i);
+  assert.match(robots, /Sitemap:\s*https:\/\/vahtikissa\.fi\/sitemap\.xml/i);
   assert.doesNotMatch(robots, /^Disallow:\s*\/(?:\s*$|(?:assets|data|.*\.js)(?:\/|\s*$))/im);
 });
 

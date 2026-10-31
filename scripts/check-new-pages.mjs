@@ -52,7 +52,9 @@ export async function checkNewPages(page,navigate) {
   assert.ok(await page.locator('[data-budget-search]').isVisible());
   await page.locator('.budget-back').first().click();
   assert.equal(await page.locator('main').getAttribute('data-route'),`#/budget/${latest.year}/${type}/${main.code}/${chapter.code}`);
-  await page.goBack();assert.match(page.url(),new RegExp(`${moment.code}$`));
+  await page.goBack();
+  await page.waitForFunction(expected=>location.hash===expected&&document.querySelector('main')?.dataset.route===expected&&document.querySelector('main')?.getAttribute('aria-busy')==='false',`#/budget/${latest.year}/${type}/${main.code}/${chapter.code}/${moment.code}`);
+  assert.match(page.url(),new RegExp(`${moment.code}$`));
   await navigate(`budget/${latest.year}/expense/missing`);assert.match(await page.locator('.empty').innerText(),/ei löytynyt/);
   await navigate('budget');await page.locator('[data-budget-year]').selectOption(String(latest.year));
   await page.locator('[data-budget-view="bars"]').click();assert.ok(await page.locator('.budget-bars a').count());assert.equal(await page.locator('.budget-treemap').count(),0);
