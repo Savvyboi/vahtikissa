@@ -1,4 +1,4 @@
-import { loadAIInsights, decorateAI, aiTagBadges, filterAIItems } from './ai-insights-app.js';
+import { loadAIInsights, aiInsightsState, decorateAI, aiTagBadges, filterAIItems } from './ai-insights-app.js';
 import { snapshotNote } from './data-freshness.js';
 import { readingMode, readingModeURL } from './reading-mode.js';
 import { createParliamentLoader } from './parliament-data.js';
@@ -18,6 +18,7 @@ let data;
 const parliamentLoader = createParliamentLoader();
 let routeRenderSequence = 0;
 function loadViewModule(route, view) {
+  if (route.page === 'following') return import('./following-app.js');
   if (view === 'simple') return import('./simple-mode.js');
   if (route.page === 'programmes') return import('./programmes-app.js');
   if (['budget', 'elections', 'influence'].includes(route.page)) return import('./civic-apps.js');
@@ -53,6 +54,7 @@ const copy = {
 };
 copy.en = {overview:'Overview',sessions:'Plenary sessions',votes:'Votes',members:'Members of Parliament',parties:'Parties',programmes:'Party platforms',speeches:'Speeches',legislation:'Legislation',budget:'Budget',elections:'2023 elections',influence:'Interests & lobbying',search:'Search',menu:'Menu',loading:'Loading open parliamentary data…',updated:'Updated',day:'Date',matter:'Matter',result:'Result',yes:'yes',no:'no',abstain:'abstained',absent:'absent',showMore:'Show more',showAll:'Show all',readMore:'Read full speech',readLess:'Show less',latestVotes:'Latest votes',parliament:'Parliament',hero:'How does your MP act?',heroLead:'Explore votes, speeches, party positions and legislation since 2 April 2023.',voteRecords:'individual parliamentary votes recorded',participation:'Participation',partyLine:'Party alignment',recordedVotes:'recorded votes',speechTurns:'speeches',vote:'Vote',background:'Background',stage:'Stage',officialMatter:'Parliamentary matter',minutes:'Minutes',officialVote:'Official voting record',openOfficial:'Open parliamentary source ↗',votesByParty:'Votes by party',recentVotes:'Votes',mpSpeeches:'Speeches',mpActivity:'MP activity during the reporting period.',howVoted:'Voted',allVotes:'All recorded plenary votes since April 2023.',allSpeeches:'Speeches by MPs and their related agenda items.',allLaws:'Parliamentary matters linked to votes and amendments.',searchVotes:'Search by topic or document number…',searchSpeeches:'Search a word, phrase, speaker or topic…',searchMembers:'Search by name or party…',searchLaws:'Search by document number or topic…',all:'All',moreYes:'More YES votes',moreNo:'More NO votes',tie:'Tie',whatWasVoted:'What was the vote about?',voterFilter:'Filter MPs by vote',voteMeaning:'YES and NO refer to the alternatives described above.',noData:'No results.',independent:'An independent open data service. This is not an official service of the Finnish Parliament.',about:'About this service',data:'Data'};
 const ui = (fi,sv,en=fi) => lang==='en'?en:lang==='sv'?sv:fi;
+copy.fi.following = 'Seuratut'; copy.sv.following = 'Följer'; copy.en.following = 'Following';
 const locale = () => lang==='en'?'en-GB':lang==='sv'?'sv-FI':'fi-FI';
 const t = key => copy[lang][key] || copy.fi[key] || key;
 const titleFor = party => partyNames[party]?.[lang] || partyNames[party]?.fi || String(party || '').toUpperCase();
@@ -453,17 +455,25 @@ function render(position){
   try {
   root.setAttribute('aria-busy','true');
   if(!parliamentLoader.routeReady(r,view))loadingView();
-  const [routeData,viewModule]=await Promise.all([parliamentLoader.loadRoute(r,view),loadViewModule(r,view),['votes','legislation','programmes'].includes(r.page)?loadAIInsights():Promise.resolve()]);
+  const [routeData,viewModule,,followingControls]=await Promise.all([parliamentLoader.loadRoute(r,view),loadViewModule(r,view),['votes','legislation','programmes','following'].includes(r.page)?loadAIInsights():Promise.resolve(),r.page==='members'&&r.id?import('./following-controls.js'):Promise.resolve(null)]);
   if(!current())return;
   data=routeData;
   applyViewChrome();
   const previousView=root.dataset.route;
   root.dataset.route=location.hash;
   root.setAttribute('aria-busy','true');document.querySelectorAll('.nav a').forEach(a=>{const active=a.dataset.page===r.page;a.classList.toggle('active',active);if(active)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current')});
+  if(r.page==='following'){
+    const ai = aiInsightsState();
+    const pending = viewModule.renderFollowing(root,{data,lang,view,parliamentLoader,aiIndex:ai.loadFailed?null:ai.index,current,refresh:async()=>{parliamentLoader.clear();await loadAIInsights({refresh:true});return render(currentScrollPosition())}});
+    if(previousView!==undefined&&previousView!==routeKey)root.focus({preventScroll:true});
+    await pending;
+    if(current())updateRouteContext(r);
+    return;
+  }
   if(readingView==='simple'){
     const pending=viewModule.renderSimple(root,{data,lang,route:r,loadSpeechTexts,speechTexts,titleFor});
     if(previousView!==undefined&&previousView!==routeKey)root.focus({preventScroll:true});
-    const finish=()=>{if(current()){decorateAI(root,{route:r,data,lang,rerender:render});updateRouteContext(r)}};
+    const finish=()=>{if(current()){decorateAI(root,{route:r,data,lang,rerender:render});followingControls?.decorateMemberFollowing(root,{route:r,data,lang});updateRouteContext(r)}};
     if(pending?.then)return await pending.finally(finish);
     finish();return;
   }
@@ -479,6 +489,7 @@ function render(position){
   if(previousView!==undefined&&previousView!==routeKey)root.focus({preventScroll:true});
   if(pending)return await pending.finally(()=>{if(current()){decorateAI(root,{route:r,data,lang,rerender:render});updateRouteContext(r)}});
   decorateAI(root,{route:r,data,lang,rerender:render});
+  followingControls?.decorateMemberFollowing(root,{route:r,data,lang});
   updateRouteContext(r);
   } catch(error) { if(current()){root.dataset.route=routeKey;loadError(error)} }
   },position);

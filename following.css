@@ -1,0 +1,17 @@
+.member-following{margin:1.2rem 0 2rem;padding:1.2rem;border:1px solid var(--line);border-radius:var(--radius);background:var(--white)}
+.member-following p,.following-note{color:var(--muted);font-size:.9rem;line-height:1.6}
+.following-actions{display:flex;flex-wrap:wrap;align-items:center;gap:.75rem;margin:.8rem 0}
+.member-following button,.following-page button{min-height:44px;max-width:100%;padding:.6rem .9rem;border:1px solid var(--blue);border-radius:6px;background:var(--white);color:var(--blue);font:inherit;cursor:pointer;overflow-wrap:anywhere}
+.member-following button[aria-pressed="true"]{background:var(--light-blue);font-weight:700}
+.following-page{overflow-wrap:anywhere}
+.following-page h2{margin:1.5rem 0 .75rem}.following-page h3{margin:.25rem 0 .75rem}.following-page h4{margin:.45rem 0;font-size:1.1rem}
+.following-selections,.following-transfer,.following-source{margin:1.5rem 0;padding:1.25rem;border:1px solid var(--line);border-radius:var(--radius);background:var(--white);min-width:0}
+.following-selections ul{list-style:none;padding:0}.following-selections li{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.75rem 0;border-bottom:1px solid var(--line)}
+.following-selections li>div{min-width:0}.following-selections button{flex-shrink:0}
+.following-transfer summary,.following-feed summary{cursor:pointer;min-height:44px;padding:.5rem 0;font-weight:700}
+.following-import{display:grid;gap:.6rem;margin:1rem 0}.following-import input{max-width:100%;min-height:44px;color:var(--ink);font:inherit}
+.following-records{list-style:none;padding:0}.following-records>li{padding:1rem 0;border-top:1px solid var(--line)}
+.following-new{display:inline-block;padding:.2rem .6rem;border:1px solid currentColor;border-radius:5px;color:var(--blue);font-size:.85rem;font-weight:700;background:var(--light-blue)}
+[data-follow-status]:not(:empty){padding:.8rem;border:1px solid var(--line);background:var(--white)}
+.following-page a,.member-following a{text-underline-offset:3px;color:var(--blue)}
+@media(max-width:600px){.following-selections,.following-source,.following-transfer{padding:1rem}.following-selections li{align-items:flex-start;flex-wrap:wrap}.following-selections li>div{flex-basis:100%}.following-actions{align-items:stretch}.following-actions button{flex:1 1 200px}}

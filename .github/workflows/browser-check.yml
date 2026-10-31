@@ -32,6 +32,7 @@ jobs:
       - run: npm run test:charts
       - run: npm run test:loading-language
       - run: npm run test:ai-browser
+      - run: npm run test:following
       - run: npm run test:vote-reading
       - uses: actions/upload-artifact@v4
         if: failure()

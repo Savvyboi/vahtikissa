@@ -4,6 +4,12 @@ import { createHash } from 'node:crypto';
 export const DEPLOYMENT_FILES = Object.freeze([
   'index.html',
   'app.js',
+  'ai-insights-app.js',
+  'following-app.js',
+  'following-controls.js',
+  'following-data.js',
+  'following-store.js',
+  'following.css',
   'styles.css',
   'app-utils.js',
   'parliament-data.js',

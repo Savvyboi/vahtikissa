@@ -1,25 +1,37 @@
 import { escapeHTML as e, fetchJSONWithTimeout } from './app-utils.js';
 import { emptyInsights, insightTags, currentInsight, matchesAITags, sameSource, validateRecordResult } from './ai-insights.js';
 
-let index = emptyInsights(), pending, loadFailed = false;
+let index = emptyInsights(), pending, loadFailed = false, followingStore;
 const detailRequests = new Map();
 const L = (lang, fi, sv, en) => lang === 'sv' ? sv : lang === 'en' ? en : fi;
 const text = (value, lang) => value?.[lang] || value?.fi || '';
 const safeURL = value => { try { const url = new URL(value); return url.protocol === 'https:' ? url.href : ''; } catch { return ''; } };
-export async function loadAIInsights() {
-  if (!pending) pending = fetchJSONWithTimeout('./data/ai-insights.json', { cache: 'no-cache' }).then(value => {
-    if (value.version !== 1 || !value.programmes || !value.records?.votes || !value.records?.legislation) throw new Error('Invalid AI index');
+const object = value => value && typeof value === 'object' && !Array.isArray(value);
+function validIndex(value) {
+  return value?.version === 1 && object(value.programmes) && ['votes','legislation'].every(kind => object(value.records?.[kind]) && Object.values(value.records[kind]).every(entry => object(entry) && typeof entry.fingerprint === 'string' && Array.isArray(entry.tags) && entry.tags.every(id => typeof id === 'string'))) &&
+    Object.values(value.programmes).every(programme => object(programme) && typeof programme.id === 'string' && typeof programme.party === 'string' && Array.isArray(programme.tags) && programme.tags.every(tag => object(tag) && typeof tag.id === 'string' && object(tag.label) && ['fi','sv','en'].every(lang => typeof tag.label[lang] === 'string')));
+}
+export async function loadAIInsights({ refresh = false } = {}) {
+  if (refresh) pending = null;
+  if (!pending) pending = Promise.all([
+    fetchJSONWithTimeout('./data/ai-insights.json', { cache: 'no-cache' }),
+    import('./following-store.js').then(module => { followingStore = module.followingStore; })
+  ]).then(([value]) => {
+    if (!validIndex(value)) throw new Error('Invalid AI index');
     index = value; loadFailed = false;
   }).catch(() => { loadFailed = true; pending = null; });
   await pending;
   return index;
 }
 export function followedTags() {
+  if (followingStore) return followingStore.selections().tags;
+  // Keep the legacy synchronous filter cheap; mutations share Following's store.
   try {
     const value = JSON.parse(localStorage.getItem('vahtikissa-ai-tags') || '[]');
     return Array.isArray(value) ? value.filter(id => typeof id === 'string') : [];
   } catch { return []; }
 }
+export function aiInsightsState() { return { index, loadFailed }; }
 export function selectedAITag() { return new URLSearchParams(location.hash.split('?')[1] || '').get('tag') || 'all'; }
 export function filterAIItems(kind, items) {
   const selected = selectedAITag(), followed = followedTags();
@@ -149,7 +161,7 @@ export function decorateAI(root, { route, data, lang, rerender }) {
         '</p><p>' + L(lang, 'Seuratut teemat tallennetaan tähän selaimeen. Tarkastele päivityksiä valitsemalla seuratut teemat. Mukana ovat vain AI:n jo analysoimat tietueet.',
           'Följda teman sparas i denna webbläsare. Se uppdateringar genom att välja följda teman. Endast poster som AI redan analyserat ingår.',
           'Followed themes are saved in this browser. Select followed themes to review updates. Only records already analysed by AI are included.') +
-        '</p><label>' + L(lang, 'Ohjelmateema', 'Programtema', 'Programme theme') + '<select data-ai-tag-filter>' +
+        '</p><p><a href="#/following">' + L(lang, 'Seuratut: edustajat ja teemat', 'Följer: ledamöter och teman', 'Following: MPs and themes') + ' →</a></p><label>' + L(lang, 'Ohjelmateema', 'Programtema', 'Programme theme') + '<select data-ai-tag-filter>' +
         [['all', L(lang, 'Kaikki tietueet', 'Alla poster', 'All records')], ['followed', L(lang, 'Seuratut teemat', 'Följda teman', 'Followed themes')], ...tags.map(tag => [tag.id, text(tag.label, lang)])].map(([id, label]) => '<option value="' + e(id) + '" ' + (selected === id ? 'selected' : '') + '>' + e(label) + '</option>').join('') +
         '</select></label><p>' + (loadFailed ? L(lang, 'AI-tietoja ei voitu ladata.', 'AI-data kunde inte laddas.', 'AI data could not be loaded.') :
           Object.keys(index.records[kind]).length + ' ' + L(lang, 'analysoitua tietuetta', 'analyserade poster', 'analysed records')) +
@@ -171,15 +183,19 @@ export function decorateAI(root, { route, data, lang, rerender }) {
   }
   root.querySelectorAll('[data-ai-follow]').forEach(button => {
     button.onclick = () => {
-      const set = new Set(followedTags()), id = button.dataset.aiFollow;
-      if (set.has(id)) set.delete(id); else set.add(id);
-      try { localStorage.setItem('vahtikissa-ai-tags', JSON.stringify([...set])); }
-      catch {
+      const result = followingStore?.toggleTag(button.dataset.aiFollow);
+      let status = root.querySelector('[data-ai-storage-status]');
+      if (!status) {
+        status = document.createElement('p'); status.dataset.aiStorageStatus = ''; status.setAttribute('role', 'status');
+        button.after(status);
+      }
+      if (!result?.ok) {
         const message = L(lang, 'Seurantaa ei voitu tallentaa: selaimen tallennustila ei ole käytettävissä.', 'Följningen kunde inte sparas: webbläsarlagring är inte tillgänglig.', 'Following could not be saved: browser storage is unavailable.');
-        const status = root.querySelector('[data-ai-storage-status]');
-        if (status) status.textContent = message; else button.insertAdjacentText('afterend', message);
+        status.textContent = message;
         return;
       }
+      status.textContent = L(lang, 'Valinta tallennettu tähän selaimeen.', 'Valet sparades i denna webbläsare.', 'Selection saved in this browser.');
+      const set = new Set(followedTags());
       root.querySelectorAll('[data-ai-follow]').forEach(control => {
         const pressed = set.has(control.dataset.aiFollow); control.setAttribute('aria-pressed', String(pressed));
         control.textContent = L(lang, pressed ? 'Seurataan' : 'Seuraa teemaa', pressed ? 'Följer' : 'Följ temat', pressed ? 'Following' : 'Follow theme');

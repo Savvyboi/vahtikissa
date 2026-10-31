@@ -176,6 +176,8 @@ Run `npm run test:performance` for browser payload budgets, scoped-detail loadin
 
 ## Programme themes and AI briefs
 
+MP pages now offer browser-local following. **Seuratut / Följer / Following** combines followed MPs and existing programme themes, recent source records, and source-specific newly observed indicators. Selections can be exported/imported without accounts. The first successful source load establishes a baseline; source dates remain separate from browser observation times. See [following behaviour, storage, coverage and verification](docs/following.md). Run `npm run test:following` for the focused browser checks.
+
 Programme-derived theme and promise tags connect party programmes with proposals and votes. Users can filter and follow themes locally. Proposal and vote pages include a collapsed AI brief panel with Finnish, Swedish and English tabs, an accuracy notice and original source links. Briefs currently summarise published record metadata; full legal text is not present in the dataset.
 
 Generation uses an offline, cached OpenRouter pipeline with a free model and a server-side Actions secret. Add OPENROUTER_API_KEY, then run the Daily AI briefs and programme tags workflow to start the bounded backfill. No key is embedded in the site; no AI requests are made by visitors. See [setup, method and limits](docs/ai-insights.md).
