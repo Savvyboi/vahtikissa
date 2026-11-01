@@ -21,15 +21,18 @@ try{
   const menu=page.locator('.menu-button');if(await menu.isVisible()&&await menu.getAttribute('aria-expanded')!=='true')await menu.click();
   await page.locator('.nav [data-page="relationships"]').click();
   const ready=()=>page.waitForFunction(()=>document.querySelector('.relationship-status')?.textContent==='Analysis ready.');
-  async function exportJSON(){const event=page.waitForEvent('download');await page.locator('[data-network-export="json"]').click();return JSON.parse(await readFile(await(await event).path(),'utf8'));}
+  async function exportJSON(){
+    // Avoid Chromium's burst-download throttle when exercising every feature.
+    await page.waitForTimeout(150);
+    const event=page.waitForEvent('download');await page.locator('[data-network-export="json"]').click();return JSON.parse(await readFile(await(await event).path(),'utf8'));
+  }
   await ready();
   const feature=page.locator('[name="feature"]');
   for(const id of manifest.config.features){
     await feature.selectOption(id);await ready();
     assert.equal(await page.locator('[data-network-result] h2').count(),1,id+' has a heading');
     assert.equal(await page.locator('[data-network-result] table').count()>0,true,id+' has table equivalence');
-    const downloadPromise=page.waitForEvent('download');await page.locator('[data-network-export="json"]').click();const download=await downloadPromise;
-    const exported=JSON.parse(await readFile(await download.path(),'utf8'));
+    const exported=await exportJSON();
     assert.ok(exported.length,id+' export has rows or unavailable state');assert.equal(exported[0].manifestId,manifest.id);assert.equal(exported[0].feature,id);
     if(id==='directed-references')assert.match(await page.locator('[data-network-result]').innerText(),/Independent human evaluation is pending/);
     if(id==='communities')assert.match(await page.locator('[data-network-result]').innerText(),/assignments are withheld/);
