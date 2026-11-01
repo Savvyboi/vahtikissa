@@ -20,6 +20,7 @@ try{
   await page.locator('.language-select').selectOption('en');await page.locator('main[aria-busy="false"] h1').waitFor();
   const menu=page.locator('.menu-button');if(await menu.isVisible()&&await menu.getAttribute('aria-expanded')!=='true')await menu.click();
   await page.locator('.nav [data-page="relationships"]').click();
+  await page.locator('.sna-subnav a[href*="feature=vote-neighbours"]').click();
   const ready=()=>page.waitForFunction(()=>/^(Analyysi valmis\.|Analysen är klar\.|Analysis ready\.)$/.test(document.querySelector('.relationship-status')?.textContent));
   const closeEvidence=async()=>{await page.locator('[data-evidence-close]').click();await page.locator('[data-network-evidence]').waitFor({state:'hidden'});};
   async function exportJSON(){
@@ -162,7 +163,7 @@ try{
   const metrics=await page.evaluate(()=>({bytes:performance.getEntriesByType('resource').filter(r=>r.name.includes('/networks/')).reduce((n,r)=>n+r.decodedBodySize,0)}));
   console.log(`Relationships browser checks passed; initial simple heatmap data ${(metrics.bytes/1e6).toFixed(2)} MB.`);
   await page.setViewportSize({width:1440,height:1000});
-  await page.goto(`${url}/?view=full#/relationships`);await ready();
+  await page.goto(`${url}/?view=full#/relationships?feature=vote-neighbours`);await ready();
   await page.locator('[data-network-result] [data-table-sort="2"]').first().click();
   await page.screenshot({path:fileURLToPath(new URL('../.hermes-tmp.networks/relationships-sorted-fi.png',import.meta.url)),fullPage:false});
   await context.close();

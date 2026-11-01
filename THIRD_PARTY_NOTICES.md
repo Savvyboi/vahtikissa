@@ -1,5 +1,17 @@
 # Third-party notices
 
+## Network explorer
+
+Cytoscape.js 3.34.4 is distributed locally as
+`assets/vendor/cytoscape.esm.min.mjs` under the MIT license. Its full copyright
+and license notice is in `assets/vendor/cytoscape-LICENSE.txt`.
+Source and documentation: https://js.cytoscape.org/.
+
+Offline builds use d3-force 3.0.0 (ISC), Graphology 0.26.0 (MIT) and
+graphology-communities-louvain 2.0.2 (MIT), pinned in `package-lock.json`.
+Their licenses are included with the installed npm packages. These analysis
+libraries are not loaded by the browser.
+
 ## Snowball Finnish and Swedish stopword lists
 
 Sources: https://snowballstem.org/algorithms/finnish/stop.txt and https://snowballstem.org/algorithms/swedish/stop.txt

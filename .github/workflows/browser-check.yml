@@ -28,6 +28,7 @@ jobs:
       - run: npm run validate:networks
       - run: node scripts/check-audit-regressions.mjs
       - run: npm run test:network-browser
+      - run: npm run test:transparency-browser
       - run: node scripts/check-relationship-mobile.mjs
       - run: npm run test:performance
       - run: npm run test:release
@@ -47,5 +48,6 @@ jobs:
             .hermes-tmp.audit/*.png
             .hermes-tmp.networks/*.png
             .hermes-tmp.relationship-mobile/*.png
+            .hermes-tmp.sna/*.png
           include-hidden-files: true
           if-no-files-found: ignore

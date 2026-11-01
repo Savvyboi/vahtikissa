@@ -27,6 +27,12 @@ const partyFeatures=new Set(['vote-neighbours','party-heatmap','cross-party-prof
 const arr=x=>Array.isArray(x)?x:x&&typeof x==='object'?Object.values(x):[];
 
 export async function renderRelationships(root,{lang='fi',view='full',current=()=>true}={}) {
+  const explorerParams = new URLSearchParams(location.hash.split('?')[1] || '');
+  if (!explorerParams.has('feature') || explorerParams.get('feature') === 'transparency') {
+    const { renderTransparencyExplorer } = await import('./transparency-explorer.js');
+    if (current()) return renderTransparencyExplorer(root, { lang, view, current });
+    return;
+  }
   const tr=(fi,sv,en)=>lang==='sv'?sv:lang==='en'?en:fi, title=key=>names[key]?.[lang==='sv'?1:lang==='en'?2:0]||key;
   const l=value=>relationshipLabel(value,lang);
   const number=(x,digits=3)=>typeof x==='number'&&Number.isFinite(x)?x.toLocaleString(lang==='en'?'en-GB':lang==='sv'?'sv-FI':'fi-FI',{maximumFractionDigits:digits}):'—';

@@ -199,8 +199,12 @@ Programme-derived theme and promise tags connect party programmes with proposals
 Generation uses an offline, cached OpenRouter pipeline with a free model and a server-side Actions secret. Add OPENROUTER_API_KEY, then run the Daily AI briefs and programme tags workflow to start the bounded backfill. No key is embedded in the site; no AI requests are made by visitors. See [setup, method and limits](docs/ai-insights.md).
 # Parliamentary relationships
 
-The Relationships research view implements the 14 approved voting, speech,
-institutional and declared-lobbying analyses. Run `npm run build:data` to prepare
-the local, immutable evidence payloads. See [methods, commands and publication
-gates](docs/network-analytics.md). Reference person rankings and unreviewed
-lobbying identities remain gated; unstable community assignments are withheld.
+The Relationships page now defaults to the local transparency explorer: offline
+multiplex graph analysis, five presets, shared include/exclude filters, original
+disclosures, three layouts, map exports and a mobile/easy card view. Start it with
+`npm run dev`. See the [audit, demo commands and interpretation limits](docs/transparency-explorer.md).
+
+The previous 14 voting, speech, institutional and declared-lobbying analyses
+remain available through **Äänestykset & puheet** and existing `feature` links.
+Their existing publication gates remain in place; see [methods and gates](docs/network-analytics.md).
+Run `npm run build:data` to prepare both sets of immutable static payloads.

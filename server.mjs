@@ -1,4 +1,6 @@
 import { createServer } from 'node:http';
+import { buildTransparencyData } from './scripts/build-transparency-graph.mjs';
+await buildTransparencyData();
 import { buildParliamentData } from './scripts/build-parliament-data.mjs';
 await buildParliamentData();
 import { buildNetworkAnalytics } from './scripts/build-network-analytics.mjs';
