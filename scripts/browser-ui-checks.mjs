@@ -102,6 +102,9 @@ export async function checkPrimaryNavigation(page) {
     assert.equal(await page.locator('html').getAttribute('lang'),language);
     for(const viewport of viewports) {
       await page.setViewportSize(viewport);
+      // Resize can enqueue a media-query menu close. Let it finish before
+      // opening the menu, so the assertion measures the stable viewport.
+      await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
       const menu=page.locator('.menu-button'),mobile=await menu.isVisible();
       if(mobile){
         await menu.focus();await page.keyboard.press('Enter');

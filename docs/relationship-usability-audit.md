@@ -110,6 +110,9 @@ contrast assertion read colors during a theme repaint. The check now waits for
 two animation frames and reports measured foreground/background values on a real
 failure, while retaining the 4.5:1 requirement. This was reproduced with the same
 pinned Chromium version as CI, in addition to the installed Edge browser.
+The wider Chromium run also exposed a navigation assertion racing a queued
+media-query menu close after resizing. Its check now waits for the resize paint
+before opening the menu; the focus and keyboard assertions remain unchanged.
 
 `scripts/check-relationship-mobile.mjs` is included in CI and uses mobile/touch
 emulation at 320px and 390px. It checks compact labels, visible source content,
