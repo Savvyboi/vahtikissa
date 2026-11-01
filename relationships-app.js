@@ -29,8 +29,8 @@ const arr=x=>Array.isArray(x)?x:x&&typeof x==='object'?Object.values(x):[];
 export async function renderRelationships(root,{lang='fi',view='full',current=()=>true}={}) {
   const tr=(fi,sv,en)=>lang==='sv'?sv:lang==='en'?en:fi, title=key=>names[key]?.[lang==='sv'?1:lang==='en'?2:0]||key;
   const l=value=>relationshipLabel(value,lang);
-  const number=x=>typeof x==='number'&&Number.isFinite(x)?x.toLocaleString(lang==='en'?'en-GB':lang==='sv'?'sv-FI':'fi-FI',{maximumFractionDigits:3}):'—';
-  const percent=x=>x==null?'—':number(x*100)+' %';
+  const number=(x,digits=3)=>typeof x==='number'&&Number.isFinite(x)?x.toLocaleString(lang==='en'?'en-GB':lang==='sv'?'sv-FI':'fi-FI',{maximumFractionDigits:digits}):'—';
+  const percent=x=>x==null?'—':number(x*100,1)+' %';
   const sourceDate=value=>formatDate(value,lang==='sv'?'sv-FI':lang==='en'?'en-GB':'fi-FI');
   root.innerHTML=`<div class="page relationships-page"><h1>${tr('Edustajien verkostot ja puheet','Ledamöternas nätverk och anföranden','MP networks and speech trends')}</h1><p role="status">${tr('Ladataan analyysin lähdekuvausta…','Analysens källbeskrivning laddas…','Loading the analysis manifest…')}</p></div>`;
   const manifest=await loader.manifest();if(!current())return;

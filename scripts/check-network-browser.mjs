@@ -50,6 +50,7 @@ try{
   await numericSort.click();
   const descending=await exportJSON();
   assert.deepEqual(descending.map(r=>r.agreement),[...descending.map(r=>r.agreement)].sort((a,b)=>a==null?1:b==null?-1:b-a),'Exports use numeric descending order');
+  assert.deepEqual(await neighbourTable.locator('tbody tr td:nth-child(3)').allTextContents(),descending.slice(0,300).map(r=>r.agreement==null?'—':new Intl.NumberFormat('en-GB',{maximumFractionDigits:1}).format(r.agreement*100)+' %'),'Displayed percentages round to one decimal while exports retain source precision');
   assert.ok(Object.keys(JSON.parse(descending[0].filters).tableSort).length,'Exports include column sorting settings');
   await page.locator('[name="period"]').selectOption('year-2026');await ready();
   await feature.selectOption('network-explorer');await ready();
@@ -126,6 +127,7 @@ try{
     for(const id of manifest.config.features){
       await feature.selectOption(id);await page.waitForFunction(()=>/Analyysi valmis\.|Analysen är klar\.|Analysis ready\./.test(document.querySelector('.relationship-status')?.textContent));
       const headers=await page.locator('[data-network-result] th').allTextContents();
+      assert.doesNotMatch(await page.locator('[data-network-result]').innerText(),/\d[.,]\d{2,}\s*%/,lang+' '+id+' displays at most one decimal place in percentages');
       if(lang!=='en')assert.equal(headers.some(text=>/Yes\/no|Contested|Matter %|Session %|Shared body-days|Recorded party baseline|Candidate passage|Per 10,000|Share of MP|Evidence/.test(text)),false,lang+' '+id+' translates table headings');
       assert.ok(await page.locator('[data-network-result] [data-table-sort]').count(),lang+' '+id+' has sortable columns');
     }
