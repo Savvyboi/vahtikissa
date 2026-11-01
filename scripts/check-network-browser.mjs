@@ -21,6 +21,7 @@ try{
   const menu=page.locator('.menu-button');if(await menu.isVisible()&&await menu.getAttribute('aria-expanded')!=='true')await menu.click();
   await page.locator('.nav [data-page="relationships"]').click();
   const ready=()=>page.waitForFunction(()=>/^(Analyysi valmis\.|Analysen är klar\.|Analysis ready\.)$/.test(document.querySelector('.relationship-status')?.textContent));
+  const closeEvidence=async()=>{await page.locator('[data-evidence-close]').click();await page.locator('[data-network-evidence]').waitFor({state:'hidden'});};
   async function exportJSON(){
     // Avoid Chromium's burst-download throttle when exercising every feature.
     await page.waitForTimeout(150);
@@ -57,16 +58,20 @@ try{
   const edgePoint=await edge.evaluate(element=>{const box=element.querySelector('line').getBoundingClientRect();return {x:box.x+box.width/2,y:box.y+box.height/2};});await page.mouse.click(edgePoint.x,edgePoint.y);
   await page.locator('[data-ballot-list] table').waitFor();
   assert.match(await page.locator('[data-network-evidence]').innerText(),/All stored votes/,'Graph evidence uses the full window after a narrow voting filter');
+  await closeEvidence();
   await feature.selectOption('party-heatmap');await ready();
   await page.locator('.relationship-matrix [data-party-a]').first().click();await page.locator('[data-network-evidence] table').waitFor();
   assert.match(await page.locator('[data-network-evidence]').innerText(),/All contributing roll calls/);
+  await closeEvidence();
   await feature.selectOption('cross-party-profiles');await ready();
   await page.locator('[data-cross-party]').first().click();await page.locator('[data-network-evidence] table').waitFor();
   assert.match(await page.locator('[data-network-evidence]').innerText(),/equal-event alignment/);
+  await closeEvidence();
   await feature.selectOption('vote-neighbours');await ready();
   await page.locator('[data-pair]').first().focus();await page.keyboard.press('Enter');await page.locator('[data-ballot-list] table').waitFor();
   assert.match(await page.locator('[data-network-evidence]').innerText(),/All common eligible ballots/);
   await page.locator('[data-vote-file]').first().click();await page.locator('[data-network-evidence] blockquote, [data-network-evidence] h4').first().waitFor();
+  await closeEvidence();
   await feature.selectOption('keyword-comparisons');await ready();
   const speechTable=page.locator('[data-speech-results] table');
   await speechTable.locator('[data-table-sort="2"]').click();
@@ -78,6 +83,7 @@ try{
   assert.equal(await speechTable.locator('tbody tr').filter({has:page.locator('td:nth-child(3)',{hasText:/^0$/})}).locator('[data-point]').count(),0,'Rows without matching source speeches do not offer a failing evidence action');
   await page.locator('.relationship-table [data-point]').first().click();await page.locator('[data-point-all]').waitFor();await page.locator('[data-point-all]').click();await page.locator('[data-network-evidence] table').waitFor();
   const speech=page.locator('[data-network-evidence] [data-speech]').first();if(await speech.count()){await speech.click();await page.locator('[data-network-evidence] blockquote').waitFor();}
+  await closeEvidence();
   await page.locator('details:has([data-custom-speech]) > summary').click();
   await page.locator('[data-custom-speech] [name="query"]').fill('talous');
   const months=manifest.speechMonths.slice(-3);await page.locator('[data-custom-speech] [name="start"]').selectOption(months[0].month);
@@ -96,7 +102,9 @@ try{
   await page.locator('[data-committee-dates] [name="from"]').fill('2025-01-01');await page.locator('[data-committee-dates] button').click();await ready();
   const committeeExport=await exportJSON();assert.equal(JSON.parse(committeeExport[0].filters).from,'2025-01-01');
   await page.locator('[data-committee-pair]').first().click();await page.locator('[data-network-evidence] pre').waitFor();assert.match(await page.locator('[data-network-evidence]').innerText(),/membershipRecords/);
+  await closeEvidence();
   await feature.selectOption('lobbying-network');await ready();await page.locator('[data-lobby-table] [data-table-sort="1"]').click();await page.locator('[data-declaration]').first().click();await page.locator('[data-network-evidence] pre').waitFor();assert.match(await page.locator('[data-network-evidence]').innerText(),/Original declaration rows/);
+  await closeEvidence();
   const lobbyingExport=await exportJSON();assert.ok(JSON.parse(lobbyingExport[0].filters).organisationId);
   await feature.selectOption('committee-overlap');await ready();
   await page.addScriptTag({path:require.resolve('axe-core/axe.min.js')});
@@ -127,10 +135,13 @@ try{
     await page.setViewportSize({width,height:950});
     for(const theme of ['light','dark','contrast']){
       await page.locator('.theme-select').selectOption(theme);
+      // Chromium can expose the preceding theme's paint immediately after change.
+      // Measure contrast after the new theme has been painted, in every browser.
+      await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
       const numbers=page.locator('.pagination button[data-page]').filter({hasText:/^\d+$/});
       const unreadable=await numbers.evaluateAll(buttons=>{
         const luminance=rgb=>{const c=rgb.match(/[\d.]+/g).slice(0,3).map(x=>Number(x)/255).map(x=>x<=.04045?x/12.92:((x+.055)/1.055)**2.4);return .2126*c[0]+.7152*c[1]+.0722*c[2];};
-        return buttons.flatMap(button=>{const s=getComputedStyle(button),a=luminance(s.color),b=luminance(s.backgroundColor),ratio=(Math.max(a,b)+.05)/(Math.min(a,b)+.05);return ratio<4.5||s.fontSize==='0px'||s.visibility==='hidden'||s.opacity==='0'?[button.textContent]:[];});
+        return buttons.flatMap(button=>{const s=getComputedStyle(button),a=luminance(s.color),b=luminance(s.backgroundColor),ratio=(Math.max(a,b)+.05)/(Math.min(a,b)+.05);return ratio<4.5||s.fontSize==='0px'||s.visibility==='hidden'||s.opacity==='0'?[{text:button.textContent,color:s.color,background:s.backgroundColor,ratio}]:[];});
       });
       assert.deepEqual(unreadable,[],`${width} ${theme}: numbered pagination buttons are readable`);
     }

@@ -91,3 +91,27 @@ independent human-review requirements and immutable source evidence remain intac
 
 Browser checks used the installed Microsoft Edge channel. No dependency or
 scientific calculation changes were needed.
+
+## Mobile source follow-up
+
+The supplied phone screenshots identified two problems missed by the original
+viewport-only checks. Source content loaded into a section roughly 4,600 pixels
+below the visible mobile screen, and wrapping action labels could split into
+individual letters while five speech buttons made each row unnecessarily tall.
+
+Source actions now open a native, labelled dialog with immediate loading feedback,
+retry, a persistent close control, Escape support and focus/scroll restoration.
+Speech samples use one compact count button and a numbered source selector inside
+the dialog. Closing before a request finishes prevents a late response from
+reopening the source. The clicked speech's own month selects its immutable payload.
+
+The failed Actions run was `41324278675`, job `124900829506`: its pagination
+contrast assertion read colors during a theme repaint. The check now waits for
+two animation frames and reports measured foreground/background values on a real
+failure, while retaining the 4.5:1 requirement. This was reproduced with the same
+pinned Chromium version as CI, in addition to the installed Edge browser.
+
+`scripts/check-relationship-mobile.mjs` is included in CI and uses mobile/touch
+emulation at 320px and 390px. It checks compact labels, visible source content,
+speech selection, FI/SV/EN, both reading views, dialog accessibility, focus/scroll
+restoration, close/Escape, late responses and network-failure retry.

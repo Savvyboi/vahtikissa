@@ -28,6 +28,7 @@ jobs:
       - run: npm run validate:networks
       - run: node scripts/check-audit-regressions.mjs
       - run: npm run test:network-browser
+      - run: node scripts/check-relationship-mobile.mjs
       - run: npm run test:performance
       - run: npm run test:release
       - run: npm run test:improvements
@@ -42,5 +43,9 @@ jobs:
         if: failure()
         with:
           name: audit-regression-screenshots
-          path: .hermes-tmp.audit/
+          path: |
+            .hermes-tmp.audit/*.png
+            .hermes-tmp.networks/*.png
+            .hermes-tmp.relationship-mobile/*.png
+          include-hidden-files: true
           if-no-files-found: ignore
