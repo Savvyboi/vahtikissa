@@ -12,6 +12,8 @@ export const DEPLOYMENT_FILES = Object.freeze([
   'following.css',
   'relationships-app.js',
   'relationships.css',
+  'relationship-labels.js',
+  'relationship-tables.js',
   'network-data.js',
   'network-format.js',
   'network-worker.js',

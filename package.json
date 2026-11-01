@@ -35,7 +35,7 @@
     "build:networks": "node scripts/build-network-analytics.mjs",
     "validate:networks": "node scripts/validate-network-analytics.mjs",
     "network:review": "node scripts/network-reference-review.mjs",
-    "test:networks": "node --test tests/network-*.test.mjs",
+    "test:networks": "node --test tests/network-*.test.mjs tests/relationship-ui.test.mjs",
     "test:network-browser": "node scripts/check-network-browser.mjs",
     "pretest:browser": "node scripts/build-network-analytics.mjs",
     "pretest:charts": "node scripts/build-network-analytics.mjs",

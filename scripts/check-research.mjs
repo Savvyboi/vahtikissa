@@ -59,8 +59,9 @@ export async function checkResearch(page,navigate,data,audit) {
   assert.equal(months.reduce((n,row)=>n+row.words,0),report.words);
   assert.equal(months.reduce((n,row)=>n+row.occurrences,0),report.occurrences);
   await openFilterPanels(page);
+  const sharedRoute=await page.locator('[data-research-link]').getAttribute('href');
   await page.locator('[data-research-link]').click();
-  await page.waitForFunction(()=>document.querySelector('[data-filter]')?.getAttribute('aria-busy')==='false'&&document.querySelector('[data-research-summary] h2'));
+  await page.waitForFunction(route=>document.querySelector('main')?.dataset.route===route&&document.querySelector('[data-filter]')?.getAttribute('aria-busy')==='false'&&document.querySelector('[data-research-summary] h2'),sharedRoute);
   assert.equal(await page.locator('[data-speech-count]').innerText(),matches.length.toLocaleString('fi-FI')+' puheenvuoroa');
   await openFilterPanels(page);
   await page.locator('[data-speech-exclude]').fill(firstTerm.word);

@@ -20,7 +20,7 @@ try{
   await page.locator('.language-select').selectOption('en');await page.locator('main[aria-busy="false"] h1').waitFor();
   const menu=page.locator('.menu-button');if(await menu.isVisible()&&await menu.getAttribute('aria-expanded')!=='true')await menu.click();
   await page.locator('.nav [data-page="relationships"]').click();
-  const ready=()=>page.waitForFunction(()=>document.querySelector('.relationship-status')?.textContent==='Analysis ready.');
+  const ready=()=>page.waitForFunction(()=>/^(Analyysi valmis\.|Analysen är klar\.|Analysis ready\.)$/.test(document.querySelector('.relationship-status')?.textContent));
   async function exportJSON(){
     // Avoid Chromium's burst-download throttle when exercising every feature.
     await page.waitForTimeout(150);
@@ -39,6 +39,17 @@ try{
     console.log(`Browser: ${id}, ${exported.length} exported rows.`);
   }
   await feature.selectOption('vote-neighbours');await ready();
+  const neighbourTable=page.locator('[data-network-result] table').first();
+  const numericSort=neighbourTable.locator('[data-table-sort="2"]');
+  await numericSort.focus();await page.keyboard.press('Enter');
+  assert.equal(await numericSort.evaluate(el=>el===document.activeElement),true,'Sorting retains keyboard focus');
+  assert.equal(await numericSort.locator('..').getAttribute('aria-sort'),'ascending');
+  const ascending=await exportJSON();
+  assert.deepEqual(ascending.map(r=>r.agreement),[...ascending.map(r=>r.agreement)].sort((a,b)=>a==null?1:b==null?-1:a-b),'Exports use numeric ascending order');
+  await numericSort.click();
+  const descending=await exportJSON();
+  assert.deepEqual(descending.map(r=>r.agreement),[...descending.map(r=>r.agreement)].sort((a,b)=>a==null?1:b==null?-1:b-a),'Exports use numeric descending order');
+  assert.ok(Object.keys(JSON.parse(descending[0].filters).tableSort).length,'Exports include column sorting settings');
   await page.locator('[name="period"]').selectOption('year-2026');await ready();
   await feature.selectOption('network-explorer');await ready();
   const graphExport=await exportJSON();assert.equal(JSON.parse(graphExport[0].filters).scope,'all','Graph exports use the actual full-window scope');
@@ -57,6 +68,14 @@ try{
   assert.match(await page.locator('[data-network-evidence]').innerText(),/All common eligible ballots/);
   await page.locator('[data-vote-file]').first().click();await page.locator('[data-network-evidence] blockquote, [data-network-evidence] h4').first().waitFor();
   await feature.selectOption('keyword-comparisons');await ready();
+  const speechTable=page.locator('[data-speech-results] table');
+  await speechTable.locator('[data-table-sort="2"]').click();
+  const speechRows=await exportJSON();
+  assert.ok(speechRows.length>300,'Speech fixture exercises sorting beyond the initial display limit');
+  assert.deepEqual(speechRows.map(r=>r.occurrences),[...speechRows.map(r=>r.occurrences)].sort((a,b)=>a-b),'Sort the full collection before showing the first 300 rows');
+  const displayedMentions=await speechTable.locator('tbody tr td:nth-child(3)').allTextContents();
+  assert.deepEqual(displayedMentions.map(Number),speechRows.slice(0,300).map(r=>r.occurrences),'Displayed rows match the complete sorted export');
+  assert.equal(await speechTable.locator('tbody tr').filter({has:page.locator('td:nth-child(3)',{hasText:/^0$/})}).locator('[data-point]').count(),0,'Rows without matching source speeches do not offer a failing evidence action');
   await page.locator('.relationship-table [data-point]').first().click();await page.locator('[data-point-all]').waitFor();await page.locator('[data-point-all]').click();await page.locator('[data-network-evidence] table').waitFor();
   const speech=page.locator('[data-network-evidence] [data-speech]').first();if(await speech.count()){await speech.click();await page.locator('[data-network-evidence] blockquote').waitFor();}
   await page.locator('details:has([data-custom-speech]) > summary').click();
@@ -77,7 +96,7 @@ try{
   await page.locator('[data-committee-dates] [name="from"]').fill('2025-01-01');await page.locator('[data-committee-dates] button').click();await ready();
   const committeeExport=await exportJSON();assert.equal(JSON.parse(committeeExport[0].filters).from,'2025-01-01');
   await page.locator('[data-committee-pair]').first().click();await page.locator('[data-network-evidence] pre').waitFor();assert.match(await page.locator('[data-network-evidence]').innerText(),/membershipRecords/);
-  await feature.selectOption('lobbying-network');await ready();await page.locator('[data-declaration]').first().click();await page.locator('[data-network-evidence] pre').waitFor();assert.match(await page.locator('[data-network-evidence]').innerText(),/Original declaration rows/);
+  await feature.selectOption('lobbying-network');await ready();await page.locator('[data-lobby-table] [data-table-sort="1"]').click();await page.locator('[data-declaration]').first().click();await page.locator('[data-network-evidence] pre').waitFor();assert.match(await page.locator('[data-network-evidence]').innerText(),/Original declaration rows/);
   const lobbyingExport=await exportJSON();assert.ok(JSON.parse(lobbyingExport[0].filters).organisationId);
   await feature.selectOption('committee-overlap');await ready();
   await page.addScriptTag({path:require.resolve('axe-core/axe.min.js')});
@@ -94,10 +113,44 @@ try{
     for(const id of manifest.config.features){await feature.selectOption(id);await ready();const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth);assert.equal(overflow,false,`${id}: no horizontal page overflow at ${width}`);}
   }
   await page.screenshot({path:fileURLToPath(new URL('../.hermes-tmp.networks/relationships-mobile.png',import.meta.url)),fullPage:false});
-  for(const lang of ['fi','sv','en']){await page.locator('.language-select').selectOption(lang);await page.locator('main[aria-busy="false"] h1').waitFor();assert.equal(await feature.count(),1);}
+  for(const lang of ['fi','sv','en']){
+    await page.locator('.language-select').selectOption(lang);await page.locator('main[aria-busy="false"] h1').waitFor();assert.equal(await feature.count(),1);
+    for(const id of manifest.config.features){
+      await feature.selectOption(id);await page.waitForFunction(()=>/Analyysi valmis\.|Analysen är klar\.|Analysis ready\./.test(document.querySelector('.relationship-status')?.textContent));
+      const headers=await page.locator('[data-network-result] th').allTextContents();
+      if(lang!=='en')assert.equal(headers.some(text=>/Yes\/no|Contested|Matter %|Session %|Shared body-days|Recorded party baseline|Candidate passage|Per 10,000|Share of MP|Evidence/.test(text)),false,lang+' '+id+' translates table headings');
+      assert.ok(await page.locator('[data-network-result] [data-table-sort]').count(),lang+' '+id+' has sortable columns');
+    }
+  }
+  await page.goto(`${url}/?view=full#/members/${manifest.members[0].id}`);await page.locator('[data-pagination="memberVotes"]').waitFor();
+  for(const width of [320,390,1440]){
+    await page.setViewportSize({width,height:950});
+    for(const theme of ['light','dark','contrast']){
+      await page.locator('.theme-select').selectOption(theme);
+      const numbers=page.locator('.pagination button[data-page]').filter({hasText:/^\d+$/});
+      const unreadable=await numbers.evaluateAll(buttons=>{
+        const luminance=rgb=>{const c=rgb.match(/[\d.]+/g).slice(0,3).map(x=>Number(x)/255).map(x=>x<=.04045?x/12.92:((x+.055)/1.055)**2.4);return .2126*c[0]+.7152*c[1]+.0722*c[2];};
+        return buttons.flatMap(button=>{const s=getComputedStyle(button),a=luminance(s.color),b=luminance(s.backgroundColor),ratio=(Math.max(a,b)+.05)/(Math.min(a,b)+.05);return ratio<4.5||s.fontSize==='0px'||s.visibility==='hidden'||s.opacity==='0'?[button.textContent]:[];});
+      });
+      assert.deepEqual(unreadable,[],`${width} ${theme}: numbered pagination buttons are readable`);
+    }
+  }
+  const next=page.locator('[data-pagination="memberVotes"]').getByRole('button',{name:'Page 2',exact:true});
+  const firstVote=await page.locator('[data-member-votes] .row-link').first().getAttribute('href');
+  await next.click();assert.equal(await page.locator('[data-pagination="memberVotes"] [aria-current]').innerText(),'2');
+  assert.notEqual(await page.locator('[data-member-votes] .row-link').first().getAttribute('href'),firstVote,'Number buttons switch the actual MP vote page');
+  await page.locator('.theme-select').selectOption('light');await page.locator('.language-select').selectOption('fi');
+  await page.goto(`${url}/?view=full#/votes`);await page.locator('[data-list] .vote-reference').first().waitFor();
+  assert.match(await page.locator('[data-list]').innerText(),/Äänestys \d{4}-\d+-\d+/,'Vote lists distinguish roll calls');
+  assert.ok(await page.locator('[data-list] .vote-question').count(),'Vote alternatives are visible on the list');
+  const committee=page.locator('.committee-tag').first();await committee.locator('summary').click();assert.equal(await committee.getAttribute('open'),'','Committee acronyms expand on tap');
   await page.goto(`${url}/?view=simple#/relationships?feature=party-heatmap`);await ready();assert.ok(await page.locator('.relationship-table').count());
   assert.deepEqual(errors,[],'No runtime errors');
   const metrics=await page.evaluate(()=>({bytes:performance.getEntriesByType('resource').filter(r=>r.name.includes('/networks/')).reduce((n,r)=>n+r.decodedBodySize,0)}));
   console.log(`Relationships browser checks passed; initial simple heatmap data ${(metrics.bytes/1e6).toFixed(2)} MB.`);
+  await page.setViewportSize({width:1440,height:1000});
+  await page.goto(`${url}/?view=full#/relationships`);await ready();
+  await page.locator('[data-network-result] [data-table-sort="2"]').first().click();
+  await page.screenshot({path:fileURLToPath(new URL('../.hermes-tmp.networks/relationships-sorted-fi.png',import.meta.url)),fullPage:false});
   await context.close();
 }finally{await browser?.close();server?.kill();}
