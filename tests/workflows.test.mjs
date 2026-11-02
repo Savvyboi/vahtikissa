@@ -18,7 +18,9 @@ test('scheduled writers serialize and deployments read the current main branch',
     assert.match(workflow,/fetch-depth: 0/);
     assert.match(workflow,/timeout-minutes: 90/);
     assert.match(workflow,/paths: \[[^\n]*'scripts\/http-retry\.mjs'/);
+    assert.ok(workflow.indexOf('run: npm ci --ignore-scripts') >= 0 && workflow.indexOf('run: npm ci --ignore-scripts') < workflow.indexOf('run: npm test'), 'Fresh scheduled runners install the test dependencies before running tests');
   }
+  assert.match(civic,/paths: \[[^\n]*'civic-utils\.js'/, 'Gift-parser changes trigger the civic refresh');
   assert.match(civic,/--only=budget --all/);
   assert.match(civic,/--only=elections/);
   assert.match(civic,/--only=influence/);

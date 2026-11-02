@@ -27,13 +27,19 @@ export function numberValue(value) {
 export function parseGiftDisclosure(text = '') {
   const value = String(text);
   const captured = pattern => value.match(pattern)?.[1]?.trim() || '';
-  const amountText = captured(/(?:,|^)\s*([\d\s]+,\d{2})\s*euroa/i);
+  // Descriptions can themselves quote euro amounts or "Käyttöaika:". The
+  // Parliament formatter appends the actual value and use period last.
+  const useStart = value.lastIndexOf('Käyttöaika:');
+  const descriptionStart = value.indexOf('Kuvaus:');
+  const body = descriptionStart < 0 ? '' : value.slice(descriptionStart + 'Kuvaus:'.length, useStart < 0 ? undefined : useStart).trim();
+  const amount = /,\s*([\d\s]+,\d{2})\s*euroa\.?\s*$/iu.exec(body);
+  const description = (amount ? body.slice(0, amount.index) : body.replace(/,?\s*\.\s*$/u, '')).trim();
   return {
     reported: captured(/Ilmoitettu:\s*(\d{1,2}\.\d{1,2}\.\d{4})/i),
-    donor: captured(/Antaja:\s*(.*?)\.\s*Kuvaus:/i),
-    description: captured(/Kuvaus:\s*(.*?)(?:,\s*[\d\s]+,\d{2}\s*euroa|\.\s*Käyttöaika:)/i),
-    amount: amountText ? numberValue(amountText) : null,
-    used: captured(/Käyttöaika:\s*(.*?)(?:\.\s*Luovutettu|\.\s*$)/i),
+    donor: captured(/Antaja:\s*(.*?)\.\s*Kuvaus:/is),
+    description,
+    amount: amount ? numberValue(amount[1]) : null,
+    used: useStart < 0 ? '' : value.slice(useStart + 'Käyttöaika:'.length).split(/\.\s*Luovutettu/iu)[0].trim().replace(/\.$/u, ''),
     raw: value.trim()
   };
 }

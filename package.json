@@ -44,7 +44,8 @@
     "build:transparency": "node scripts/build-transparency-graph.mjs",
     "test:transparency": "node --test tests/transparency-*.test.mjs",
     "test:transparency-browser": "node scripts/check-transparency-browser.mjs",
-    "validate:transparency": "node scripts/validate-transparency.mjs"
+    "validate:transparency": "node scripts/validate-transparency.mjs",
+    "audit:transparency-sources": "node scripts/audit-transparency-sources.mjs"
   },
   "devDependencies": {
     "axe-core": "^4.13.0",

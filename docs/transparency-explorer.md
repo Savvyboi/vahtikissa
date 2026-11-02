@@ -41,12 +41,22 @@ npm run build:transparency
 npm run test:transparency
 npm run validate:transparency
 npm run test:transparency-browser
+npm run audit:transparency-sources -- --fetch --all
 ```
 
 The existing `npm run build:networks` and `npm run build:data` also generate this
 dataset. Generated files remain under the existing ignored `data/networks/`
 directory. CI installs the pinned dependencies and tests the explorer in a
 dedicated browser check. Deployment verification covers its renderer and graph index.
+
+The optional source audit downloads official member responses and closed lobbying
+periods into `.hermes-tmp.transparency-review/`. Without `--all`, it downloads eight
+representative MPs and the latest closed period; without `--fetch`, it rechecks
+the saved responses. It compares actual source fields, exact target IDs, original
+gift text, amounts, declaration/use dates, membership intervals, snapshot parties
+and source coverage. It is separate from schema/hash validation and does not
+authenticate the truth of a declarant's claims. See
+[`transparency-review-2026-11-02.md`](transparency-review-2026-11-02.md) for the release audit.
 
 ## Static data and reproducibility
 
@@ -84,12 +94,20 @@ still describe the full graph. All matching records remain available below the m
   role-first text. Ambiguous narratives, aggregate assets/debts and income
   disclosures are omitted. The coverage panel reports omissions. Automatic
   role extraction and category heuristics should be checked against the source.
+- A board flag requires explicit board, supervisory-board or executive-board
+  wording. The broader administrative category, municipal councillor status
+  and delegate roles alone do not establish a board interlock. Those parsed
+  non-board roles remain ordinary interest ties.
 - People are matched by exact, unique full name. Ambiguous names and targets
   absent from the member snapshot are omitted and counted; ministers already
   represented in the parliamentary member snapshot are included.
 - A lobbying count is a distinct disclosed topic record, not a meeting or a
   proven personal contact. Closed reporting periods are retained verbatim.
   Gifts show the disclosure date and the source's period of use separately.
+  Original multiline gift text is reparsed during graph construction so old
+  snapshots with missing derived donor fields do not silently lose the tie.
+  Unknown amounts stay unknown. The final appended use-period field is kept
+  separate even when a description itself quotes that field label.
 - Committee-derived ties require an ordinary membership overlapping the source
   reporting period. Substitutes are excluded from this inference. These ties
   are labeled, dotted and can be switched off. They do not assert personal contact.
@@ -118,3 +136,11 @@ still describe the full graph. All matching records remain available below the m
 PNG, SVG and JSON exports describe the currently displayed graph. JSON includes
 snapshot ID, filters, expansion/pruning state, selected path, theme and viewport
 coordinates. Layout geometry has no analytical meaning.
+
+The default route stays `#/relationships`. Non-default preset, layout, metric,
+filters and ego choices are serialized into the URL; expansion/pruning and
+viewport details are in JSON exports. Evidence includes declared recipient IDs,
+names, consultant clients and organisation matching provenance. Lobbying links
+use the official `/diary-number/` endpoint. Mobile cards remain the default;
+optional tables and the party matrix keep their column headings and scroll
+within a focusable region.

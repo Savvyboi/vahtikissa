@@ -142,6 +142,7 @@ try{
       // Measure contrast after the new theme has been painted, in every browser.
       await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
       const numbers=page.locator('.pagination button[data-page]').filter({hasText:/^\d+$/});
+      assert.equal(await numbers.first().evaluate(button=>getComputedStyle(button).transitionDuration),'0s','Reduced motion must disable transitions, including on otherwise unanimated controls');
       const unreadable=await numbers.evaluateAll(buttons=>{
         const luminance=rgb=>{const c=rgb.match(/[\d.]+/g).slice(0,3).map(x=>Number(x)/255).map(x=>x<=.04045?x/12.92:((x+.055)/1.055)**2.4);return .2126*c[0]+.7152*c[1]+.0722*c[2];};
         return buttons.flatMap(button=>{const s=getComputedStyle(button),a=luminance(s.color),b=luminance(s.backgroundColor),ratio=(Math.max(a,b)+.05)/(Math.min(a,b)+.05);return ratio<4.5||s.fontSize==='0px'||s.visibility==='hidden'||s.opacity==='0'?[{text:button.textContent,color:s.color,background:s.backgroundColor,ratio}]:[];});

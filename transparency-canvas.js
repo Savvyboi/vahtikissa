@@ -22,7 +22,7 @@ export function createTransparencyCanvas(container, { onInspect, onExpand, lang 
   const cy = cytoscape({ container: host, elements: [], layout: { name: 'preset' }, minZoom: 0.04, maxZoom: 4, pixelRatio: Math.min(devicePixelRatio, 2), selectionType: 'single', boxSelectionEnabled: false });
   function style() {
     const maximum = Math.max(1e-12, ...current.nodes.map(node => node[metric] || 0));
-    const labeled = new Set(['mp', 'org', 'bill', 'committee'].flatMap(type => current.nodes.filter(node => node.type === type).sort((a, b) => (b[metric] || 0) - (a[metric] || 0)).slice(0, type === 'bill' || type === 'committee' || current.nodes.length <= 30 ? 100 : 12).map(node => node.id)));
+    const labeled = new Set(['mp', 'org', 'bill', 'committee'].flatMap(type => current.nodes.filter(node => node.type === type).sort((a, b) => (b[metric] || 0) - (a[metric] || 0)).slice(0, current.nodes.length <= 30 ? 100 : 6).map(node => node.id)));
     cy.nodes().forEach(node => node.data('label', labeled.has(node.id()) ? node.data('fullLabel') : ''));
     cy.style([
       { selector: 'node', style: { label: 'data(label)', 'font-family': 'DM Sans, sans-serif', 'font-size': 13, 'min-zoomed-font-size': 6, color: colors.ink, 'text-outline-color': colors.background, 'text-outline-width': 2, 'text-valign': 'bottom', 'text-margin-y': 7, width: node => 15 + 30 * Math.sqrt((node.data(metric) || 0) / maximum), height: node => 15 + 30 * Math.sqrt((node.data(metric) || 0) / maximum), 'background-color': colors.mp, 'border-width': 2, 'border-color': colors.mp, 'overlay-opacity': 0 } },
@@ -37,7 +37,8 @@ export function createTransparencyCanvas(container, { onInspect, onExpand, lang 
       { selector: 'edge[styleLayer="membership"]', style: { 'line-style': 'dotted', 'line-color': colors.bill } },
       { selector: 'edge[?inferredOnly]', style: { 'line-style': 'dotted', opacity: 0.8 } },
       { selector: '.dim', style: { opacity: 0.15 } },
-      { selector: '.spotlight', style: { opacity: 1, label: 'data(fullLabel)' } },
+      { selector: '.spotlight', style: { opacity: 1 } },
+      { selector: 'node.focused', style: { label: 'data(fullLabel)' } },
       { selector: 'edge.path', style: { 'line-color': colors.path, 'target-arrow-color': colors.path, width: 4, opacity: 1 } },
       { selector: 'node.path', style: { 'border-color': colors.path, 'border-width': 4, opacity: 1 } },
       { selector: 'node:selected', style: { 'border-width': 5, 'border-color': colors.path, label: 'data(fullLabel)' } },
@@ -47,6 +48,7 @@ export function createTransparencyCanvas(container, { onInspect, onExpand, lang 
   }
   function draw(time = 0) {
     if (destroyed) return;
+    cancelAnimationFrame(frame); frame = 0;
     const ctx = overlay.getContext('2d'), ratio = Math.min(devicePixelRatio, 2), width = container.clientWidth, height = container.clientHeight;
     if (overlay.width !== Math.round(width * ratio) || overlay.height !== Math.round(height * ratio)) { overlay.width = Math.round(width * ratio); overlay.height = Math.round(height * ratio); }
     ctx.setTransform(ratio, 0, 0, ratio, 0, 0); ctx.clearRect(0, 0, width, height);
@@ -72,8 +74,8 @@ export function createTransparencyCanvas(container, { onInspect, onExpand, lang 
     }
   }
   function spotlight(node) {
-    cy.elements().removeClass('dim spotlight'); hovered = node?.id() || null;
-    if (node) { cy.elements().addClass('dim'); node.closedNeighborhood().removeClass('dim').addClass('spotlight'); }
+    cy.elements().removeClass('dim spotlight focused'); hovered = node?.id() || null;
+    if (node) { cy.elements().addClass('dim'); node.closedNeighborhood().removeClass('dim').addClass('spotlight'); node.addClass('focused'); }
     cancelAnimationFrame(frame); draw();
   }
   cy.on('mouseover', 'node', event => {
@@ -88,6 +90,7 @@ export function createTransparencyCanvas(container, { onInspect, onExpand, lang 
   const theme = new MutationObserver(() => { colors = readTheme(); style(); }); theme.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
   const motion = () => { cancelAnimationFrame(frame); draw(); }; reduced.addEventListener('change', motion);
   const keyboard = event => {
+    if (event.ctrlKey || event.metaKey || event.altKey) return;
     if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', '+', '=', '-', 'f', 'F'].includes(event.key)) return;
     event.preventDefault();
     const delta = { ArrowLeft: { x: 45, y: 0 }, ArrowRight: { x: -45, y: 0 }, ArrowUp: { x: 0, y: 45 }, ArrowDown: { x: 0, y: -45 } }[event.key];
@@ -99,12 +102,12 @@ export function createTransparencyCanvas(container, { onInspect, onExpand, lang 
   function layout(animate = true) {
     const positions = viewPositions(current.nodes, mode, selected, metric);
     // New bill nodes have no offline force coordinate: place them beside the MP layer.
-    current.nodes.filter(node => node.type === 'bill').forEach((node, i) => { if (mode === 'force') positions.set(node.id, { x: 600, y: i * 80 - 300 }); });
+    current.nodes.filter(node => node.type === 'bill').forEach((node, i) => { if (mode === 'force' && !Number.isFinite(node.initialX)) positions.set(node.id, { x: 600, y: i * 80 - 300 }); });
     cy.layout({ name: 'preset', positions: node => positions.get(node.id()), fit: true, padding: 55, animate: animate && !reduced.matches, animationDuration: 450 }).run();
   }
   return {
     setView(value, options = {}) {
-      spotlight(null); current = value; metric = options.metric || metric; mode = options.layout || mode;
+      cy.elements().removeClass('path'); spotlight(null); current = value; metric = options.metric || metric; mode = options.layout || mode;
       cy.batch(() => {
         const wanted = new Set([...value.nodes, ...value.edges].map(element => element.id));
         cy.elements().filter(element => !wanted.has(element.id())).remove();

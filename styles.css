@@ -122,10 +122,15 @@ main:focus{outline:none}html{scroll-padding-top:100px}.skip{z-index:100}
 html[data-theme="dark"] .pill,html[data-theme="dark"] .speech-party{background:var(--white);color:var(--ink)}
 html[data-theme="contrast"] .pill,html[data-theme="contrast"] .speech-party,html[data-theme="contrast"] .topic-tag,html[data-theme="contrast"] .status-pill,html[data-theme="contrast"] .matter-type,html[data-theme="contrast"] .legislation-timeline li,html[data-theme="contrast"] th,html[data-theme="contrast"] tbody tr:hover,html[data-theme="contrast"] .process-guide li,html[data-theme="contrast"] .process-explanation>div{background:#000;color:#fff;border-color:#fff}
 html[data-theme="contrast"] .collection-tools,html[data-theme="contrast"] .collection-actions button{background:#000;color:#fff}
-html[data-theme="dark"] .load-more button,html[data-theme="dark"] .pagination button[aria-current="page"],html[data-theme="dark"] .load-error button,html[data-theme="contrast"] .load-more button,html[data-theme="contrast"] .pagination button[aria-current="page"],html[data-theme="contrast"] .load-error button{color:#000}
+/* Resolve the foreground and background through the same inherited palette.
+   A separate theme selector for black text could precede the inherited blue
+   update during a theme/viewport change, briefly producing black on navy. */
+:root{--on-blue:#fff}
+html[data-theme="dark"],html[data-theme="contrast"]{--on-blue:#000}
+.pagination button[aria-current="page"],.load-more button,.load-error button{color:var(--on-blue)}
 .vote-filters,.legislation-controls{grid-template-columns:repeat(3,minmax(0,1fr))}.vote-filters>input,.legislation-controls>input{grid-column:1/-1}
 @media(max-width:600px){.collection-tools{padding:.8rem}.collection-order,.collection-facets,.vote-filters,.legislation-controls{grid-template-columns:1fr}.vote-filters>input,.legislation-controls>input{grid-column:auto}.collection-actions button{width:100%}.site-header{gap:.35rem;padding-inline:8px}.theme-select{max-width:6.6rem}.language-button{padding-inline:.35rem}.updated{white-space:normal}.search-results a{flex-wrap:wrap}.budget-row-head>div,.candidate-card>div{min-width:0}.candidate-card h3,.budget-row strong{overflow-wrap:anywhere}}
-@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:0s!important;transition-delay:0s!important}}
 @media(forced-colors:active){.result,.budget-track,.election-track,.meter{border:1px solid CanvasText}.party-swatch{border:1px solid CanvasText}a{color:LinkText}button,input,select{border:1px solid ButtonText}.analytics-bar{display:none}}
 
 .collection-advanced{margin-top:.75rem;border-top:1px solid var(--line)}.collection-advanced>summary,.quick-filters>summary{min-height:44px;padding:.65rem 0;font-size:.85rem;font-weight:700;cursor:pointer}.collection-advanced>.collection-order:empty{display:none}

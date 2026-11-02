@@ -3,24 +3,25 @@ import { UndirectedGraph } from 'graphology';
 import louvain from 'graphology-communities-louvain';
 import { forceSimulation, forceManyBody, forceLink, forceCenter, forceCollide, forceX, forceY } from 'd3-force';
 import { selectTransparencyView } from '../transparency-model.js';
+import { parseGiftDisclosure } from '../civic-utils.js';
 
-export const METHOD_VERSION = 'transparency-1';
+export const METHOD_VERSION = 'transparency-2';
 const clean = value => String(value ?? '').normalize('NFC').replace(/\s+/gu, ' ').trim();
 const norm = value => clean(value).toLocaleLowerCase('fi');
 const unique = values => [...new Set(values)].sort();
 const hash = value => createHash('sha256').update(value).digest('hex').slice(0, 16);
 const legal = /(?<![\p{L}\p{N}])(?:oyj?|ab|ry|rf|sr|osuuskunta|säätiö|stiftelse)(?![\p{L}\p{N}])/gu;
 export function normalizeOrgName(value) {
-  return norm(value).replace(/,\s*(?:ruotsiksi|på svenska)\s.*$/u, '').replace(/[.,:;()"'’]/gu, ' ').replace(legal, ' ').replace(/\s+/gu, ' ').trim();
+  return norm(value).replace(/,\s*(?:ruotsiksi|på svenska)\s.*$/u, '').replace(/\b(?:o\.y|r\.[yf]|s\.r)\.?(?=\s|$)/gu, suffix => suffix.replaceAll('.', '')).replace(/\u00ad/gu, '').replace(/[‐‑‒–—−]/gu, '-').replace(/\s*-\s*/gu, '-').replace(/[.,:;()"'’]/gu, ' ').replace(legal, ' ').replace(/\s+/gu, ' ').trim();
 }
 export function extractHEIds(value) {
-  return unique([...String(value).matchAll(/\bHE\s+(\d+)\s*\/\s*(\d{4})(?:\s*vp)?/gi)].map(m => `HE ${Number(m[1])}/${m[2]} vp`));
+  return unique([...String(value).matchAll(/\bHE\s*(\d+)\s*\/\s*(\d{4})\b(?:\s*vp)?/gi)].filter(m => Number(m[1]) > 0).map(m => `HE ${Number(m[1])}/${m[2]} vp`));
 }
 export function classifyOrganization(name, industry = '') {
   const text = norm(`${name} ${industry}`);
   if (/ammattiliitto|työmarkkina|työnantaja|elinkeinoelämän keskusliitto|\bsak\b|\bsttk\b|akava|teollisuusliitto|palkansaaja/u.test(text)) return 'Työmarkkinajärjestöt';
   if (/viestintä|suhdetoiminta|konsult|communications|advisory|public affairs|eurofacts|miltton|kreab|rud pedersen/u.test(text)) return 'Konsultit & Vaikuttajaviestintä';
-  if (/kaupunki|kunta\b|kuntayhtym|hyvinvointialue|ministeriö|valtion|yliopisto|y\s*leisradio|\bneova\b|\balko\b|\bveikkaus\b|\bsenaatti\b/u.test(text)) return 'Julkisyhteisöt & Valtionyhtiöt';
+  if (/kaupunki|kunta\b|kuntayhtym|hyvinvointialue|ministeriö|virasto\b|valtion|yliopisto|y\s*leisradio|\bneova\b|\balko\b|\bveikkaus\b|\bsenaatti\b/u.test(text)) return 'Julkisyhteisöt & Valtionyhtiöt';
   if (/\b(?:ry|rf|sr)\b|säätiö|stiftelse|yhdistys|järjestö|seura\b|liitto\b|förbund/u.test(text)) return 'Järjestöt & Säätiöt';
   return 'Elinkeinoelämä & Yhtiöt';
 }
@@ -36,23 +37,34 @@ export function seededRandom(seed = 2026) {
 // Long narratives, debt, aggregate assets and income never become organisations.
 export function interestOrganizations(row) {
   if (!row.declared || row.type === 'income') return [];
-  if (row.organization) return [{ name: clean(row.organization), board: /Hallinto|hallitu|hallintoneuv|board/iu.test(`${row.category} ${row.description}`), extraction: 'structured' }];
+  // The category also contains councillors, delegates and paid jobs. Only an
+  // explicitly named governing board supports the shared-board projection.
+  const boardRole = text => /(?:hallitu[\p{L}]*|hallintoneuv[\p{L}]*|johtokun[\p{L}]*|\bboard\b|\bstyrelse[\p{L}]*)/iu.test(text);
+  if (row.organization) return [{ name: clean(row.organization), board: boardRole(row.description || ''), extraction: 'structured' }];
   if (!/Hallinto|Palkatut toimet|julkisyhteisöjen virat/iu.test(row.category || '')) return [];
   const description = String(row.description || '');
   if (description.length > 500 || /erosin|jätin eroilmoitukseni|luovuin|päättyi|ei ilmoitettav/u.test(norm(description))) return [];
   const result = [];
   for (let line of description.split(/[;\n]+/u).map(s => s.replace(/^\s*[-•]\s*/u, '').trim()).filter(Boolean)) {
     if (line.length > 190) continue;
+    if (!/(?:hallitu|hallintoneuv|johtokun|valtuus|neuvottelukun|jäsen|puheenjohtaja|valtuutettu|edustaja|toimitusjohtaja|\b(?:pj|vpj|board|styrelse)\b)/iu.test(line)) continue;
     const parts = line.split(',').map(clean);
-    const roleOnly = /^(?:(?:hallituksen|hallintoneuvoston|johtokunnan|kaupunginvaltuuston|kunnanvaltuuston|valtuuston)\s+)?(?:vara)?(?:puheenjohtaja|jäsen|valtuutettu|kaupunginvaltuutettu|kunnanvaltuutettu|aluevaltuutettu)(?:\s+\d.*)?$/iu;
-    let name = (roleOnly.test(parts[0]) ? parts[1] || '' : parts[0]).split(/[:(]/u)[0].trim().replace(/\s+\d{4}(?:\s*[-–].*)?$/u, '');
-    const leading = /^(?:hallintoneuvoston|hallituksen|johtokunnan)\s+(?:vara)?(?:puheenjohtaja|jäsen)\s+(.+)$/iu.exec(name);
+    // Do not silently turn the first item of a multi-organisation narrative
+    // into a complete extracted declaration.
+    if (parts.slice(1).some(part => /\p{Lu}.+\s(?:hallitus|hallintoneuvosto|edustajisto)\b/u.test(part))) continue;
+    const roleOnly = /^(?:(?:hallituksen|hallintoneuvoston|johtokunnan|kaupunginvaltuuston|kunnanvaltuuston|valtuuston|puoluevaltuuston|kaupunginhallituksen|kunnanhallituksen|aluehallituksen|[\p{L}-]*lautakunnan|konsernijaoston)\s+)?(?:\d+\.\s*)?(?:(?:vara)?(?:puheenjohtaja|jäsen)|valtuutettu|edustaja|kaupunginvaltuutettu|kunnanvaltuutettu|aluevaltuutettu|kansanedustaja|toimitusjohtaja|lakimies|ylilääkäri|aluesyyttäjä|vpj\.?|pj\.?)(?:\s+\d.*)?$/iu;
+    // Several leading roles can share one explicitly named organisation.
+    // Never use a second role (or the occupational title itself) as its name.
+    const candidate = parts.find(part => !roleOnly.test(part)) || '';
+    const parenthetical = /^(.+?)\s*\(([^()]+)\)\s*$/u.exec(candidate);
+    let name = (parenthetical && roleOnly.test(parenthetical[1].trim()) ? parenthetical[2] : candidate).split(/[:(]/u)[0].trim().replace(/\s+\d{4}(?:\s*[-–].*)?$/u, '');
+    const leading = /^(?:(?:hallintoneuvoston|hallituksen|johtokunnan)\s+)?(?:vara)?(?:puheenjohtaja|jäsen|toimitusjohtaja)\s+(.+)$/iu.exec(name);
     if (leading) name = leading[1];
     else name = name.replace(/(?:\s+|:)(?:n\s+)?(?:hallituk\S*|hallintoneuvosto\S*|johtokun\S*|valtuuskun\S*|neuvottelukun\S*|hallitus|toimitusjohtaja|jäsen|puheenjohtaja).*$/iu, '').replace(/(?:\b(?:ry|rf|sr|oy|oyj|ab)):n$/iu, match => match.slice(0, -2));
     // Retain legal names; remove a possessive suffix only when followed by a role.
     name = name.replace(/(?:ry|rf|sr|oy|oyj|ab):n$/iu, match => match.slice(0, -2));
-    if (name.length < 3 || name.length > 110 || roleOnly.test(name) || /^(?:hallituksen|hallintoneuvoston|johtokunnan|kaupunginvaltuuston|valtuuston)$/iu.test(name) || /\d{4}|\b(?:jäsen|puheenjohtaja|omistan|lisäksi|sekä|euroa|hallitus|hallintoneuvosto)\b/iu.test(name)) continue;
-    result.push({ name, board: /Hallinto/iu.test(row.category || ''), extraction: 'automatic-role-text' });
+    if (name.length < 3 || name.length > 110 || roleOnly.test(name) || /^(?:hallituksen|hallintoneuvoston|johtokunnan|[\p{L}-]*valtuuston|[\p{L}-]*jaoston|[\p{L}-]*lautakunnan)$/iu.test(name) || /\d{4}|\b(?:(?:vara)?jäsen|(?:vara)?puheenjohtaja|kansanedustaja|toimitusjohtaja|omistan|lisäksi|sekä|euroa|hallitus|hallintoneuvosto|\p{L}*valtuutettu)\b/iu.test(name)) continue;
+    result.push({ name, board: boardRole(line), extraction: 'automatic-role-text' });
   }
   return result;
 }
@@ -137,15 +149,17 @@ export function buildTransparencyGraph({ influence, parliament, profiles = {}, c
     return node;
   };
   const add = (mp, org, row, layer, extra = {}) => {
-    if (!mp || !org) return;
+    if (!mp || !org) return false;
     const recordId = `${layer}:${row.id}`;
-    if (!records[recordId]) records[recordId] = { ...row, layer, sourceUrl: row.sourceUrl || (layer === 'lobbaus' ? influence.metadata.transparencySource : profileMap[mp.mpId]?.sourceUrl || `${influence.metadata.parliamentSource}/${mp.mpId}`) };
+    const lobbyingSource = row.diaryNumber ? `${influence.metadata.transparencySource}/diary-number/${encodeURIComponent(row.diaryNumber)}` : influence.metadata.transparencySource;
+    if (!records[recordId]) records[recordId] = { ...row, layer, sourceUrl: row.sourceUrl || (layer === 'lobbaus' ? lobbyingSource : profileMap[mp.mpId]?.sourceUrl || `${influence.metadata.parliamentSource}/${mp.mpId}`) };
     const key = `${mp.id}|${org.id}`;
     if (!edgeMap.has(key)) edgeMap.set(key, { id: `tie:${hash(key)}`, source: org.id, target: mp.id, details: [] });
     const edge = edgeMap.get(key);
-    if (edge.details.some(d => d.id === recordId && d.viaCommittee === (extra.viaCommittee || null))) return;
-    const periods = layer === 'lobbaus' ? unique([row.period.start.slice(0, 4), row.period.end.slice(0, 4)]) : [String(row.year)];
-    edge.details.push({ id: recordId, layer, periods, heIds: layer === 'lobbaus' ? extractHEIds(row.topic) : [], board: false, inferred: false, viaCommittee: null, ...extra });
+    if (edge.details.some(d => d.id === recordId && d.viaCommittee === (extra.viaCommittee || null) && d.targetId === extra.targetId)) return false;
+    const periods = layer === 'lobbaus' ? Array.from({ length: Number(row.period.end.slice(0, 4)) - Number(row.period.start.slice(0, 4)) + 1 }, (_, i) => String(Number(row.period.start.slice(0, 4)) + i)) : [String(row.year)];
+    edge.details.push({ id: recordId, layer, periods, heIds: layer === 'lobbaus' ? extractHEIds(row.topic) : [], board: false, inferred: false, viaCommittee: null, organizationIdentity: row.companyId ? 'business-id' : org.yTunnus ? 'unique-normalized-name-to-business-id' : org.identity, ...extra });
+    return true;
   };
   const coverage = { interests: (influence.interests || []).length, gifts: (influence.gifts || []).length, lobbying: (influence.lobbying || []).length, omittedInterests: 0, unresolvedTargets: 0, ambiguousTargets: 0, inferredCommitteeAssociations: 0, unclosedLobbying: 0 };
   for (const row of influence.lobbying || []) organization(row.actor, row.companyId, row.industry);
@@ -154,10 +168,16 @@ export function buildTransparencyGraph({ influence, parliament, profiles = {}, c
     if (!extracted.length) coverage.omittedInterests++;
     for (const item of extracted) add(mpMap.get(String(row.mpId)), organization(item.name, row.companyId), row, 'sidonnaisuus', { board: item.board, extraction: item.extraction });
   }
-  for (const row of influence.gifts || []) add(mpMap.get(String(row.mpId)), organization(row.donor, row.companyId), row, 'lahja');
+  for (const stored of influence.gifts || []) {
+    // Older source snapshots used a single-line parser. Re-read the preserved
+    // original instead of silently dropping multiline donors until the next sync.
+    const { raw, ...parsed } = stored.raw?.fi ? parseGiftDisclosure(stored.raw.fi) : {};
+    const row = { ...stored, ...parsed };
+    add(mpMap.get(String(row.mpId)), organization(row.donor, row.companyId), row, 'lahja');
+  }
   const targets = new Map((influence.targets || []).map(t => [String(t.id), t]));
   for (const row of influence.lobbying || []) {
-    if (!row.period?.start || !row.period?.end || row.period.end >= asOf) { coverage.unclosedLobbying++; continue; }
+    if (!row.period?.start || !row.period?.end || row.period.end < row.period.start || row.period.end >= asOf) { coverage.unclosedLobbying++; continue; }
     const org = organization(row.actor, row.companyId, row.industry);
     for (const targetId of unique((row.targetIds || []).map(String))) {
       const target = targets.get(targetId), candidates = target?.kind === 'mp' || target?.kind === 'minister' ? names.get(norm(target.fi?.name || target.sv?.name)) || [] : [];
@@ -167,7 +187,7 @@ export function buildTransparencyGraph({ influence, parliament, profiles = {}, c
         const committee = [target?.fi?.unit, target?.fi?.department, target?.fi?.organization, target?.sv?.unit].map(label => committeeNames.get(norm(label))).find(Boolean);
         if (committee) for (const mp of mpMap.values()) {
           if (mp.memberships.some(m => m.id === committee && m.from <= row.period.end && m.to >= row.period.start && !/Varajäsen/iu.test(m.role))) {
-            add(mp, org, row, 'lobbaus', { inferred: true, viaCommittee: committee, targetId, identity: 'committee-membership-overlap' }); coverage.inferredCommitteeAssociations++;
+            if (add(mp, org, row, 'lobbaus', { inferred: true, viaCommittee: committee, targetId, identity: 'committee-membership-overlap' })) coverage.inferredCommitteeAssociations++;
           }
         }
         else coverage.unresolvedTargets++;
@@ -235,7 +255,7 @@ export function buildTransparencyGraph({ influence, parliament, profiles = {}, c
   const bills = unique(edges.flatMap(edge => edge.heIds)).map(he => { const matter = matters.get(he); return { id: `bill:${he}`, type: 'bill', name: he, heId: he, title: matter?.title || '', available: !!matter, voteCount: matter?.voteIds?.length || 0, committees: (committeeIndex.matters?.[he] || []).map(c => c.id.replace(/\d+$/u, '')) }; });
   const result = {
     graph: { schemaVersion: 1, asOf, nodes, edges, bills, mpInterlocks, orgCoalitions: [...coalitions.values()].map(edge => ({ ...edge, weight: edge.sharedTopics.length })).sort((a, b) => b.weight - a.weight || a.id.localeCompare(b.id)).slice(0, 150), coverage,
-      method: { version: METHOD_VERSION, centralityScope: 'full snapshot; metrics are not recalculated when filtering', betweenness: 'exact unweighted undirected Brandes, normalized by (n-1)(n-2)', pagerank: 'weighted undirected, damping 0.85, sums to 1', community: 'weighted Louvain, resolution 1, seed 2026; descriptive clusters', force: 'offline d3-force, seed 2026, 220 ticks', weight: '3*interests + 2.5*gifts + 1.5*ln(1+lobbying)', lobbying: 'deduplicated disclosed topic records; not meetings; only closed reporting periods', identity: 'exact unique full-name matches; ambiguous names omitted; business IDs take precedence over legal-suffix-normalized names', committee: 'inferred from ordinary membership overlapping a reporting period; never evidence of personal contact', interests: 'short role text only; raw evidence retained; unresolved narratives, assets, debts and income omitted', interlocks: 'shared board organisations in a common disclosure year; no claim of simultaneous board service', eiIndex: 'MPs: unique cross-party vs same-party board peers. Organisations: cross-bloc vs same-bloc pairs of linked MPs. Zero if insufficient ties.', government: { parties: governmentParties, asOf, meaning: 'snapshot party alignment, not historical cabinet membership' }, categories: 'keyword heuristics; not an official classification', interpretation: 'Observed and inferred associations do not establish influence, improper conduct or lobbying effectiveness.' } }, records
+      method: { version: METHOD_VERSION, centralityScope: 'full snapshot; metrics are not recalculated when filtering', betweenness: 'exact unweighted undirected Brandes, normalized by (n-1)(n-2)', pagerank: 'weighted undirected, damping 0.85, sums to 1', community: 'weighted Louvain, resolution 1, seed 2026; descriptive clusters', force: 'offline d3-force, seed 2026, 220 ticks', weight: '3*interests + 2.5*gifts + 1.5*ln(1+lobbying)', lobbying: 'deduplicated disclosed topic records; not meetings; only closed reporting periods', identity: 'exact unique full-name matches; ambiguous names omitted; business IDs take precedence over legal-suffix-normalized names', committee: 'inferred from ordinary membership overlapping a reporting period; never evidence of personal contact', interests: 'short explicit role text only; raw evidence retained; unresolved narratives, assets, debts and income omitted', interlocks: 'explicit board, supervisory-board or executive-board roles only; shared organisation and disclosure year; councils and delegates alone are excluded; no claim of simultaneous board service', eiIndex: 'MPs: unique cross-party vs same-party board peers. Organisations: cross-bloc vs same-bloc pairs of linked MPs. Zero if insufficient ties.', government: { parties: governmentParties, asOf, meaning: 'snapshot party alignment, not historical cabinet membership' }, categories: 'keyword heuristics; not an official classification', interpretation: 'Observed and inferred associations do not establish influence, improper conduct or lobbying effectiveness.' } }, records
   };
   result.graph.layouts = {};
   result.graph.committees = [...committeeNodes.values()].sort((a, b) => a.name.localeCompare(b.name));

@@ -2,6 +2,7 @@ import { matchesSelection } from './collection-tools.js';
 
 const unique = values => [...new Set(values)].sort();
 export const relationLayers = ['sidonnaisuus', 'lobbaus', 'lahja'];
+const organizationIdentities = ['business-id', 'unique-normalized-name-to-business-id', 'normalized-name', 'ambiguous-name-unmerged'];
 export const edgeWeight = counts => +(3 * counts.sidonnaisuus + 2.5 * counts.lahja + 1.5 * Math.log1p(counts.lobbaus)).toFixed(2);
 export function summarizeEdge(edge, details = edge.details) {
   const counts = Object.fromEntries(relationLayers.map(layer => [layer, new Set(details.filter(detail => detail.layer === layer).map(detail => detail.id)).size]));
@@ -17,7 +18,7 @@ export function packTransparencyGraph(graph) {
     edgeIds.set(edge.id, `tie:${i}`);
     return [indices.get(edge.source), indices.get(edge.target), edge.weight, edge.details.map(detail => {
       if (!records.has(detail.id)) { records.set(detail.id, recordIndex.length); recordIndex.push([detail.id, relationLayers.indexOf(detail.layer), detail.periods, detail.heIds]); }
-      return [records.get(detail.id), (detail.board ? 1 : 0) | (detail.inferred ? 2 : 0), detail.viaCommittee || '', detail.extraction || detail.identity || '', detail.targetId || ''];
+      return [records.get(detail.id), (detail.board ? 1 : 0) | (detail.inferred ? 2 : 0), detail.viaCommittee || '', detail.extraction || detail.identity || '', detail.targetId || '', organizationIdentities.indexOf(detail.organizationIdentity)];
     })];
   });
   return { ...graph, encoding: 'multiplex-1', recordIndex, edges, mpInterlocks: graph.mpInterlocks.map(edge => ({ ...edge, sharedOrgs: edge.sharedOrgs.map(org => ({ ...org, edgeIds: org.edgeIds.map(id => edgeIds.get(id)) })) })) };
@@ -25,21 +26,24 @@ export function packTransparencyGraph(graph) {
 export function unpackTransparencyGraph(graph) {
   if (graph.encoding !== 'multiplex-1') return graph;
   const { recordIndex, encoding, ...result } = graph;
-  result.edges = graph.edges.map(([source, target, weight, details], i) => summarizeEdge({ id: `tie:${i}`, source: graph.nodes[source].id, target: graph.nodes[target].id, weight, details: details.map(([record, flags, committee, identity, targetId]) => {
+  result.edges = graph.edges.map(([source, target, weight, details], i) => summarizeEdge({ id: `tie:${i}`, source: graph.nodes[source].id, target: graph.nodes[target].id, weight, details: details.map(([record, flags, committee, identity, targetId, organizationIdentity]) => {
     const [id, layer, periods, heIds] = recordIndex[record];
-    return { id, layer: relationLayers[layer], periods, heIds, board: !!(flags & 1), inferred: !!(flags & 2), viaCommittee: committee || null, identity, targetId };
+    return { id, layer: relationLayers[layer], periods, heIds, board: !!(flags & 1), inferred: !!(flags & 2), viaCommittee: committee || null, ...(layer === 0 ? { extraction: identity } : { identity }), targetId, organizationIdentity: organizationIdentities[organizationIdentity] || '' };
   }) }));
   return result;
 }
 
 export function filterTransparencyGraph(graph, state) {
   const nodes = new Map(graph.nodes.map(node => [node.id, node])), query = (state.query || '').trim().toLocaleLowerCase('fi'), facets = state.facets || {};
+  const filterDetails = state.inferred === false || facets.year?.include?.length || facets.year?.exclude?.length;
   return graph.edges.flatMap(edge => {
     const mp = nodes.get(edge.target), org = nodes.get(edge.source);
     if (!matchesSelection(mp.party, facets.party) || !matchesSelection(mp.isGovernment ? 'government' : 'opposition', facets.bloc) || !matchesSelection(mp.committees, facets.committee) || !matchesSelection(org.category, facets.category)) return [];
-    const details = edge.details.filter(detail => (state.inferred !== false || !detail.inferred) && matchesSelection(detail.periods, facets.year));
+    const details = filterDetails ? edge.details.filter(detail => (state.inferred !== false || !detail.inferred) && matchesSelection(detail.periods, facets.year)) : edge.details;
     if (!details.length) return [];
-    const selected = summarizeEdge(edge, details);
+    // Offline summaries already describe the complete edge. Reuse them when
+    // no disclosure was removed, especially during threshold-slider input.
+    const selected = details.length === edge.details.length ? edge : summarizeEdge(edge, details);
     if (!matchesSelection([...selected.layers, ...(selected.isMultiplex ? ['multiplex'] : [])], facets.layer) || selected.weight < Number(state.minWeight || 0)) return [];
     if (query && !`${mp.name} ${org.name} ${selected.heIds.join(' ')}`.toLocaleLowerCase('fi').includes(query)) return [];
     return [selected];
@@ -62,11 +66,12 @@ export function selectTransparencyView(graph, filtered, { preset = 'backbone', e
     const ties = new Map(filtered.map(edge => [edge.id, edge]));
     eligible = graph.mpInterlocks.flatMap(edge => {
       if (!edge.isCrossBloc) return [];
-      const sharedOrgs = edge.sharedOrgs.filter(org => {
+      const sharedOrgs = edge.sharedOrgs.flatMap(org => {
         const [a, b] = org.edgeIds.map(id => ties.get(id));
-        if (!a || !b) return false;
+        if (!a || !b) return [];
         const years = a.details.filter(d => d.board).flatMap(d => d.periods);
-        return b.details.some(d => d.board && d.periods.some(year => years.includes(year) && org.periods.includes(year)));
+        const periods = unique(b.details.filter(d => d.board).flatMap(d => d.periods).filter(year => years.includes(year) && org.periods.includes(year)));
+        return periods.length ? [{ ...org, periods }] : [];
       });
       return sharedOrgs.length ? [{ ...edge, sharedOrgs, weight: sharedOrgs.length, layers: ['interlock'], periods: unique(sharedOrgs.flatMap(org => org.periods)), heIds: [], details: [], counts: { sidonnaisuus: sharedOrgs.length, lobbaus: 0, lahja: 0 } }] : [];
     }).sort((a, b) => b.weight - a.weight);
