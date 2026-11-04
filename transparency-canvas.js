@@ -9,6 +9,17 @@ function convexHull(points) {
   return [...half(sorted).slice(0, -1), ...half(sorted.reverse()).slice(0, -1)];
 }
 export function createTransparencyCanvas(container, { onInspect, onExpand, lang = 'fi' }) {
+  const tr = (fi, sv, en) => lang === 'sv' ? sv : lang === 'en' ? en : fi;
+  const controls = document.createElement('div');
+  controls.className = 'sna-gesture-controls';
+  controls.setAttribute('role', 'group');
+  controls.setAttribute('aria-label', tr('Kartan ohjaimet', 'Kartkontroller', 'Map controls'));
+  controls.innerHTML = `<button type="button" data-sna-gestures aria-pressed="false">${tr('Siirrä karttaa', 'Flytta kartan', 'Pan map')}</button>
+    <button type="button" data-sna-zoom="out" aria-label="${tr('Loitonna', 'Zooma ut', 'Zoom out')}">−</button>
+    <button type="button" data-sna-zoom="in" aria-label="${tr('Lähennä', 'Zooma in', 'Zoom in')}">+</button>`;
+  container.before(controls);
+  const gestureButton = controls.querySelector('[data-sna-gestures]');
+  const stage = container.closest('[data-sna-stage]');
   const host = document.createElement('div'); host.className = 'sna-cytoscape'; container.append(host);
   const overlay = document.createElement('canvas'); overlay.className = 'sna-overlay'; overlay.setAttribute('aria-hidden', 'true'); container.append(overlay);
   const tip = document.createElement('div'); tip.className = 'sna-tooltip'; tip.hidden = true; container.append(tip);
@@ -19,7 +30,46 @@ export function createTransparencyCanvas(container, { onInspect, onExpand, lang 
     return { background: value('--sna-canvas'), ink: value('--ink'), muted: value('--muted'), mp: value('--sna-mp'), org: value('--sna-org'), bill: value('--sna-bill'), interest: value('--sna-interest'), lobby: value('--sna-lobby'), gift: value('--sna-gift'), path: value('--sna-path') };
   };
   let colors = readTheme();
-  const cy = cytoscape({ container: host, elements: [], layout: { name: 'preset' }, minZoom: 0.04, maxZoom: 4, pixelRatio: Math.min(devicePixelRatio, 2), selectionType: 'single', boxSelectionEnabled: false });
+  const cy = cytoscape({ container: host, elements: [], layout: { name: 'preset' }, minZoom: 0.04, maxZoom: 4, pixelRatio: Math.min(devicePixelRatio, 2), selectionType: 'single', boxSelectionEnabled: false, userPanningEnabled: false, userZoomingEnabled: false, autoungrabify: true });
+  const setGestures = enabled => {
+    gestureButton.setAttribute('aria-pressed', String(enabled));
+    host.classList.toggle('sna-gestures-active', enabled);
+    cy.userPanningEnabled(enabled);
+    cy.userZoomingEnabled(enabled);
+    cy.autoungrabify(!enabled);
+  };
+  gestureButton.onclick = () => setGestures(gestureButton.getAttribute('aria-pressed') === 'false');
+  // Cytoscape can cancel a swipe starting on a node even with panning disabled.
+  // Leave touch gestures to the browser in scroll mode. A tap still produces a click.
+  host.addEventListener('touchstart', event => {
+    if (!cy.userPanningEnabled()) event.stopImmediatePropagation();
+  }, { capture: true, passive: true });
+  const zoom = (factor, renderedPosition = { x: container.clientWidth / 2, y: container.clientHeight / 2 }) => cy.zoom({
+    level: Math.max(cy.minZoom(), Math.min(cy.maxZoom(), cy.zoom() * factor)),
+    renderedPosition
+  });
+  const wheel = event => {
+    // Use the same zoom controls for wheel input without Cytoscape's page-scroll cooldown.
+    event.stopPropagation();
+    if (!cy.userZoomingEnabled() || event.ctrlKey || event.metaKey || event.altKey) return;
+    const { deltaMode, deltaY } = event;
+    if (!deltaY) return;
+    event.preventDefault();
+    const unit = deltaMode === WheelEvent.DOM_DELTA_LINE ? 16
+      : deltaMode === WheelEvent.DOM_DELTA_PAGE ? container.clientHeight : 1;
+    const pixels = Math.max(-200, Math.min(200, deltaY * unit));
+    const box = container.getBoundingClientRect();
+    zoom(Math.exp(-pixels * 0.002), { x: event.clientX - box.left, y: event.clientY - box.top });
+  };
+  container.addEventListener('wheel', wheel, { capture: true, passive: false });
+  controls.querySelector('[data-sna-zoom="out"]').onclick = () => zoom(0.8);
+  controls.querySelector('[data-sna-zoom="in"]').onclick = () => zoom(1.25);
+  const fit = () => { cy.resize(); cy.fit(undefined, 55); draw(); };
+  const fullscreenChanged = () => {
+    if (document.fullscreenElement !== stage) setGestures(false);
+    fit();
+  };
+  stage?.addEventListener('fullscreenchange', fullscreenChanged);
   function style() {
     const maximum = Math.max(1e-12, ...current.nodes.map(node => node[metric] || 0));
     const labeled = new Set(['mp', 'org', 'bill', 'committee'].flatMap(type => current.nodes.filter(node => node.type === type).sort((a, b) => (b[metric] || 0) - (a[metric] || 0)).slice(0, current.nodes.length <= 30 ? 100 : 6).map(node => node.id)));
@@ -95,18 +145,28 @@ export function createTransparencyCanvas(container, { onInspect, onExpand, lang 
     event.preventDefault();
     const delta = { ArrowLeft: { x: 45, y: 0 }, ArrowRight: { x: -45, y: 0 }, ArrowUp: { x: 0, y: 45 }, ArrowDown: { x: 0, y: -45 } }[event.key];
     if (delta) cy.panBy(delta);
-    else if (event.key.toLowerCase() === 'f') cy.fit(undefined, 55);
-    else cy.zoom({ level: Math.max(cy.minZoom(), Math.min(cy.maxZoom(), cy.zoom() * (event.key === '-' ? 0.8 : 1.25))), renderedPosition: { x: container.clientWidth / 2, y: container.clientHeight / 2 } });
+    else if (event.key.toLowerCase() === 'f') fit();
+    else zoom(event.key === '-' ? 0.8 : 1.25);
+  };
+  const releaseGestures = event => {
+    if (event.key === 'Escape' && gestureButton.getAttribute('aria-pressed') === 'true') {
+      setGestures(false);
+      if (!document.fullscreenElement) gestureButton.focus({ preventScroll: true });
+    }
   };
   container.addEventListener('keydown', keyboard);
+  container.addEventListener('keydown', releaseGestures);
+  controls.addEventListener('keydown', releaseGestures);
   function layout(animate = true) {
-    const positions = viewPositions(current.nodes, mode, selected, metric);
+    const positions = viewPositions(current.nodes, mode, selected, metric, current.focus);
     // New bill nodes have no offline force coordinate: place them beside the MP layer.
     current.nodes.filter(node => node.type === 'bill').forEach((node, i) => { if (mode === 'force' && !Number.isFinite(node.initialX)) positions.set(node.id, { x: 600, y: i * 80 - 300 }); });
     cy.layout({ name: 'preset', positions: node => positions.get(node.id()), fit: true, padding: 55, animate: animate && !reduced.matches, animationDuration: 450 }).run();
   }
   return {
     setView(value, options = {}) {
+      controls.hidden = !value.edges.length;
+      if (controls.hidden) setGestures(false);
       cy.elements().removeClass('path'); spotlight(null); current = value; metric = options.metric || metric; mode = options.layout || mode;
       cy.batch(() => {
         const wanted = new Set([...value.nodes, ...value.edges].map(element => element.id));
@@ -126,7 +186,7 @@ export function createTransparencyCanvas(container, { onInspect, onExpand, lang 
     setHull(value) { hull = value; draw(); },
     select(id) { selected = id; cy.elements().unselect(); cy.getElementById(id).select(); },
     highlightPath(path) { cy.elements().removeClass('path dim'); if (path) { cy.elements().addClass('dim'); [...path.nodes, ...path.edges].forEach(id => cy.getElementById(id).removeClass('dim').addClass('path')); } },
-    fit() { cy.resize(); cy.fit(undefined, 55); draw(); },
+    fit,
     positions() { return Object.fromEntries(cy.nodes().map(node => [node.id(), { ...node.position(), rendered: node.renderedPosition() }])); },
     viewport() { return { zoom: cy.zoom(), pan: { ...cy.pan() } }; },
     async png() {
@@ -166,6 +226,13 @@ export function createTransparencyCanvas(container, { onInspect, onExpand, lang 
       }).join('');
       return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img"><title>${lang === 'fi' ? 'Vahtikissan verkostokartta' : 'Vahtikissa network map'}</title><metadata>${e(JSON.stringify(metadata))}</metadata><rect width="100%" height="100%" fill="${e(colors.background)}"/>${hullSVG}${edgeSVG}${nodeSVG}</svg>`;
     },
-    destroy() { destroyed = true; cancelAnimationFrame(frame); resize.disconnect(); theme.disconnect(); reduced.removeEventListener('change', motion); container.removeEventListener('keydown', keyboard); cy.destroy(); overlay.remove(); tip.remove(); host.remove(); }
+    destroy() {
+      destroyed = true; cancelAnimationFrame(frame); resize.disconnect(); theme.disconnect(); reduced.removeEventListener('change', motion);
+      container.removeEventListener('keydown', keyboard);
+      container.removeEventListener('keydown', releaseGestures);
+      container.removeEventListener('wheel', wheel, true);
+      stage?.removeEventListener('fullscreenchange', fullscreenChanged);
+      cy.destroy(); controls.remove(); overlay.remove(); tip.remove(); host.remove();
+    }
   };
 }

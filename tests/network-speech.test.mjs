@@ -54,6 +54,25 @@ test('topic profiles normalize within-MP attention and retain matters and extern
   assert.equal(profiles[0].matters[0].withinMpShare, 0.5);
 });
 
+test('topic profiles distinguish detailed agenda subjects and preserve exact uncategorised debates', () => {
+  const speeches = [
+    speech('a', '2026-01-01', '1', 'a', { agenda: 'Välineellistetyn maahantulon torjuminen' }),
+    speech('b', '2026-01-02', '1', 'a', { agenda: ' Välineellistetyn   maahantulon torjuminen ' }),
+    speech('c', '2026-01-03', '1', 'a', { agenda: 'Päiväjärjestys', agendaSv: 'Östgränsens övergångsställen' }),
+    speech('d', '2026-01-04', '1', 'a', { agenda: 'Istunnon avaaminen' }),
+    speech('e', '2026-01-05', '2', 'b', { agenda: 'Turvapaikkamenettely' })
+  ];
+  const [profile] = buildTopicProfiles(speeches);
+  assert.equal(profile.unclassifiedSpeeches, 1);
+  const migration = profile.detailedTopics.find(row => row.topic === 'migration');
+  assert.equal(migration.withinMpShare, 0.5);
+  assert.equal(migration.topicParticipationShare, 2 / 3);
+  assert.ok(profile.detailedTopics.some(row => row.topic === 'border-security'));
+  assert.deepEqual(profile.agendas[0].evidence.map(row => row.id), ['a', 'b']);
+  assert.ok(profile.agendas.some(row => row.title === 'Istunnon avaaminen'));
+  assert.ok(!profile.detailedTopics.some(row => row.topic === 'other'));
+});
+
 test('emerging phrases separate repetition from breadth and handle zero baseline and missing windows', () => {
   const speeches = [], texts = {};
   for (let index = 0; index < 3; index++) { const id = `s${index}`; speeches.push(speech(id, '2024-04-05', String(index), index ? 'b' : 'a')); texts[id] = 'metsäkato metsäkato vihreä siirtymä'; }

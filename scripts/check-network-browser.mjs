@@ -20,7 +20,7 @@ try{
   await page.locator('.language-select').selectOption('en');await page.locator('main[aria-busy="false"] h1').waitFor();
   const menu=page.locator('.menu-button');if(await menu.isVisible()&&await menu.getAttribute('aria-expanded')!=='true')await menu.click();
   await page.locator('.nav [data-page="relationships"]').click();
-  await page.locator('.sna-subnav a[href*="feature=vote-neighbours"]').click();
+  await page.locator('.relationship-subnav a[href*="feature=vote-neighbours"]').click();
   const ready=()=>page.waitForFunction(()=>/^(Analyysi valmis\.|Analysen är klar\.|Analysis ready\.)$/.test(document.querySelector('.relationship-status')?.textContent));
   const closeEvidence=async()=>{await page.locator('[data-evidence-close]').click();await page.locator('[data-network-evidence]').waitFor({state:'hidden'});};
   async function exportJSON(){
@@ -30,8 +30,15 @@ try{
   }
   await ready();
   const feature=page.locator('[name="feature"]');
+  async function selectFeature(id){
+    const menu=page.locator('.relationship-analysis-menu');
+    if(!await menu.evaluate(element=>element.open))await menu.locator('summary').click();
+    await feature.selectOption(id);
+  }
+  assert.equal(await page.locator('.relationship-subnav a').count(),2,'The two relationship views remain available after navigation');
+  assert.equal(await page.locator('.relationship-subnav [aria-current="page"]').getAttribute('href'),'#/relationships?feature=vote-neighbours','The analysis tab remains selected');
   for(const id of manifest.config.features){
-    await feature.selectOption(id);await ready();
+    await selectFeature(id);await ready();
     assert.equal(await page.locator('[data-network-result] h2').count(),1,id+' has a heading');
     assert.equal(await page.locator('[data-network-result] table').count()>0,true,id+' has table equivalence');
     const exported=await exportJSON();
@@ -40,7 +47,8 @@ try{
     if(id==='communities')assert.match(await page.locator('[data-network-result]').innerText(),/assignments are withheld/);
     console.log(`Browser: ${id}, ${exported.length} exported rows.`);
   }
-  await feature.selectOption('vote-neighbours');await ready();
+  await selectFeature('vote-neighbours');await ready();
+  await page.locator('.relationship-detail-table > summary').click();
   const neighbourTable=page.locator('[data-network-result] table').first();
   const numericSort=neighbourTable.locator('[data-table-sort="2"]');
   await numericSort.focus();await page.keyboard.press('Enter');
@@ -54,28 +62,37 @@ try{
   assert.deepEqual(await neighbourTable.locator('tbody tr td:nth-child(3)').allTextContents(),descending.slice(0,300).map(r=>r.agreement==null?'—':new Intl.NumberFormat('en-GB',{maximumFractionDigits:1}).format(r.agreement*100)+' %'),'Displayed percentages round to one decimal while exports retain source precision');
   assert.ok(Object.keys(JSON.parse(descending[0].filters).tableSort).length,'Exports include column sorting settings');
   await page.locator('[name="period"]').selectOption('year-2026');await ready();
-  await feature.selectOption('network-explorer');await ready();
-  const graphExport=await exportJSON();assert.equal(JSON.parse(graphExport[0].filters).scope,'all','Graph exports use the actual full-window scope');
-  const edge=page.locator('[data-graph-edge]').first();await page.locator('.relationship-graph').scrollIntoViewIfNeeded();
-  const edgePoint=await edge.evaluate(element=>{const box=element.querySelector('line').getBoundingClientRect();return {x:box.x+box.width/2,y:box.y+box.height/2};});await page.mouse.click(edgePoint.x,edgePoint.y);
+  await selectFeature('network-explorer');await ready();
+  const graphExport=await exportJSON();
+  const graphFilters=JSON.parse(graphExport[0].filters);
+  assert.equal(graphFilters.scope,'year-2026','Voting patterns honor the selected scope');
+  assert.ok(graphExport.every(row=>row.party!==graphFilters.partyBaseline&&row.contestedCommon>=graphFilters.minimumContestedVotes),'Default lens compares supported cross-party patterns');
+  await page.locator('.relationship-agreement-list [data-pair]').first().click();
   await page.locator('[data-ballot-list] table').waitFor();
-  assert.match(await page.locator('[data-network-evidence]').innerText(),/All stored votes/,'Graph evidence uses the full window after a narrow voting filter');
+  assert.match(await page.locator('[data-network-evidence]').innerText(),/2026/,'Voting evidence honors the selected scope');
   await closeEvidence();
-  await feature.selectOption('party-heatmap');await ready();
+  await page.locator('[data-voting-lens]').selectOption('same-party');
+  const withinParty=await exportJSON();
+  assert.equal(JSON.parse(withinParty[0].filters).lens,'same-party');
+  assert.ok(withinParty.every(row=>row.status||(row.party===graphFilters.partyBaseline&&row.contestedDifferent>0)));
+  await selectFeature('party-heatmap');await ready();
   await page.locator('.relationship-matrix [data-party-a]').first().click();await page.locator('[data-network-evidence] table').waitFor();
   assert.match(await page.locator('[data-network-evidence]').innerText(),/All contributing roll calls/);
   await closeEvidence();
-  await feature.selectOption('cross-party-profiles');await ready();
+  await selectFeature('cross-party-profiles');await ready();
   await page.locator('[data-cross-party]').first().click();await page.locator('[data-network-evidence] table').waitFor();
   assert.match(await page.locator('[data-network-evidence]').innerText(),/equal-event alignment/);
   await closeEvidence();
-  await feature.selectOption('vote-neighbours');await ready();
+  await selectFeature('vote-neighbours');await ready();
   await page.locator('[data-pair]').first().focus();await page.keyboard.press('Enter');await page.locator('[data-ballot-list] table').waitFor();
   assert.match(await page.locator('[data-network-evidence]').innerText(),/All common eligible ballots/);
   await page.locator('[data-vote-file]').first().click();await page.locator('[data-network-evidence] blockquote, [data-network-evidence] h4').first().waitFor();
   await closeEvidence();
-  await feature.selectOption('keyword-comparisons');await ready();
+  await selectFeature('keyword-comparisons');await ready();
+  assert.ok(await page.locator('[data-preset] option').count()>=30,'Keyword library includes a broad selection');
+  assert.ok(await page.locator('.relationship-keyword-rates li').count()>1,'Default view compares groups');
   const speechTable=page.locator('[data-speech-results] table');
+  await page.locator('[data-speech-results] details:has(table) > summary').click();
   await speechTable.locator('[data-table-sort="2"]').click();
   const speechRows=await exportJSON();
   assert.ok(speechRows.length>300,'Speech fixture exercises sorting beyond the initial display limit');
@@ -98,17 +115,17 @@ try{
   const retained=await exportJSON();assert.equal(JSON.parse(retained[0].filters).query,'talous','Table filtering retains the calculated custom query');
   await page.locator('[name="q"]').fill('');await page.waitForFunction(()=>new URLSearchParams(location.hash.split('?')[1]).get('q')==='');await ready();
   console.log(`Custom three-month speech calculation and export: ${Date.now()-customStarted} ms including loading, ${(months.reduce((n,m)=>n+m.bytes,0)/1e6).toFixed(2)} MB selected corpus.`);
-  await feature.selectOption('phrase-uptake');await ready();await page.locator('details:has([data-custom-speech]) > summary').click();await page.locator('[data-custom-speech] [name="query"]').fill('talous');await page.locator('[data-custom-speech] button').click();await ready();
+  await selectFeature('phrase-uptake');await ready();await page.locator('details:has([data-custom-speech]) > summary').click();await page.locator('[data-custom-speech] [name="query"]').fill('talous');await page.locator('[data-custom-speech] button').click();await ready();
   assert.match(await page.locator('[data-speech-results]').innerText(),/First observed use in the selected searched window/);
-  await feature.selectOption('committee-overlap');await ready();
+  await selectFeature('committee-overlap');await ready();
   await page.locator('[data-committee-dates] [name="from"]').fill('2025-01-01');await page.locator('[data-committee-dates] button').click();await ready();
   const committeeExport=await exportJSON();assert.equal(JSON.parse(committeeExport[0].filters).from,'2025-01-01');
   await page.locator('[data-committee-pair]').first().click();await page.locator('[data-network-evidence] pre').waitFor();assert.match(await page.locator('[data-network-evidence]').innerText(),/membershipRecords/);
   await closeEvidence();
-  await feature.selectOption('lobbying-network');await ready();await page.locator('[data-lobby-table] [data-table-sort="1"]').click();await page.locator('[data-declaration]').first().click();await page.locator('[data-network-evidence] pre').waitFor();assert.match(await page.locator('[data-network-evidence]').innerText(),/Original declaration rows/);
+  await selectFeature('lobbying-network');await ready();await page.locator('[data-lobby-table] [data-table-sort="1"]').click();await page.locator('[data-declaration]').first().click();await page.locator('[data-network-evidence] pre').waitFor();assert.match(await page.locator('[data-network-evidence]').innerText(),/Original declaration rows/);
   await closeEvidence();
   const lobbyingExport=await exportJSON();assert.ok(JSON.parse(lobbyingExport[0].filters).organisationId);
-  await feature.selectOption('committee-overlap');await ready();
+  await selectFeature('committee-overlap');await ready();
   await page.addScriptTag({path:require.resolve('axe-core/axe.min.js')});
   for(const theme of ['light','dark','contrast']){
     await page.locator('.theme-select').selectOption(theme);
@@ -120,13 +137,13 @@ try{
   await page.screenshot({path:fileURLToPath(new URL('../.hermes-tmp.networks/relationships-desktop.png',import.meta.url)),fullPage:false});
   for(const width of [320,390]){
     await page.setViewportSize({width,height:850});
-    for(const id of manifest.config.features){await feature.selectOption(id);await ready();const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth);assert.equal(overflow,false,`${id}: no horizontal page overflow at ${width}`);}
+    for(const id of manifest.config.features){await selectFeature(id);await ready();const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth);assert.equal(overflow,false,`${id}: no horizontal page overflow at ${width}`);}
   }
   await page.screenshot({path:fileURLToPath(new URL('../.hermes-tmp.networks/relationships-mobile.png',import.meta.url)),fullPage:false});
   for(const lang of ['fi','sv','en']){
     await page.locator('.language-select').selectOption(lang);await page.locator('main[aria-busy="false"] h1').waitFor();assert.equal(await feature.count(),1);
     for(const id of manifest.config.features){
-      await feature.selectOption(id);await page.waitForFunction(()=>/Analyysi valmis\.|Analysen är klar\.|Analysis ready\./.test(document.querySelector('.relationship-status')?.textContent));
+      await selectFeature(id);await page.waitForFunction(()=>/Analyysi valmis\.|Analysen är klar\.|Analysis ready\./.test(document.querySelector('.relationship-status')?.textContent));
       const headers=await page.locator('[data-network-result] th').allTextContents();
       assert.doesNotMatch(await page.locator('[data-network-result]').innerText(),/\d[.,]\d{2,}\s*%/,lang+' '+id+' displays at most one decimal place in percentages');
       if(lang!=='en')assert.equal(headers.some(text=>/Yes\/no|Contested|Matter %|Session %|Shared body-days|Recorded party baseline|Candidate passage|Per 10,000|Share of MP|Evidence/.test(text)),false,lang+' '+id+' translates table headings');
@@ -160,12 +177,33 @@ try{
   assert.ok(await page.locator('[data-list] .vote-question').count(),'Vote alternatives are visible on the list');
   const committee=page.locator('.committee-tag').first();await committee.locator('summary').click();assert.equal(await committee.getAttribute('open'),'','Committee acronyms expand on tap');
   await page.goto(`${url}/?view=simple#/relationships?feature=party-heatmap`);await ready();assert.ok(await page.locator('.relationship-table').count());
-  assert.deepEqual(errors,[],'No runtime errors');
   const metrics=await page.evaluate(()=>({bytes:performance.getEntriesByType('resource').filter(r=>r.name.includes('/networks/')).reduce((n,r)=>n+r.decodedBodySize,0)}));
-  console.log(`Relationships browser checks passed; initial simple heatmap data ${(metrics.bytes/1e6).toFixed(2)} MB.`);
   await page.setViewportSize({width:1440,height:1000});
   await page.goto(`${url}/?view=full#/relationships?feature=vote-neighbours`);await ready();
+  await page.locator('.relationship-detail-table > summary').click();
   await page.locator('[data-network-result] [data-table-sort="2"]').first().click();
   await page.screenshot({path:fileURLToPath(new URL('../.hermes-tmp.networks/relationships-sorted-fi.png',import.meta.url)),fullPage:false});
+
+  const votePayload='**/all-member-*.json';
+  await page.route(votePayload,route=>route.abort());
+  await page.reload();
+  await page.locator('.relationship-status').filter({hasText:/Analyysi ei ole saatavilla/}).waitFor();
+  assert.notEqual(await page.locator('[data-network-result]').getAttribute('aria-busy'),'true','A failed analysis clears its busy state');
+  await page.locator('[data-network-preset="party-heatmap"]').click();await ready();
+  assert.equal(new URLSearchParams(new URL(page.url()).hash.split('?')[1]).get('feature'),'party-heatmap','Quick views still work after a request fails');
+  await page.unroute(votePayload);
+
+  await page.evaluate(()=>{
+    const query=document.querySelector('[data-network-form] [name="q"]');
+    query.value='pending filter';
+    query.dispatchEvent(new Event('input',{bubbles:true}));
+    document.querySelector('.relationship-subnav a[href="#/relationships"]').click();
+  });
+  await page.locator('[data-sna-page]').waitFor();
+  await page.waitForTimeout(250); // Wait past the detached analysis form's debounce.
+  assert.equal(new URL(page.url()).hash,'#/relationships','Pending analysis input does not rewrite the map URL');
+  assert.equal(await page.locator('main').getAttribute('data-route'),'#/relationships','The rendered view and route stay synchronized');
+  assert.deepEqual(errors,[],'No runtime errors');
+  console.log(`Relationships browser checks passed; initial simple heatmap data ${(metrics.bytes/1e6).toFixed(2)} MB.`);
   await context.close();
 }finally{await browser?.close();server?.kill();}

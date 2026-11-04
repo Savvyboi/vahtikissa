@@ -25,6 +25,24 @@ try {
   await page.goto(`${url}/?view=full#/relationships`);
   await page.locator('[data-sna-canvas] canvas').first().waitFor({ timeout: 30000 });
   assert.equal(new URL(page.url()).hash, '#/relationships', 'Default navigation keeps the primary route stable');
+  assert.equal(await page.locator('.relationship-subnav a').count(), 2, 'Both relationship views stay in the local navigation');
+  assert.equal(await page.locator('.relationship-subnav [aria-current="page"]').getAttribute('href'), '#/relationships', 'The network map is the current view');
+  const focusedMp = localGraph.edges.find(edge => edge.details.some(detail => !detail.inferred)).target.split(':')[1];
+  await page.goto(`${url}/?view=full#/relationships?actors=2&mp=${focusedMp}`);
+  const actorLimit = page.locator('[data-sna-actor-limit]');
+  await page.waitForFunction(() => document.querySelector('[data-sna-actor-limit]')?.value === '2');
+  await actorLimit.fill('');
+  await actorLimit.press('Enter');
+  assert.equal(await actorLimit.inputValue(), '29', 'Clearing the custom count restores the focused default');
+  assert.equal(await actorLimit.evaluate(input => input === document.activeElement), true, 'Enter keeps keyboard focus on the actor count');
+  await page.locator('[data-sna-picker="org"] input').focus();
+  const actorParams = () => new URLSearchParams(new URL(page.url()).hash.split('?')[1]);
+  assert.equal(actorParams().get('actors'), null, 'Moving focus must not save the default as a custom count');
+  await page.locator('[data-sna-picker="mp"] [data-sna-picker-clear]').click();
+  assert.equal(await actorLimit.inputValue(), '100', 'Clearing the MP restores the overview default');
+  assert.equal(new URL(page.url()).hash, '#/relationships');
+  if (!await page.locator('.sna-map-tools').evaluate(details => details.open)) await page.locator('.sna-map-tools > summary').click();
+  await page.locator('[data-sna-canvas] canvas').first().waitFor();
   async function download(format) {
     const wait = page.waitForEvent('download'); await page.locator('[data-sna-export]').selectOption(format);
     const result = await wait; return readFile(await result.path());
@@ -123,7 +141,8 @@ try {
   await page.locator('[data-sna-prune]').click(); assert.ok((await json()).nodes.length < expanded.nodes.length);
   await page.locator('[data-sna-preset="backbone"]').click();
   await page.locator('.sna-filters > summary').click();
-  await page.locator('[data-sna-filters] [data-advanced] > summary').click();
+  assert.equal(await page.locator('[data-sna-filters] [data-advanced]').count(), 0, 'One filter disclosure opens the controls directly');
+  assert.equal(await page.locator('[data-sna-filters] [data-tool="query"]').isVisible(), true, 'Search is available after a single disclosure click');
   await page.locator('[data-facet="party"] > summary').click();
   await page.locator('[data-facet="party"] [data-selection="include"][value="kok"]').check();
   const included = await json(), map = new Map(included.nodes.map(node => [node.id, node]));

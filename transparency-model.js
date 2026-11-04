@@ -54,11 +54,30 @@ function backbone(edges, limit) {
   const ids = new Set();
   for (const edge of edges) {
     const extra = Number(!ids.has(edge.source)) + Number(!ids.has(edge.target));
-    if (ids.size + extra <= limit) { ids.add(edge.source); ids.add(edge.target); }
+    if (ids.size + extra <= limit) {
+      ids.add(edge.source); ids.add(edge.target);
+      if (ids.size === limit) break;
+    }
   }
   return ids;
 }
-export function selectTransparencyView(graph, filtered, { preset = 'backbone', expanded = new Set(), pruned = new Set(), ego = null, layout = 'force' } = {}) {
+export function transparencyFocusEdges(edges, focus) {
+  return focus.length ? edges.filter(edge => focus.every(id => edge.source === id || edge.target === id)) : edges;
+}
+
+export function defaultTransparencyActorLimit(preset, focused) {
+  return focused ? 29 : preset === 'brokers' ? 60 : 100;
+}
+
+export function selectTransparencyView(graph, filtered, { preset = 'backbone', expanded = new Set(), pruned = new Set(), ego = null, focus = [], layout = 'force', actorLimit = null } = {}) {
+  const limit = actorLimit === 'all' ? Infinity : actorLimit ?? defaultTransparencyActorLimit(preset, focus.length);
+  if (focus.length) {
+    const eligible = transparencyFocusEdges(filtered, focus);
+    const edges = limit === Infinity ? eligible : eligible.slice(0, limit - 1);
+    const visible = new Set(edges.flatMap(edge => [edge.source, edge.target]));
+    const actorCount = new Set(eligible.flatMap(edge => [edge.source, edge.target])).size;
+    return { nodes: graph.nodes.filter(node => visible.has(node.id)), edges, eligible, filteredCount: eligible.length, actorCount };
+  }
   let eligible = filtered, edges, ids;
   if (preset === 'dual') eligible = filtered.filter(edge => edge.isDualRole);
   if (preset === 'bills') eligible = filtered.filter(edge => edge.counts.lobbaus && edge.heIds.length);
@@ -77,16 +96,28 @@ export function selectTransparencyView(graph, filtered, { preset = 'backbone', e
     }).sort((a, b) => b.weight - a.weight);
   }
   const connected = new Set(eligible.flatMap(edge => [edge.source, edge.target]));
-  if (preset === 'brokers') ids = new Set(['mp', 'org'].flatMap(type => graph.nodes.filter(node => node.type === type && connected.has(node.id)).sort((a, b) => b.betweenness - a.betweenness || a.id.localeCompare(b.id)).slice(0, 30).map(node => node.id)));
-  else ids = backbone(eligible, 100);
-  if (ego && connected.has(ego)) ids = new Set([ego, ...eligible.filter(edge => edge.source === ego || edge.target === ego).slice(0, 99).map(edge => edge.source === ego ? edge.target : edge.source)]);
-  for (const id of expanded) {
+  const drawable = pruned.size ? eligible.filter(edge => !pruned.has(edge.source) && !pruned.has(edge.target)) : eligible;
+  if (limit === Infinity || actorLimit !== null && limit >= connected.size) ids = new Set(connected);
+  else if (actorLimit !== null && expanded.size) {
+    const neighbours = drawable.filter(edge => expanded.has(edge.source) || expanded.has(edge.target));
+    ids = backbone([...neighbours, ...drawable], limit);
+  } else if (preset === 'brokers') {
+    const ranked = graph.nodes.filter(node => connected.has(node.id) && !pruned.has(node.id)).sort((a, b) => b.betweenness - a.betweenness || a.id.localeCompare(b.id));
+    ids = new Set(['mp', 'org'].flatMap((type, i) => ranked.filter(node => node.type === type).slice(0, i ? Math.floor(limit / 2) : Math.ceil(limit / 2)).map(node => node.id)));
+    if (actorLimit !== null) for (const node of ranked) {
+      if (ids.size >= limit) break;
+      ids.add(node.id);
+    }
+  } else ids = backbone(actorLimit === null ? eligible : drawable, limit);
+  if (ego && connected.has(ego) && actorLimit === null) ids = new Set([ego, ...eligible.filter(edge => edge.source === ego || edge.target === ego).slice(0, limit - 1).map(edge => edge.source === ego ? edge.target : edge.source)]);
+  if (actorLimit === null) for (const id of expanded) {
     if (connected.has(id)) ids.add(id);
     for (const edge of eligible) if (edge.source === id || edge.target === id) { ids.add(edge.source); ids.add(edge.target); }
   }
   pruned.forEach(id => ids.delete(id));
-  edges = eligible.filter(edge => ids.has(edge.source) && ids.has(edge.target));
-  if (['backbone', 'brokers'].includes(preset) && !expanded.size && !ego && edges.length > 200) {
+  edges = drawable.filter(edge => ids.has(edge.source) && ids.has(edge.target));
+  if (actorLimit !== null && !edges.length && drawable.length) edges = [drawable[0]];
+  if (actorLimit === null && ['backbone', 'brokers'].includes(preset) && !expanded.size && !ego && edges.length > 200) {
     const retained = new Map();
     for (const id of ids) { const edge = edges.find(edge => edge.source === id || edge.target === id); if (edge) retained.set(edge.id, edge); }
     for (const edge of edges) { if (retained.size >= 200) break; retained.set(edge.id, edge); }
@@ -112,7 +143,7 @@ export function selectTransparencyView(graph, filtered, { preset = 'backbone', e
   }
   const used = new Set(edges.flatMap(edge => [edge.source, edge.target]));
   const nodes = [...graph.nodes, ...graph.bills, ...(graph.committees || [])].filter(node => used.has(node.id));
-  return { nodes, edges, eligible, filteredCount: eligible.length };
+  return { nodes, edges, eligible, filteredCount: eligible.length, actorCount: connected.size };
 }
 
 export function shortestTransparencyPath(nodes, edges, start, end, maxHops = 4) {
@@ -128,8 +159,25 @@ export function shortestTransparencyPath(nodes, edges, start, end, maxHops = 4) 
   return null;
 }
 
-export function viewPositions(nodes, mode, selected = null, size = 'degree') {
+export function viewPositions(nodes, mode, selected = null, size = 'degree', focus = []) {
   const positions = new Map();
+  if (focus.length && mode !== 'columns' && nodes.length) {
+    if (focus.length === 2) {
+      return new Map(focus.map((id, i) => [id, { x: i === 0 ? -130 : 130, y: 0 }]));
+    }
+    positions.set(focus[0], { x: 0, y: 0 });
+    const neighbours = nodes.filter(node => node.id !== focus[0]).sort((a, b) => (b[size] || 0) - (a[size] || 0) || a.id.localeCompare(b.id));
+    let offset = 0;
+    for (let ring = 1; offset < neighbours.length; ring++) {
+      const group = neighbours.slice(offset, offset + ring * 10);
+      group.forEach((node, i) => {
+        const angle = i * 2 * Math.PI / group.length - Math.PI / 2 + (ring - 1) * Math.PI / group.length;
+        positions.set(node.id, { x: Math.cos(angle) * ring * 190, y: Math.sin(angle) * ring * 190 });
+      });
+      offset += group.length;
+    }
+    return positions;
+  }
   if (mode === 'force') {
     const xs = nodes.map(node => node.initialX || 0), ys = nodes.map(node => node.initialY || 0);
     const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys);

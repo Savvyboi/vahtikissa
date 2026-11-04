@@ -14,7 +14,7 @@ const output = new URL('data/networks/', root);
 export const NETWORK_FEATURES = ['vote-neighbours','party-heatmap','keyword-comparisons','emerging-phrases','cross-party-profiles','committee-overlap','topic-profiles','layer-comparison','betweenness','communities','network-explorer','lobbying-network','directed-references','phrase-uptake'];
 const config = { version: 'relationships-1', minCommon: 30, contestedMinority: 0.1, graphLayer: 'voting', comparisonLayers: ['voting','committees'], features: NETWORK_FEATURES };
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
-const workerPaths=['network-worker.js','network-speech.js','network-institutions.js','speech-research.js','speech-stopwords.js','app-utils.js'];
+const workerPaths=['network-worker.js','network-speech.js','network-institutions.js','speech-research.js','speech-stopwords.js','speech-topics.js','app-utils.js'];
 const methodPaths = ['scripts/build-network-analytics.mjs','scripts/network-reference-review.mjs','network-format.js','network-voting.js','network-graph.js','network-lobbying.js',...workerPaths];
 
 export async function buildNetworkAnalytics({ force = false } = {}) {
@@ -116,7 +116,14 @@ export async function buildNetworkAnalytics({ force = false } = {}) {
   const texts=Object.assign({},...chunks.map(n=>parse(`data/speech-texts-${n}.json`)));
   const speech=buildSpeechAnalysis(parliament.speeches,texts,{members:parliament.members,coverageStart:from,coverageEnd:to});
   for(const member of parliament.members){const profile=speech.topicProfiles.find(p=>p.mpId===String(member.id))||{mpId:String(member.id),speeches:0,words:0,topics:[],matters:[]};await emit(`topics-member-${member.id}.json`,{results:profile,coverage:speech.coverage,method:speech.method});}
-  for(const feature of ['emerging','keywordComparisons','phraseUptake'])await emit(`speech-${feature.replace(/[A-Z]/g,c=>'-'+c.toLowerCase())}.json`,{results:speech[feature]??[],coverage:speech.coverage,method:speech.method});
+  for(const feature of ['emerging','phraseUptake'])await emit(`speech-${feature.replace(/[A-Z]/g,c=>'-'+c.toLowerCase())}.json`,{results:speech[feature]??[],coverage:speech.coverage,method:speech.method});
+  const keywordPresets = [];
+  for (const [index, comparison] of speech.keywordComparisons.entries()) {
+    const file = `speech-keyword-${index}.json`;
+    await emit(file, comparison);
+    keywordPresets.push({ query: comparison.query, topic: comparison.topic, file });
+  }
+  await emit('speech-keyword-comparisons.json', { results: keywordPresets, coverage: speech.coverage, method: speech.method });
   const {candidates,...referenceSummary}=speech.references;
   await emit('speech-references.json',{results:referenceSummary,coverage:speech.coverage,method:speech.references.method});
   // Complete candidates are an offline evaluation artifact, never a public person ranking.

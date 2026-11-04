@@ -65,11 +65,13 @@ export function mountCollectionTools(parent, key, state, config, lang, onChange)
   panel.setAttribute('aria-label', `${config.label || ''}: ${c.tools}`);
   const control = (label, content) => `<label class="filter-control"><span>${e(label)}</span>${content}</label>`;
   const advanced = lang === 'en' ? 'Include, exclude and refine' : lang === 'sv' ? 'Inkludera, uteslut och avgränsa' : 'Sisällytä, sulje pois ja rajaa';
-  panel.innerHTML = `${config.advancedOrder ? `<details class="collection-advanced" data-advanced ${state.open.__advanced ? 'open' : ''}><summary>${advanced}</summary>` : ''}<div class="collection-order">
+  // Embedded controls use the host's disclosure instead of repeating it.
+  const disclosure = `<details class="collection-advanced" data-advanced ${state.open.__advanced ? 'open' : ''}><summary>${advanced}</summary>`;
+  panel.innerHTML = `${!config.embedded && config.advancedOrder ? disclosure : ''}<div class="collection-order">
     ${config.search ? control(c.search, `<input type="search" data-tool="query" value="${e(state.query)}">`) : ''}
     ${control(c.sort, `<select data-tool="sort">${config.sorts.map(sort => `<option value="${e(sort.key)}" ${state.sort === sort.key ? 'selected' : ''}>${e(sort.label)}</option>`).join('')}</select>`)}
     ${control(c.direction, `<select data-tool="direction"><option value="asc" ${state.direction === 'asc' ? 'selected' : ''}>${c.asc}</option><option value="desc" ${state.direction === 'desc' ? 'selected' : ''}>${c.desc}</option></select>`)}
-  </div>${config.advancedOrder ? '' : `<details class="collection-advanced" data-advanced ${state.open.__advanced ? 'open' : ''}><summary>${advanced}</summary>`}<div class="collection-order">
+  </div>${config.embedded || config.advancedOrder ? '' : disclosure}<div class="collection-order">
     ${config.date ? control(`${config.dateLabel ? config.dateLabel + ': ' : ''}${c.from}`, `<input type="date" data-tool="from" value="${e(state.from)}">`) + control(`${config.dateLabel ? config.dateLabel + ': ' : ''}${c.to}`, `<input type="date" data-tool="to" value="${e(state.to)}">`) : ''}
     ${config.number ? control(`${config.number.label}: ${c.min}`, `<input type="number" step="any" data-tool="min" value="${e(state.min)}">`) + control(`${config.number.label}: ${c.max}`, `<input type="number" step="any" data-tool="max" value="${e(state.max)}">`) : ''}
   </div>
@@ -79,10 +81,10 @@ export function mountCollectionTools(parent, key, state, config, lang, onChange)
       <label class="facet-search"><span>${c.options}: ${e(facet.label)}</span><input type="search" data-option-search></label>
       <div class="facet-list" role="group" aria-label="${e(facet.label)}" aria-describedby="${key}-help">${facet.options.map(option => `<div class="facet-option" data-option-label="${e(String(option.label).toLocaleLowerCase(lang))}"><strong>${e(option.label)}</strong>${['include', 'exclude'].map(mode => `<label><input type="checkbox" data-selection="${mode}" value="${e(option.key)}" ${(selection[mode] || []).includes(String(option.key)) ? 'checked' : ''}><span>${c[mode]}<span class="sr-only">: ${e(option.label)} (${e(facet.label)})</span></span></label>`).join('')}</div>`).join('')}</div></details>`;
   }).join('')}</div>` : ''}
-  </details><div class="collection-actions"><p data-active-count role="status" aria-live="polite"></p><button type="button" data-tool-clear>${c.clear}</button></div>`;
+  ${config.embedded ? '' : '</details>'}<div class="collection-actions"><p data-active-count role="status" aria-live="polite"></p><button type="button" data-tool-clear>${c.clear}</button></div>`;
   parent.append(panel);
   const advancedDetails = panel.querySelector('[data-advanced]');
-  advancedDetails.addEventListener('toggle', () => { state.open.__advanced = advancedDetails.open; });
+  advancedDetails?.addEventListener('toggle', () => { state.open.__advanced = advancedDetails.open; });
   const updateCount = () => {
     panel.querySelector('[data-active-count]').textContent = `${activeFilterCount(state)} ${c.active}`;
     panel.querySelectorAll('[data-facet]').forEach(details => {

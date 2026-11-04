@@ -110,6 +110,18 @@ test('broker selection retains both bipartite node types and sparse backbones re
   const edges = nodes.filter(node => node.type === 'org').flatMap(org => nodes.filter(node => node.type === 'mp').map(mp => ({ id: `${org.id}|${mp.id}`, source: org.id, target: mp.id, weight: 1 })));
   const sample = { nodes, edges, bills: [], mpInterlocks: [] };
   const view = selectTransparencyView(sample, edges); assert.equal(view.nodes.length, 100); assert.equal(view.edges.length, 200);
+  const larger = selectTransparencyView(sample, edges, { actorLimit: 125 });
+  assert.equal(larger.nodes.length, 125);
+  assert.equal(larger.edges.length, 484);
+  assert.equal(larger.actorCount, 154);
+  for (const preset of ['backbone', 'brokers']) {
+    const all = selectTransparencyView(sample, edges, { preset, actorLimit: 'all' });
+    assert.equal(all.nodes.length, nodes.length);
+    assert.equal(all.edges.length, edges.length);
+  }
+  const limitedExpansion = selectTransparencyView(sample, edges, { actorLimit: 4, expanded: new Set(['mp:2']) });
+  assert.equal(limitedExpansion.nodes.length, 4);
+  assert.ok(limitedExpansion.nodes.some(node => node.id === 'mp:2'));
   const ego = selectTransparencyView(sample, edges, { ego: 'mp:0' }); assert.equal(ego.nodes.length, 100);
   const expanded = selectTransparencyView(sample, edges, { ego: 'mp:0', expanded: new Set(['mp:0']) }); assert.ok(expanded.nodes.length > 100);
   const columns = selectTransparencyView(graph, filtered, { layout: 'columns' }); assert.ok(columns.nodes.some(node => node.type === 'committee')); assert.ok(columns.edges.some(edge => edge.layers.includes('membership')));
@@ -120,6 +132,32 @@ test('pathfinder obeys the four-hop limit and rejects hidden or disconnected end
   assert.equal(shortestTransparencyPath(nodes, edges, '0', '5'), null);
   assert.equal(shortestTransparencyPath(nodes.slice(1), edges.slice(1), '0', '2'), null);
   assert.deepEqual(shortestTransparencyPath(nodes, edges, '0', '0').edges, []);
+});
+test('actor focus keeps only incident ties and the exact organisation–MP pair', () => {
+  const mp = { id: 'mp:1', type: 'mp' }, other = { id: 'mp:2', type: 'mp' };
+  const organisations = Array.from({ length: 32 }, (_, i) => ({ id: `org:${i}`, type: 'org', name: 'Same name' }));
+  const ties = organisations.map(({ id }, i) => ({ id: `tie:${i}`, source: id, target: mp.id, weight: 50 - i }));
+  const unrelated = { id: 'other', source: organisations[0].id, target: other.id, weight: 25 };
+  const graph = { nodes: [mp, other, ...organisations], edges: [...ties, unrelated] };
+  const neighbours = selectTransparencyView(graph, graph.edges, { focus: [mp.id] });
+  assert.equal(neighbours.eligible.length, 32);
+  assert.equal(neighbours.edges.length, 28);
+  assert.ok(neighbours.edges.every(edge => edge.target === mp.id));
+  const limited = selectTransparencyView(graph, graph.edges, { focus: [mp.id], actorLimit: 5 });
+  assert.equal(limited.nodes.length, 5);
+  assert.equal(limited.eligible.length, 32);
+  const all = selectTransparencyView(graph, graph.edges, { focus: [mp.id], actorLimit: 'all' });
+  assert.equal(all.nodes.length, 33);
+  assert.equal(all.edges.length, 32);
+  assert.deepEqual(selectTransparencyView(graph, graph.edges, { focus: [organisations[0].id] }).eligible, [ties[0], unrelated]);
+  const focus = [mp.id, organisations[0].id];
+  const pair = selectTransparencyView(graph, graph.edges, { focus, layout: 'columns' });
+  assert.deepEqual(pair.edges, [ties[0]]);
+  assert.equal(selectTransparencyView(graph, graph.edges, { focus: [other.id, organisations[1].id] }).filteredCount, 0);
+  const positions = viewPositions(pair.nodes, 'force', null, 'degree', focus);
+  assert.equal(positions.get(mp.id).y, positions.get(organisations[0].id).y);
+  assert.equal(positions.get(mp.id).x, -positions.get(organisations[0].id).x);
+  assert.deepEqual(viewPositions(neighbours.nodes, 'force', other.id, 'degree', [mp.id]).get(mp.id), { x: 0, y: 0 });
 });
 test('column and ring layouts preserve type columns, party grouping and selected ego centre', () => {
   const nodes = [{ id: 'b', type: 'mp', party: 'sd', name: 'B', degree: 2 }, { id: 'a', type: 'mp', party: 'kok', name: 'A', degree: 3 }, { id: 'o', type: 'org', name: 'O', degree: 5 }, { id: 'he', type: 'bill', name: 'HE', degree: 1 }];

@@ -1,0 +1,6 @@
+.relationship-subnav{display:flex;align-items:stretch;gap:1.5rem;border-bottom:1px solid var(--line);font-size:.85rem;margin:0 0 1.25rem}
+.relationship-subnav>a{display:flex;align-items:center;min-height:44px;padding:.5rem .1rem;color:var(--muted);text-decoration:none;border-bottom:3px solid transparent;line-height:1.35}
+.relationship-subnav>a:hover{color:var(--blue);border-bottom-color:var(--line)}
+.relationship-subnav>a[aria-current="page"]{border-bottom-color:var(--blue);color:var(--blue);font-weight:800}
+.relationship-subnav>a:focus-visible{outline:3px solid var(--blue);outline-offset:3px}
+@media(max-width:600px){.relationship-subnav{gap:.9rem;font-size:.82rem;margin-bottom:1rem}.relationship-subnav>a{min-width:0;overflow-wrap:anywhere}}

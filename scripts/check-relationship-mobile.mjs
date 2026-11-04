@@ -20,8 +20,10 @@ try{
     for(const view of ['full','simple'])for(const lang of ['fi','sv','en']){
       await page.goto(`${url}/?view=${view}#/relationships?feature=topic-profiles`);await ready();
       await page.locator('.language-select').selectOption(lang);await ready();
-      const source=page.locator('[data-network-result] [data-speech-sources]').first();
-      assert.equal(await page.locator('[data-network-result] tbody tr').first().locator('[data-speech-sources]').count(),1,'Five sources use one compact action');
+      const source=page.locator('.relationship-topic-chart [data-speech-sources]').first();
+      assert.equal(await page.locator('.relationship-topic-chart > li').first().locator('[data-speech-sources]').count(),1,'Five sources use one compact action in the visible topic chart');
+      assert.equal(await page.locator('.relationship-detail-table').evaluate(element=>element.open),false,'Advanced topic metrics stay folded initially');
+      assert.equal(await page.locator('.relationship-subnav a').count(),2,'Both relationship views remain available on mobile');
       await source.scrollIntoViewIfNeeded();
       const box=await source.boundingBox();assert.ok(box.height>=44&&box.height<=48,'A compact source button retains a touch target');
       assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'Wide relationship tables scroll within the page');
@@ -74,7 +76,7 @@ try{
     // Failed month requests are retryable from the same dialog and source selection.
     await page.goto(`${url}/?view=full#/relationships?feature=topic-profiles`);await ready();let failed=false;
     await page.route('**/speeches-*.json*',route=>{if(!failed){failed=true;route.abort();}else route.continue();});
-    await page.locator('[data-speech-sources]').first().tap();await page.locator('dialog[open] [role="alert"]').waitFor();
+    await page.locator('.relationship-topic-chart [data-speech-sources]').first().tap();await page.locator('dialog[open] [role="alert"]').waitFor();
     await page.locator('[data-evidence-retry]').tap();await page.locator('dialog[open] blockquote').waitFor();await close();
     assert.deepEqual(errors,[],'No mobile runtime errors');
     console.log(`${width}px touch: compact sources, visible transcripts, all languages/views, source selection, focus/scroll restoration, Escape, late responses and retry passed.`);

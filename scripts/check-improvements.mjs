@@ -17,6 +17,8 @@ const year=String(Math.max(...influence.gifts.map(item=>Number(item.reported.spl
 const expected=influence.gifts.filter(item=>item.reported.endsWith(year)&&item.amount!=null&&item.amount>=500).sort((a,b)=>b.amount-a.amount);
 assert.ok(expected.length,'The acceptance check needs actual gifts in the selected year');
 const member=parliament.members.find(item=>String(item.id)===String(expected[0].mpId));
+const normalizeSpace=value=>value.replace(/\s+/gu,' ').trim();
+const containsDescription=(text,description)=>normalizeSpace(text).includes(normalizeSpace(description));
 let browser;
 const report={audits:[],screenshots:[],errors:[]};
 try {
@@ -31,7 +33,7 @@ try {
     const giftCards=()=>page.locator(view==='full'?'.gift-card':'.easy-grid>.easy-card');
     const firstGift=async()=>{
       const card=giftCards().first();
-      assert.ok((await card.innerText()).includes(expected[0].description),'Largest gift is first');
+      assert.ok(containsDescription(await card.innerText(),expected[0].description),'Largest gift is first');
       assert.equal(await card.locator('a[href^="#/members/"]').first().getAttribute('href'),'#/members/'+expected[0].mpId);
     };
     const screenshot=async name=>{
@@ -61,14 +63,14 @@ try {
     assert.equal(await sharedPage.locator('[data-influence-common="period"]').inputValue(),year);
     assert.equal(await sharedPage.locator('[data-influence-order]').inputValue(),'amount:desc');
     assert.equal(await sharedPage.locator('[data-influence-min]').inputValue(),'500');
-    assert.ok((await sharedPage.locator(view==='full'?'.gift-card':'.easy-grid>.easy-card').first().innerText()).includes(expected[0].description));
+    assert.ok(containsDescription(await sharedPage.locator(view==='full'?'.gift-card':'.easy-grid>.easy-card').first().innerText(),expected[0].description));
     await recipient.close();
     await page.locator('.view-toggle').click();await ready();
     assert.equal(await page.locator('[data-influence-order]').inputValue(),'amount:desc','Switching reading mode restores gift order');
     assert.equal(await page.locator('[data-influence-min]').inputValue(),'500');
     await page.locator('.view-toggle').click();await ready();await firstGift();
     await order.selectOption('amount:asc');
-    const smallest=[...influence.gifts].filter(item=>item.reported.endsWith(year)&&item.amount!=null&&item.amount>=500).sort((a,b)=>a.amount-b.amount)[0];assert.ok((await giftCards().first().innerText()).includes(smallest.description),'Smallest eligible gift is first');
+    const smallest=[...influence.gifts].filter(item=>item.reported.endsWith(year)&&item.amount!=null&&item.amount>=500).sort((a,b)=>a.amount-b.amount)[0];assert.ok(containsDescription(await giftCards().first().innerText(),smallest.description),'Smallest eligible gift is first');
     await order.selectOption('amount:desc');
     await page.locator('[data-influence-common="query"]').fill('zzzz-no-record');
     assert.equal(await page.locator('[data-influence-common="query"]').evaluate(element=>element===document.activeElement),true,'Search retains focus');
@@ -79,7 +81,7 @@ try {
       await page.locator(`[data-facet="party"] [data-selection="include"][value="${expected[0].party}"]`).check();
       assert.ok(new URLSearchParams(new URL(page.url()).hash.split('?')[1]).has('facets'));
       await page.locator('.view-toggle').click();await ready();
-      assert.ok((await page.locator('.easy-grid>.easy-card').first().innerText()).includes(expected[0].description),'Simple view honours shared advanced filters');
+      assert.ok(containsDescription(await page.locator('.easy-grid>.easy-card').first().innerText(),expected[0].description),'Simple view honours shared advanced filters');
       await page.locator('.view-toggle').click();await ready();
       await page.locator('[data-influence-clear]').click();
       assert.equal(await page.locator('[data-influence-common="period"]').inputValue(),'all');

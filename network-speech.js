@@ -1,9 +1,23 @@
 import { normalizeSpeechSearchText, policyTopicKeys, filterSpeechesBySpeaker } from './app-utils.js';
 import { matchRanges, filterResearchSpeeches, STOPWORDS, STOPWORD_VERSION } from './speech-research.js';
+import { detailedAgendaTopics } from './speech-topics.js';
 
 export const SPEECH_NETWORK_METHOD = 'speech-network-1';
 export const REFERENCE_REVIEW_POLICY = Object.freeze({ version: 'explicit-reference-1', precisionTarget: 0.95, confidenceLevel: 0.95, minimumLabels: 100, independentHumanReviewRequired: true });
 export const DEFAULT_NETWORK_QUERIES = ['ilmasto', 'talous', 'koulutus', 'turvallisuus'];
+const KEYWORD_PRESET_GROUPS = {
+  economy: ['talous', 'verotus', 'velka', 'inflaatio', 'palkka', 'työttömyys', 'budjetti', 'arbetslöshet'],
+  environment: ['ilmasto', 'päästöt', 'luontokato', 'energia', 'ydinvoima', 'tuulivoima', 'klimat'],
+  education: ['koulutus', 'varhaiskasvatus', 'opiskelija', 'tutkimus', 'utbildning'],
+  'social-health': ['terveydenhuolto', 'mielenterveys', 'hoitojono', 'eläke', 'asumistuki', 'sjukvård'],
+  defence: ['turvallisuus', 'puolustus', 'nato', 'ukraina', 'säkerhet'],
+  justice: ['maahanmuutto', 'turvapaikka', 'poliisi', 'yhdenvertaisuus'],
+  transport: ['joukkoliikenne', 'raideliikenne', 'liikenneturvallisuus']
+};
+const KEYWORD_PRESETS = Object.entries(KEYWORD_PRESET_GROUPS).flatMap(([topic, expressions]) =>
+  expressions.map(query => ({ query, topic })));
+// Keep the initial example familiar and let the interface group the remaining terms by topic.
+KEYWORD_PRESETS.sort((a, b) => Number(b.query === 'ilmasto') - Number(a.query === 'ilmasto'));
 const textFor = (speech, texts) => String(texts[speech.id] ?? speech.text ?? '');
 const wordCount = text => normalizeSpeechSearchText(text).split(' ').filter(Boolean).length;
 const unique = values => [...new Set(values.filter(value => value !== undefined && value !== null && value !== ''))];
@@ -34,20 +48,43 @@ function coverageOf(speeches, texts) {
 /** The denominator is the selected corpus after exclusion and before the positive query.
  * Metadata-only hits remain discoverable but add no transcript mentions or prevalence. */
 export function compareKeywords(speeches, texts = {}, settings = {}) {
-  const { query = '', mode = 'contains', scope = 'text', groups = [{ id: 'all', label: 'All' }] } = settings;
+  const groups = settings.groups || [{ id: 'all', label: 'All' }];
+  return comparePreparedKeywords(prepareKeywordCorpus(speeches, texts, settings, groups), settings);
+}
+
+function prepareKeywordCorpus(speeches, texts, settings, groups) {
   const corpus = scopeCorpus(speeches, texts, settings), coverage = coverageOf(corpus, texts);
+  const prepared = new Map(corpus.map(speech => {
+    const text = textFor(speech, texts);
+    const normalized = normalizeSpeechSearchText(text);
+    return [speech, { text, normalized, words: normalized ? normalized.split(' ').length : 0 }];
+  }));
+  const selected = groups.map(group => ({ group, speeches: filterSpeechesBySpeaker(corpus, group) }));
+  return { texts, coverage, prepared, selected, groups };
+}
+
+function countContaining(text, query) {
+  if (!query) return 0;
+  let count = 0;
+  for (let index = text.indexOf(query); index !== -1; index = text.indexOf(query, index + query.length)) count++;
+  return count;
+}
+
+function comparePreparedKeywords({ texts, coverage, prepared, selected, groups }, settings) {
+  const { query = '', mode = 'contains', scope = 'text' } = settings;
+  const normalizedQuery = normalizeSpeechSearchText(query);
   const start = settings.dateFrom || coverage.start, end = settings.dateTo || coverage.end;
   const archiveEnd = settings.coverageEnd || coverage.end, archiveStart = settings.coverageStart || coverage.start;
   const monthKeys = [];
   if (start && end) for (let month = start.slice(0, 7); month <= end.slice(0, 7); month = monthShift(month, 1)) monthKeys.push(month);
-  const series = groups.map(group => {
-    const selected = filterSpeechesBySpeaker(corpus, group);
+  const series = selected.map(({ group, speeches }) => {
     const buckets = new Map(monthKeys.map(month => [month, { month, speeches: 0, words: 0, occurrences: 0, matchingSpeeches: 0, metadataOnlyMatches: 0, speakerIds: new Set(), partyIds: new Set(), speechIds: [], evidence: [] }]));
-    for (const speech of selected) {
+    for (const speech of speeches) {
       const month = String(speech.date).slice(0, 7), row = buckets.get(month);
       if (!row) continue;
-      const text = textFor(speech, texts), count = matchRanges(text, query, mode).length;
-      row.speeches++; row.words += wordCount(text); row.occurrences += count;
+      const { text, normalized, words } = prepared.get(speech);
+      const count = mode === 'contains' ? countContaining(normalized, normalizedQuery) : matchRanges(text, query, mode).length;
+      row.speeches++; row.words += words; row.occurrences += count;
       if (count) {
         row.matchingSpeeches++; row.speakerIds.add(speech.mpId || `external:${speech.firstName}:${speech.lastName}`);
         if (speech.party) row.partyIds.add(speech.party);
@@ -83,18 +120,41 @@ export function phraseUptake(speeches, texts = {}, settings = {}) {
 }
 
 export function buildTopicProfiles(speeches, texts = {}, settings = {}) {
-  const corpus = scopeCorpus(speeches, texts, settings), members = new Map(), topicTotals = new Map();
+  const corpus = scopeCorpus(speeches, texts, settings), members = new Map();
+  const topicTotals = new Map(), detailedTotals = new Map();
+  function addTopic(buckets, totals, topic, speech, text, words) {
+    totals.set(topic, (totals.get(topic) || 0) + 1);
+    const row = buckets.get(topic) || { topic, speeches: 0, words: 0, speechIds: [], evidence: [] };
+    row.speeches++;
+    row.words += words;
+    row.speechIds.push(speech.id);
+    if (row.evidence.length < 5) row.evidence.push(evidence(speech, text));
+    buckets.set(topic, row);
+  }
   for (const speech of corpus) {
     if (!speech.mpId) continue;
     const id = String(speech.mpId), text = textFor(speech, texts), words = wordCount(text);
-    const member = members.get(id) || { mpId: id, speeches: 0, words: 0, topicBuckets: new Map(), matterBuckets: new Map(), dates: [] };
+    const member = members.get(id) || {
+      mpId: id, speeches: 0, words: 0, unclassifiedSpeeches: 0,
+      topicBuckets: new Map(), detailedBuckets: new Map(), agendaBuckets: new Map(), matterBuckets: new Map(), dates: []
+    };
     member.speeches++; member.words += words; member.dates.push(isoDay(speech.date));
-    for (const topic of policyTopicKeys(speech)) {
-      topicTotals.set(topic, (topicTotals.get(topic) || 0) + 1);
-      const row = member.topicBuckets.get(topic) || { topic, speeches: 0, words: 0, speechIds: [], evidence: [] };
-      row.speeches++; row.words += words; row.speechIds.push(speech.id);
-      if (row.evidence.length < 5) row.evidence.push(evidence(speech, text));
-      member.topicBuckets.set(topic, row);
+    const broadTopics = policyTopicKeys(speech);
+    for (const topic of broadTopics) addTopic(member.topicBuckets, topicTotals, topic, speech, text, words);
+    const detailedTopics = detailedAgendaTopics(speech);
+    const assigned = detailedTopics.length ? detailedTopics : broadTopics.filter(topic => topic !== 'other');
+    for (const topic of assigned) addTopic(member.detailedBuckets, detailedTotals, topic, speech, text, words);
+    if (!assigned.length) member.unclassifiedSpeeches++;
+
+    const title = String(speech.agenda || speech.agendaSv || '').trim().replace(/\s+/gu, ' ');
+    if (title) {
+      const key = title.toLocaleLowerCase('fi');
+      const row = member.agendaBuckets.get(key) || { title, titleSv: '', speeches: 0, speechIds: [], evidence: [] };
+      row.titleSv ||= speech.agendaSv || '';
+      row.speeches++;
+      row.speechIds.push(speech.id);
+      if (row.evidence.length < 5) row.evidence.push({ id: speech.id, mpId: id, date: speech.date });
+      member.agendaBuckets.set(key, row);
     }
     for (const document of speech.documents || []) {
       if (!document.label) continue;
@@ -104,10 +164,22 @@ export function buildTopicProfiles(speeches, texts = {}, settings = {}) {
     }
     members.set(id, member);
   }
-  return [...members.values()].map(({ topicBuckets, matterBuckets, dates, ...member }) => ({ ...member,
-    start: dates.sort()[0] || null, end: dates.at(-1) || null,
-    topics: [...topicBuckets.values()].map(row => ({ ...row, withinMpShare: row.speeches / member.speeches, withinMpWordShare: member.words ? row.words / member.words : null, topicParticipationShare: row.speeches / topicTotals.get(row.topic), topicCorpusSpeeches: topicTotals.get(row.topic) })).sort((a, b) => b.withinMpShare - a.withinMpShare || a.topic.localeCompare(b.topic)),
-    matters: [...matterBuckets.values()].map(row => ({ ...row, withinMpShare: row.speeches / member.speeches })).sort((a, b) => b.speeches - a.speeches || a.matterId.localeCompare(b.matterId)) }));
+  return [...members.values()].map(({ topicBuckets, detailedBuckets, agendaBuckets, matterBuckets, dates, ...member }) => {
+    const shares = (buckets, totals) => [...buckets.values()].map(row => ({
+      ...row,
+      withinMpShare: row.speeches / member.speeches,
+      withinMpWordShare: member.words ? row.words / member.words : null,
+      topicParticipationShare: row.speeches / totals.get(row.topic),
+      topicCorpusSpeeches: totals.get(row.topic)
+    })).sort((a, b) => b.speeches - a.speeches || a.topic.localeCompare(b.topic));
+    return {
+      ...member, start: dates.sort()[0] || null, end: dates.at(-1) || null,
+      topics: shares(topicBuckets, topicTotals),
+      detailedTopics: shares(detailedBuckets, detailedTotals),
+      agendas: [...agendaBuckets.values()].sort((a, b) => b.speeches - a.speeches || a.title.localeCompare(b.title, 'fi')),
+      matters: [...matterBuckets.values()].map(row => ({ ...row, withinMpShare: row.speeches / member.speeches })).sort((a, b) => b.speeches - a.speeches || a.matterId.localeCompare(b.matterId))
+    };
+  });
 }
 
 export function emergingPhrases(speeches, texts = {}, settings = {}) {
@@ -254,11 +326,16 @@ export function evaluateReferences(candidates, labels = [], settings = {}) {
 
 export function buildSpeechAnalysis(speeches, texts = {}, options = {}) {
   const queries = options.queries || DEFAULT_NETWORK_QUERIES;
+  const keywordPresets = options.queries ? queries.map(query => ({ query })) : KEYWORD_PRESETS;
   const groupParties = unique(speeches.map(speech => speech.party)).sort().map(party => ({ id: party, party, label: party.toUpperCase() }));
   const settings = { coverageStart: options.coverageStart, coverageEnd: options.coverageEnd };
+  const keywordCorpus = prepareKeywordCorpus(speeches, texts, settings, [{ id: 'all', label: 'All' }, ...groupParties]);
   const references = extractReferences(speeches, texts, options.members || [], { sampleSize: options.referenceSampleSize });
   return { coverage: coverageOf(speeches, texts), method: { version: SPEECH_NETWORK_METHOD, topicTags: 'existing-metadata-discovery-tags-not-stance', overlappingTopicShares: true, nonMpTopicProfiles: 'excluded', lexicalLanguageLimit: 'Finnish-and-Swedish-token-forms-no-lemmatization-or-concept-merging' },
     topicProfiles: buildTopicProfiles(speeches, texts, options), emerging: emergingPhrases(speeches, texts, { ...options, ...settings }),
-    keywordComparisons: queries.map(query => compareKeywords(speeches, texts, { ...settings, query, mode: 'contains', groups: [{ id: 'all', label: 'All' }, ...groupParties] })),
+    keywordComparisons: keywordPresets.map(({ query, topic }) => ({
+      ...comparePreparedKeywords(keywordCorpus, { ...settings, query, mode: 'contains' }),
+      topic
+    })),
     phraseUptake: queries.map(query => phraseUptake(speeches, texts, { ...settings, query, mode: 'phrase' })), references };
 }
