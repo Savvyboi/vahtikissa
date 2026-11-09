@@ -4,7 +4,7 @@ import { mkdtemp, readFile, writeFile, mkdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { DEFAULT_AI_MODEL, recordSource, sourceFingerprint, emptyInsights, currentInsight, insightTags, matchesAITags, validateRecordResult } from '../ai-insights.js';
+import { DEFAULT_AI_MODEL, RECORD_BRIEF_WORD_LIMIT, recordSource, sourceFingerprint, emptyInsights, currentInsight, insightTags, matchesAITags, validateRecordResult } from '../ai-insights.js';
 import { extractProgrammeText, programmeChunks, programmeEvidencePassages, validateProgrammeResult, createOpenRouterClient, needsAgentHarness, syncAI } from '../scripts/sync-ai-insights.mjs';
 
 const translated = { fi: 'Suomenkielinen lyhennelmä.', sv: 'En svensk sammanfattning.', en: 'An English brief.' };
@@ -290,24 +290,25 @@ test('the tool harness resolves selected passages after source reading',async()=
 
 
 test('brief validation rejects overlong prose, mixed-language headings and internal fields', () => {
-  for (const text of ['word '.repeat(101), 'Suomeksi. Svensk sammanfattning: Mer text.', 'A useful brief. Tags: irrelevant-theme', 'A useful brief. Evidence: document-1-passage-1', 'A useful brief.}']) {
+  for (const text of ['word '.repeat(RECORD_BRIEF_WORD_LIMIT+1), 'Suomeksi. Svensk sammanfattning: Mer text.', 'A useful brief. Tags: irrelevant-theme', 'A useful brief. Evidence: document-1-passage-1', 'A useful brief.}']) {
     assert.throws(() => validateRecordResult({ brief: { ...translated, fi: text }, tags: [] }, new Set()), /AI brief/);
   }
-  assert.equal(validateRecordResult({ brief: { ...translated, en: 'word '.repeat(100).trim() }, tags: [] }, new Set()).brief.en.split(/\s+/).length, 100);
+  const longBrief = 'word '.repeat(90).trim() + '\n\n' + 'word '.repeat(RECORD_BRIEF_WORD_LIMIT-90).trim();
+  assert.equal(validateRecordResult({ brief: { ...translated, en: longBrief }, tags: [] }, new Set()).brief.en, longBrief);
 });
 
-test('brief length correction identifies the language and word count without relaxing validation',async()=>{
+test('brief length correction identifies the language and word limit',async()=>{
   const calls=[];
-  const replies=[{brief:{...translated,fi:'sana '.repeat(101).trim()},tags:[]},{brief:translated,tags:[]}];
+  const replies=[{brief:{...translated,fi:'sana '.repeat(RECORD_BRIEF_WORD_LIMIT+1).trim()},tags:[]},{brief:translated,tags:[]}];
   const client=createOpenRouterClient({apiKey:'test',model:'nvidia/nemotron-3.5-super-vl:free',maxRequests:3,wait:async()=>{},fetchImpl:async(url,options)=>{
     calls.push(JSON.parse(options.body));
     return {ok:true,json:async()=>({choices:[{finish_reason:'stop',message:{content:JSON.stringify(replies.shift())}}]})};
   }});
   const result=await client.complete('system',{},value=>validateRecordResult(value,new Set()));
   assert.deepEqual(result.brief,translated);assert.equal(client.requests,2);
-  assert.match(calls[1].messages.at(-1).content,/fi brief has 101 words/);
-  assert.match(calls[1].messages.at(-1).content,/maximum is 100 per language/);
-  assert.match(calls[1].messages.at(-1).content,/Do not truncate a sentence/);
+  assert.ok(calls[1].messages.at(-1).content.includes(`AI brief exceeds ${RECORD_BRIEF_WORD_LIMIT} words in fi`));
+  assert.ok(calls[1].messages.at(-1).content.includes(`Rewrite within ${RECORD_BRIEF_WORD_LIMIT} words per language`));
+  assert.match(calls[1].messages.at(-1).content,/Keep concrete changes and important exceptions/);
 });
 
 test('a repeatedly rejected brief stays unpublished while later records complete within the budget',async()=>{
@@ -318,7 +319,7 @@ test('a repeatedly rejected brief stays unpublished while later records complete
   const fetchImpl=async(url,options)=>{
     assert.match(String(url),/chat\/completions$/);
     providerCalls++;calls.push(JSON.parse(options.body));
-    const result={brief:providerCalls<=3?{...translated,fi:'sana '.repeat(101).trim()}:translated,tags:[]};
+    const result={brief:providerCalls<=3?{...translated,fi:'sana '.repeat(RECORD_BRIEF_WORD_LIMIT+1).trim()}:translated,tags:[]};
     return {ok:true,json:async()=>({choices:[{finish_reason:'stop',message:{content:JSON.stringify(result)}}]})};
   };
   const client=createOpenRouterClient({apiKey:'test',model:'nvidia/nemotron-3.5-super-vl:free',maxRequests:4,wait:async()=>{},fetchImpl});

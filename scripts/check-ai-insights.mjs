@@ -5,8 +5,8 @@ import { createRequire } from 'node:module';
 import { chromium } from 'playwright';
 import { emptyInsights, sourceFingerprint, recordSource } from '../ai-insights.js';
 const require = createRequire(import.meta.url);
-const port = process.env.AI_TEST_PORT || '4207', url = 'http://localhost:' + port;
-const server = spawn(process.execPath, ['server.mjs'], { cwd: new URL('..', import.meta.url), env: { ...process.env, PORT: port }, stdio: 'ignore', windowsHide: true });
+const port = process.env.AI_TEST_PORT || '4207', url = process.env.BROWSER_TEST_URL || 'http://localhost:' + port;
+const server = process.env.BROWSER_TEST_URL ? null : spawn(process.execPath, ['server.mjs'], { cwd: new URL('..', import.meta.url), env: { ...process.env, PORT: port }, stdio: 'ignore', windowsHide: true });
 const source = JSON.parse(await readFile(new URL('../data/parliament.json', import.meta.url)));
 const programmes = JSON.parse(await readFile(new URL('../data/programmes.json', import.meta.url)));
 const vote = source.votes[0], law = source.legislation[0], programme = programmes.parties[0].programmes[0];
@@ -15,7 +15,7 @@ const index = emptyInsights();
 index.programmes[programme.id] = { ...programme, party: programmes.parties[0].code, tags: [tag] };
 const files = { votes: 'a'.repeat(64) + '.json', legislation: 'b'.repeat(64) + '.json' };
 for (const [kind, item] of [['votes', vote], ['legislation', law]]) index.records[kind][item.id] = { fingerprint: sourceFingerprint(kind,item), tags:[tag.id], file: files[kind] };
-const brief = { fi: 'Suomenkielinen AI-lyhennelmä.', sv: 'En svensk AI-sammanfattning.', en: 'An English AI brief. <img src=x onerror=alert(1)>' };
+const brief = { fi: 'Suomenkielinen AI-lyhennelmä.\n\nTässä on toinen kappale.', sv: 'En svensk AI-sammanfattning.', en: 'An English AI brief. <img src=x onerror=alert(1)>' };
 let browser;
 try {
   for (let attempt = 0; attempt < 100; attempt++) {
@@ -41,6 +41,7 @@ try {
     assert.match(await page.locator('[data-ai-brief]>summary').innerText(), /AI/);
     await page.locator('[data-ai-brief]>summary').click();
     await page.locator('[data-ai-language="fi"]').waitFor();
+    assert.equal(await page.locator('[data-ai-brief-text] p').count(),2);
     assert.equal(await page.locator('[data-ai-brief-text]').innerText(), brief.fi);
     await page.locator('[data-ai-language="sv"]').click();
     assert.equal(await page.locator('[data-ai-brief-text]').innerText(), brief.sv);
@@ -102,4 +103,4 @@ try {
   assert.ok(await page.locator('[data-voter-list] li').count());
   await context.close();
   console.log('AI browser checks passed: both reading views, collapsed/lazy briefs, FI/SV/EN, keyboard tabs, escaping, accessibility, tag filters, local follow persistence, source evidence and failure fallback.');
-} finally { await browser?.close(); server.kill(); }
+} finally { await browser?.close(); server?.kill(); }

@@ -2,6 +2,8 @@ import cytoscape from './assets/vendor/cytoscape.esm.min.mjs';
 import { escapeHTML as e } from './app-utils.js';
 import { viewPositions } from './transparency-model.js';
 
+const overlaps = (a, b) => a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+
 function convexHull(points) {
   const sorted = [...points].sort((a, b) => a.x - b.x || a.y - b.y);
   const cross = (o, a, b) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
@@ -25,6 +27,8 @@ export function createTransparencyCanvas(container, { onInspect, onExpand, lang 
   const tip = document.createElement('div'); tip.className = 'sna-tooltip'; tip.hidden = true; container.append(tip);
   const reduced = matchMedia('(prefers-reduced-motion: reduce)');
   let current = { nodes: [], edges: [] }, metric = 'degree', mode = 'force', selected = null, hull = 'none', hovered = null, frame = 0, destroyed = false;
+  let preferredLabels = [];
+  const chrome = [...container.parentElement.querySelectorAll('.sna-map-kicker, .sna-map-footer'), controls, tip];
   const readTheme = () => {
     const css = getComputedStyle(container), value = key => css.getPropertyValue(key).trim();
     return { background: value('--sna-canvas'), ink: value('--ink'), muted: value('--muted'), mp: value('--sna-mp'), org: value('--sna-org'), bill: value('--sna-bill'), interest: value('--sna-interest'), lobby: value('--sna-lobby'), gift: value('--sna-gift'), path: value('--sna-path') };
@@ -64,7 +68,7 @@ export function createTransparencyCanvas(container, { onInspect, onExpand, lang 
   container.addEventListener('wheel', wheel, { capture: true, passive: false });
   controls.querySelector('[data-sna-zoom="out"]').onclick = () => zoom(0.8);
   controls.querySelector('[data-sna-zoom="in"]').onclick = () => zoom(1.25);
-  const fit = () => { cy.resize(); cy.fit(undefined, 55); draw(); };
+  const fit = () => { cy.resize(); cy.fit(undefined, 55); scheduleDraw(); };
   const fullscreenChanged = () => {
     if (document.fullscreenElement !== stage) setGestures(false);
     fit();
@@ -72,10 +76,9 @@ export function createTransparencyCanvas(container, { onInspect, onExpand, lang 
   stage?.addEventListener('fullscreenchange', fullscreenChanged);
   function style() {
     const maximum = Math.max(1e-12, ...current.nodes.map(node => node[metric] || 0));
-    const labeled = new Set(['mp', 'org', 'bill', 'committee'].flatMap(type => current.nodes.filter(node => node.type === type).sort((a, b) => (b[metric] || 0) - (a[metric] || 0)).slice(0, current.nodes.length <= 30 ? 100 : 6).map(node => node.id)));
-    cy.nodes().forEach(node => node.data('label', labeled.has(node.id()) ? node.data('fullLabel') : ''));
+    preferredLabels = [...current.nodes].sort((a, b) => (b[metric] || 0) - (a[metric] || 0)).map(node => node.id);
     cy.style([
-      { selector: 'node', style: { label: 'data(label)', 'font-family': 'DM Sans, sans-serif', 'font-size': 13, 'min-zoomed-font-size': 6, color: colors.ink, 'text-outline-color': colors.background, 'text-outline-width': 2, 'text-valign': 'bottom', 'text-margin-y': 7, width: node => 15 + 30 * Math.sqrt((node.data(metric) || 0) / maximum), height: node => 15 + 30 * Math.sqrt((node.data(metric) || 0) / maximum), 'background-color': colors.mp, 'border-width': 2, 'border-color': colors.mp, 'overlay-opacity': 0 } },
+      { selector: 'node', style: { width: node => 15 + 30 * Math.sqrt((node.data(metric) || 0) / maximum), height: node => 15 + 30 * Math.sqrt((node.data(metric) || 0) / maximum), 'background-color': colors.mp, 'border-width': 2, 'border-color': colors.mp, 'overlay-opacity': 0 } },
       { selector: 'node[type="org"]', style: { shape: 'roundrectangle', 'background-color': colors.org, 'border-color': colors.org } },
       { selector: 'node[type="bill"]', style: { shape: 'diamond', 'background-color': colors.bill, 'border-color': colors.bill, width: 24, height: 24 } },
       { selector: 'node[type="committee"]', style: { shape: 'hexagon', 'background-color': colors.bill, 'border-color': colors.bill, width: 28, height: 28 } },
@@ -86,59 +89,121 @@ export function createTransparencyCanvas(container, { onInspect, onExpand, lang 
       { selector: 'edge[styleLayer="bill"]', style: { 'line-style': 'dashed', 'line-color': colors.bill } },
       { selector: 'edge[styleLayer="membership"]', style: { 'line-style': 'dotted', 'line-color': colors.bill } },
       { selector: 'edge[?inferredOnly]', style: { 'line-style': 'dotted', opacity: 0.8 } },
-      { selector: '.dim', style: { opacity: 0.15 } },
-      { selector: '.spotlight', style: { opacity: 1 } },
-      { selector: 'node.focused', style: { label: 'data(fullLabel)' } },
+      { selector: '.dim, .hover-dim', style: { opacity: 0.15 } },
       { selector: 'edge.path', style: { 'line-color': colors.path, 'target-arrow-color': colors.path, width: 4, opacity: 1 } },
       { selector: 'node.path', style: { 'border-color': colors.path, 'border-width': 4, opacity: 1 } },
-      { selector: 'node:selected', style: { 'border-width': 5, 'border-color': colors.path, label: 'data(fullLabel)' } },
+      { selector: 'node:selected', style: { 'border-width': 5, 'border-color': colors.path } },
       { selector: 'edge:selected', style: { 'line-color': colors.path, width: 5, opacity: 1 } }
     ]).update();
-    draw();
+    scheduleDraw();
   }
-  function draw(time = 0) {
-    if (destroyed) return;
-    cancelAnimationFrame(frame); frame = 0;
+  function mapHulls() {
+    if (hull === 'none') return [];
+    const groups = new Map();
+    for (const node of current.nodes.filter(node => node.type === 'mp')) for (const group of hull === 'party' ? [node.party] : node.committees || []) {
+      if (!group) continue;
+      if (!groups.has(group)) groups.set(group, []);
+      groups.get(group).push(cy.getElementById(node.id).renderedPosition());
+    }
+    return [...groups].filter(([, points]) => points.length >= 3)
+      .map(([group, points]) => ({ text: group.toUpperCase(), polygon: convexHull(points) }))
+      .filter(group => group.polygon.length >= 3);
+  }
+  function mapLabels(ctx, width, height, groups) {
+    if (!current.nodes.length) return [];
+    const origin = container.getBoundingClientRect();
+    const occupied = chrome.filter(element => !element.hidden).map(element => {
+      const rect = element.getBoundingClientRect();
+      return { left: rect.left - origin.left, right: rect.right - origin.left, top: rect.top - origin.top, bottom: rect.bottom - origin.top };
+    });
+    const bodies = new Map();
+    cy.nodes().forEach(node => {
+      const { x, y } = node.renderedPosition(), rx = node.renderedOuterWidth() / 2, ry = node.renderedOuterHeight() / 2;
+      const bounds = { left: x - rx, right: x + rx, top: y - ry, bottom: y + ry };
+      if (bounds.right < 0 || bounds.bottom < 0 || bounds.left > width || bounds.top > height) return;
+      bodies.set(node.id(), { x, y, ...bounds });
+      occupied.push(bounds);
+    });
+    const labels = [], size = Math.min(16, Math.max(11, Math.round(13 * cy.zoom())));
+    ctx.font = `600 ${size}px sans-serif`;
+    function place(text, anchor) {
+      const halfWidth = ctx.measureText(text).width / 2 + 3, halfHeight = size / 2 + 3;
+      const gap = 2;
+      const positions = [
+        [anchor.x, anchor.bottom + halfHeight + gap], [anchor.x, anchor.top - halfHeight - gap],
+        [anchor.right + halfWidth + gap, anchor.y], [anchor.left - halfWidth - gap, anchor.y]
+      ];
+      for (const [x, y] of positions) {
+        const box = { left: x - halfWidth, right: x + halfWidth, top: y - halfHeight, bottom: y + halfHeight };
+        if (box.left < 4 || box.top < 4 || box.right > width - 4 || box.bottom > height - 4 || occupied.some(other => overlaps(box, other))) continue;
+        occupied.push(box);
+        labels.push({ text, x, y, size });
+        return true;
+      }
+      return false;
+    }
+    // Screen-space placement keeps labels apart at every zoom and width.
+    const maxLabels = width < 480 ? 9 : 24;
+    const pathLabels = cy.nodes('.path').map(node => node.id());
+    for (const id of new Set([selected, ...pathLabels, ...preferredLabels])) {
+      if (labels.length >= maxLabels) break;
+      const body = bodies.get(id);
+      if (!body || id === hovered) continue;
+      const node = cy.getElementById(id);
+      if (id !== selected && !node.hasClass('path') && (node.hasClass('dim') || node.hasClass('hover-dim'))) continue;
+      const text = node.data('fullLabel');
+      if (!place(text, body) && text.length > 16) place(text.slice(0, 14).trimEnd() + '…', body);
+    }
+    for (const { text, polygon: [{ x, y }] } of groups) {
+      place(text, { x, y, left: x, right: x, top: y, bottom: y });
+    }
+    return labels;
+  }
+  function scheduleDraw() {
+    if (!frame && !destroyed) frame = requestAnimationFrame(draw);
+  }
+  function draw(time) {
+    frame = 0;
     const ctx = overlay.getContext('2d'), ratio = Math.min(devicePixelRatio, 2), width = container.clientWidth, height = container.clientHeight;
     if (overlay.width !== Math.round(width * ratio) || overlay.height !== Math.round(height * ratio)) { overlay.width = Math.round(width * ratio); overlay.height = Math.round(height * ratio); }
     ctx.setTransform(ratio, 0, 0, ratio, 0, 0); ctx.clearRect(0, 0, width, height);
-    if (hull !== 'none') {
-      const groups = new Map();
-      for (const node of current.nodes.filter(node => node.type === 'mp')) for (const group of hull === 'party' ? [node.party] : node.committees || []) {
-        const point = cy.getElementById(node.id).renderedPosition();
-        if (!point) continue;
-        if (!groups.has(group)) groups.set(group, []); groups.get(group).push(point);
-      }
-      for (const [group, points] of groups) if (points.length >= 3) {
-        const polygon = convexHull(points); if (!polygon.length) continue;
-        ctx.beginPath(); polygon.forEach((point, i) => i ? ctx.lineTo(point.x, point.y) : ctx.moveTo(point.x, point.y)); ctx.closePath();
-        ctx.fillStyle = colors.mp; ctx.globalAlpha = 0.07; ctx.fill(); ctx.globalAlpha = 0.4; ctx.strokeStyle = colors.mp; ctx.setLineDash([5, 5]); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1; ctx.fillStyle = colors.ink; ctx.font = '11px sans-serif'; ctx.fillText(group.toUpperCase(), polygon[0].x, polygon[0].y - 10);
-      }
+    const groups = mapHulls();
+    for (const { polygon } of groups) {
+      ctx.beginPath(); polygon.forEach((point, i) => i ? ctx.lineTo(point.x, point.y) : ctx.moveTo(point.x, point.y)); ctx.closePath();
+      ctx.fillStyle = colors.mp; ctx.globalAlpha = 0.07; ctx.fill(); ctx.globalAlpha = 0.4; ctx.strokeStyle = colors.mp; ctx.setLineDash([5, 5]); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1;
+    }
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round'; ctx.lineWidth = 3;
+    ctx.fillStyle = colors.ink; ctx.strokeStyle = colors.background;
+    for (const { text, x, y } of mapLabels(ctx, width, height, groups)) {
+      ctx.strokeText(text, x, y);
+      ctx.fillText(text, x, y);
     }
     if (hovered && !reduced.matches) {
       for (const edge of cy.getElementById(hovered).connectedEdges().filter(edge => edge.data('layers')?.includes('lobbaus'))) {
         const a = edge.source().renderedPosition(), b = edge.target().renderedPosition(), t = (time % 1600) / 1600;
         ctx.beginPath(); ctx.arc(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, 2.5, 0, 2 * Math.PI); ctx.fillStyle = colors.lobby; ctx.fill();
       }
-      frame = requestAnimationFrame(draw);
+      scheduleDraw();
     }
   }
   function spotlight(node) {
-    cy.elements().removeClass('dim spotlight focused'); hovered = node?.id() || null;
-    if (node) { cy.elements().addClass('dim'); node.closedNeighborhood().removeClass('dim').addClass('spotlight'); node.addClass('focused'); }
-    cancelAnimationFrame(frame); draw();
+    cy.elements().removeClass('hover-dim'); hovered = node?.id() || null;
+    if (node) cy.elements().difference(node.closedNeighborhood()).addClass('hover-dim');
+    scheduleDraw();
   }
   cy.on('mouseover', 'node', event => {
     spotlight(event.target); const position = event.target.renderedPosition();
-    tip.textContent = event.target.data('name'); tip.style.left = `${Math.max(8, Math.min(container.clientWidth - 200, position.x + 14))}px`; tip.style.top = `${Math.max(8, position.y - 32)}px`; tip.hidden = false;
+    tip.textContent = event.target.data('name'); tip.hidden = false;
+    tip.style.left = `${Math.max(8, Math.min(container.clientWidth - tip.offsetWidth - 8, position.x + 14))}px`;
+    tip.style.top = `${Math.max(8, Math.min(container.clientHeight - tip.offsetHeight - 8, position.y - 32))}px`;
   });
   cy.on('mouseout', 'node', () => { tip.hidden = true; spotlight(null); });
   cy.on('tap', 'node, edge', event => { selected = event.target.id(); onInspect(event.target.isNode() ? 'node' : 'edge', selected); });
   cy.on('dbltap', 'node', event => onExpand(event.target.id()));
-  cy.on('pan zoom position render', () => { if (!hovered || reduced.matches) draw(); });
-  const resize = new ResizeObserver(() => { cy.resize(); draw(); }); resize.observe(container);
+  cy.on('pan zoom position render', scheduleDraw);
+  const resize = new ResizeObserver(() => { cy.resize(); scheduleDraw(); }); resize.observe(container);
   const theme = new MutationObserver(() => { colors = readTheme(); style(); }); theme.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
-  const motion = () => { cancelAnimationFrame(frame); draw(); }; reduced.addEventListener('change', motion);
+  reduced.addEventListener('change', scheduleDraw);
   const keyboard = event => {
     if (event.ctrlKey || event.metaKey || event.altKey) return;
     if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', '+', '=', '-', 'f', 'F'].includes(event.key)) return;
@@ -167,7 +232,7 @@ export function createTransparencyCanvas(container, { onInspect, onExpand, lang 
     setView(value, options = {}) {
       controls.hidden = !value.edges.length;
       if (controls.hidden) setGestures(false);
-      cy.elements().removeClass('path'); spotlight(null); current = value; metric = options.metric || metric; mode = options.layout || mode;
+      cy.elements().removeClass('path dim'); tip.hidden = true; spotlight(null); current = value; metric = options.metric || metric; mode = options.layout || mode;
       cy.batch(() => {
         const wanted = new Set([...value.nodes, ...value.edges].map(element => element.id));
         cy.elements().filter(element => !wanted.has(element.id())).remove();
@@ -183,13 +248,15 @@ export function createTransparencyCanvas(container, { onInspect, onExpand, lang 
     },
     setLayout(value) { mode = value; layout(); },
     setMetric(value) { metric = value; style(); if (mode === 'rings') layout(); },
-    setHull(value) { hull = value; draw(); },
+    setHull(value) { hull = value; scheduleDraw(); },
     select(id) { selected = id; cy.elements().unselect(); cy.getElementById(id).select(); },
     highlightPath(path) { cy.elements().removeClass('path dim'); if (path) { cy.elements().addClass('dim'); [...path.nodes, ...path.edges].forEach(id => cy.getElementById(id).removeClass('dim').addClass('path')); } },
     fit,
     positions() { return Object.fromEntries(cy.nodes().map(node => [node.id(), { ...node.position(), rendered: node.renderedPosition() }])); },
     viewport() { return { zoom: cy.zoom(), pan: { ...cy.pan() } }; },
     async png() {
+      cancelAnimationFrame(frame);
+      draw(performance.now());
       const blob = await cy.png({ output: 'blob-promise', full: false, scale: 2, bg: colors.background });
       const bitmap = await createImageBitmap(blob), canvas = document.createElement('canvas'); canvas.width = bitmap.width; canvas.height = bitmap.height;
       const ctx = canvas.getContext('2d'); ctx.drawImage(bitmap, 0, 0); ctx.drawImage(overlay, 0, 0, canvas.width, canvas.height); bitmap.close();
@@ -197,17 +264,8 @@ export function createTransparencyCanvas(container, { onInspect, onExpand, lang 
     },
     svg(metadata = {}) {
       const width = container.clientWidth, height = container.clientHeight;
-      let hullSVG = '';
-      if (hull !== 'none') {
-        const groups = new Map();
-        for (const node of current.nodes.filter(node => node.type === 'mp')) for (const group of hull === 'party' ? [node.party] : node.committees || []) {
-          if (!groups.has(group)) groups.set(group, []); groups.get(group).push(cy.getElementById(node.id).renderedPosition());
-        }
-        for (const [group, points] of groups) if (points.length >= 3) {
-          const polygon = convexHull(points);
-          if (polygon.length) hullSVG += `<polygon points="${polygon.map(point => `${point.x},${point.y}`).join(' ')}" fill="${e(colors.mp)}" fill-opacity="0.07" stroke="${e(colors.mp)}" stroke-opacity="0.4" stroke-dasharray="5 5"/><text x="${polygon[0].x}" y="${polygon[0].y - 10}" fill="${e(colors.ink)}" font-size="11" font-family="sans-serif">${e(group.toUpperCase())}</text>`;
-        }
-      }
+      const groups = mapHulls();
+      const hullSVG = groups.map(({ polygon }) => `<polygon points="${polygon.map(point => `${point.x},${point.y}`).join(' ')}" fill="${e(colors.mp)}" fill-opacity="0.07" stroke="${e(colors.mp)}" stroke-opacity="0.4" stroke-dasharray="5 5"/>`).join('');
       const edgeSVG = cy.edges().map(edge => {
         const a = edge.source().renderedPosition(), b = edge.target().renderedPosition(), color = edge.style('line-color'), dash = edge.style('line-style') === 'dotted' ? '2 5' : edge.style('line-style') === 'dashed' ? '8 5' : '';
         let arrow = '';
@@ -221,13 +279,15 @@ export function createTransparencyCanvas(container, { onInspect, onExpand, lang 
       const nodeSVG = cy.nodes().map(node => {
         const p = node.renderedPosition(), w = node.renderedOuterWidth(), h = node.renderedOuterHeight(), type = node.data('type'), fill = e(node.style('background-color')), border = e(node.style('border-color'));
         const shape = type === 'org' ? `<rect x="${p.x - w / 2}" y="${p.y - h / 2}" width="${w}" height="${h}" rx="4"` : type === 'bill' ? `<polygon points="${p.x},${p.y - h / 2} ${p.x + w / 2},${p.y} ${p.x},${p.y + h / 2} ${p.x - w / 2},${p.y}"` : type === 'committee' ? `<polygon points="${p.x - w / 4},${p.y - h / 2} ${p.x + w / 4},${p.y - h / 2} ${p.x + w / 2},${p.y} ${p.x + w / 4},${p.y + h / 2} ${p.x - w / 4},${p.y + h / 2} ${p.x - w / 2},${p.y}"` : `<ellipse cx="${p.x}" cy="${p.y}" rx="${w / 2}" ry="${h / 2}"`;
-        const font = parseFloat(node.renderedStyle('font-size')), margin = parseFloat(node.renderedStyle('text-margin-y'));
-        return `<g opacity="${node.style('opacity')}">${shape} fill="${fill}" stroke="${border}" stroke-width="${node.renderedStyle('border-width')}"/><text x="${p.x}" y="${p.y + h / 2 + margin + font * 0.85}" text-anchor="middle" fill="${e(colors.ink)}" font-size="${font}" font-family="sans-serif" paint-order="stroke" stroke="${e(colors.background)}" stroke-width="${2 * cy.zoom()}">${e(node.style('label'))}</text></g>`;
+        return `<g opacity="${node.style('opacity')}">${shape} fill="${fill}" stroke="${border}" stroke-width="${node.renderedStyle('border-width')}"/></g>`;
       }).join('');
-      return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img"><title>${lang === 'fi' ? 'Vahtikissan verkostokartta' : 'Vahtikissa network map'}</title><metadata>${e(JSON.stringify(metadata))}</metadata><rect width="100%" height="100%" fill="${e(colors.background)}"/>${hullSVG}${edgeSVG}${nodeSVG}</svg>`;
+      const labels = mapLabels(overlay.getContext('2d'), width, height, groups).map(({ text, x, y, size }) =>
+        `<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="central" font-size="${size}">${e(text)}</text>`
+      ).join('');
+      return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img"><title>${lang === 'fi' ? 'Vahtikissan verkostokartta' : 'Vahtikissa network map'}</title><metadata>${e(JSON.stringify(metadata))}</metadata><rect width="100%" height="100%" fill="${e(colors.background)}"/>${hullSVG}${edgeSVG}${nodeSVG}<g fill="${e(colors.ink)}" stroke="${e(colors.background)}" stroke-width="3" stroke-linejoin="round" paint-order="stroke" font-weight="600" font-family="sans-serif">${labels}</g></svg>`;
     },
     destroy() {
-      destroyed = true; cancelAnimationFrame(frame); resize.disconnect(); theme.disconnect(); reduced.removeEventListener('change', motion);
+      destroyed = true; cancelAnimationFrame(frame); resize.disconnect(); theme.disconnect(); reduced.removeEventListener('change', scheduleDraw);
       container.removeEventListener('keydown', keyboard);
       container.removeEventListener('keydown', releaseGestures);
       container.removeEventListener('wheel', wheel, true);

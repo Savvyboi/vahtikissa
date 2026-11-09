@@ -38,7 +38,15 @@ const speechTextPromises = new Map();
 const speechTextErrors = new Map();
 const loadedSpeechChunks = new Set();
 let lang = ['fi','sv','en'].includes(preferences.get('vahtikissa-lang')) ? preferences.get('vahtikissa-lang') : 'fi';
-let theme = ['light','dark','contrast'].includes(preferences.get('vahtikissa-theme')) ? preferences.get('vahtikissa-theme') : 'light';
+const themes = {
+  light: ['☀', 'Vaalea', 'Ljus', 'Light'],
+  dark: ['☾', 'Tumma', 'Mörk', 'Dark'],
+  forest: ['♣', 'Metsä', 'Skog', 'Forest'],
+  dusk: ['◒', 'Hämärä', 'Skymning', 'Dusk'],
+  contrast: ['◐', 'Korkea kontrasti', 'Hög kontrast', 'High contrast']
+};
+const savedTheme = preferences.get('vahtikissa-theme');
+let theme = Object.hasOwn(themes, savedTheme) ? savedTheme : 'light';
 const state = {
   votes: 1, speeches: 1, legislation: 1, memberVotes: 1, memberSpeeches: 1,
   voteFilters: { query: '', outcome: 'all', type: 'all', stage: 'all', topic: 'all', committee: 'all' },
@@ -184,12 +192,23 @@ function setReadingView(mode){
   if(data)render();else if(lastLoadError)loadError(lastLoadError);else loadingView();
 }
 function applyLocalizedExtras(){
-  const select=$('.theme-select'),labels=ui(['Vaalea','Tumma','Korkea kontrasti'],['Ljus','Mörk','Hög kontrast'],['Light','Dark','High contrast']);
-  select.setAttribute('aria-label',ui('Väriteema','Färgtema','Colour theme'));select.previousElementSibling.textContent=select.getAttribute('aria-label');[...select.options].forEach((option,index)=>option.textContent=labels[index]);select.title=select.getAttribute('aria-label');
+  const select=$('.theme-select'),label=ui('Väriteema','Färgtema','Colour theme');
+  select.setAttribute('aria-label',label);
+  select.previousElementSibling.textContent=label;
+  for(const option of select.options) option.textContent=ui(...themes[option.value].slice(1));
+  select.title=label+' · '+ui(...themes[theme].slice(1));
   $('.footer-data').textContent=ui('Data ja avoimuus','Data och öppenhet','Data and transparency');$('.footer-repository').textContent=ui('Lähdekoodi GitHubissa ↗','Källkod på GitHub ↗','Source code on GitHub ↗');$('.footer-about').textContent=ui('Tietoa palvelusta ja menetelmistä','Om tjänsten och metoderna','About this service and methods');
   updateFooterTimestamp();
 }
-function applyTheme(){document.documentElement.dataset.theme=theme;document.querySelectorAll('.brand-mark img').forEach(logo=>logo.setAttribute('src','assets/cat-logo.svg'+(theme==='contrast'?'#contrast':'')));$('.theme-select').value=theme;$('.theme-select').title=ui('Väriteema','Färgtema','Colour theme');$('.theme-icon').textContent=theme==='dark'?'☾':theme==='contrast'?'◐':'☀';document.querySelector('meta[name="theme-color"]').content=theme==='dark'?'#101828':theme==='contrast'?'#000000':'#f5f2ea'}
+function applyTheme(){
+  const html=document.documentElement,select=$('.theme-select');
+  html.dataset.theme=theme;
+  document.querySelectorAll('.brand-mark img').forEach(logo=>logo.setAttribute('src','assets/cat-logo.svg'+(theme==='contrast'?'#contrast':'')));
+  select.value=theme;
+  select.title=select.getAttribute('aria-label')+' · '+select.selectedOptions[0].textContent;
+  $('.theme-icon').textContent=themes[theme][0];
+  document.querySelector('meta[name="theme-color"]').content=getComputedStyle(html).getPropertyValue('--paper').trim();
+}
 function resultBar(v){const total=v.total||v.yes+v.no+v.abstain+v.absent||1;return `<div class="result" role="img" aria-label="${t('yes')} ${v.yes}, ${t('no')} ${v.no}, ${t('abstain')} ${v.abstain}, ${t('absent')} ${v.absent}"><span style="width:${percent(v.yes,total)}%"></span><span style="width:${percent(v.no,total)}%"></span><span style="width:${percent(v.abstain,total)}%"></span><span style="width:${percent(v.absent,total)}%"></span></div><div class="vote-numbers"><span><b>${v.yes}</b> ${t('yes')}</span><span><b>${v.no}</b> ${t('no')}</span><span>${v.abstain} ${t('abstain')}</span><span>${v.absent} ${t('absent')}</span></div>`}
 function header(kicker,title,lead=''){return `<div class="page-head"><div><div class="eyebrow">${e(kicker)}</div><h1>${e(title)}</h1>${lead?`<p class="lead">${e(lead)}</p>`:''}</div><div class="updated">${t('updated')} ${fmtDate(data.metadata.generatedAt)}</div></div>`}
 function voteText(v,key){return lang==='sv'&&(v[`${key}Sv`])||v[key]||''}

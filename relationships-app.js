@@ -10,24 +10,14 @@ import { detailedAgendaTopicLabel } from './speech-topics.js';
 
 const loader=createNetworkLoader();
 const names={
-  'vote-neighbours':['Äänestysnaapurit','Röstningsgrannar','Voting neighbours'],
-  'party-heatmap':['Puolueiden yhtenevyys','Partiernas samstämmighet','Party agreement'],
-  'keyword-comparisons':['Ilmausten vertailu','Jämför uttryck','Keyword comparisons'],
-  'emerging-phrases':['Nousevat ilmaukset','Växande uttryck','Emerging phrases'],
-  'cross-party-profiles':['Puoluerajat ylittävät yhteydet','Kontakter över partigränser','Cross-party profiles'],
-  'committee-overlap':['Yhteiset toimielimet','Gemensamma organ','Committee overlap'],
   'topic-profiles':['Aiheisiin kohdistuva huomio','Uppmärksamhet per ämne','Topic attention'],
-  'layer-comparison':['Suhdekerrosten vertailu','Jämför relationslager','Layer comparison'],
-  'betweenness':['Verkoston välillisyys','Mellanliggande nätverksposition','Betweenness'],
-  'communities':['Verkoston ryhmät','Nätverksgrupper','Communities'],
-  'network-explorer':['Verkostoselain','Utforska nätverket','Network explorer'],
-  'lobbying-network':['Ilmoitetut vaikuttamissuhteet','Rapporterade påverkansrelationer','Declared lobbying'],
-  'directed-references':['Viittausten arviointi','Utvärdering av hänvisningar','Reference evaluation'],
-  'phrase-uptake':['Ilmauksen havaittu käyttö','Observerad användning av uttryck','Observed phrase uptake']
+  'vote-neighbours':['Äänestysnaapurit','Röstningsgrannar','Voting neighbours'],
+  'keyword-comparisons':['Ilmausten vertailu','Jämför uttryck','Keyword comparisons'],
+  'party-heatmap':['Puolueiden yhtenevyys','Partiernas samstämmighet','Party agreement'],
+  'emerging-phrases':['Nousevat ilmaukset','Växande uttryck','Emerging phrases']
 };
-const votingFeatures=new Set(['vote-neighbours','party-heatmap','cross-party-profiles','network-explorer']);
-const speechFeatures=new Set(['keyword-comparisons','phrase-uptake']);
-const partyFeatures=new Set(['vote-neighbours','party-heatmap','cross-party-profiles','committee-overlap','keyword-comparisons','phrase-uptake','network-explorer']);
+const votingFeatures=new Set(['vote-neighbours','party-heatmap']);
+const partyFeatures=new Set([...votingFeatures,'keyword-comparisons']);
 const arr=x=>Array.isArray(x)?x:x&&typeof x==='object'?Object.values(x):[];
 
 export async function renderRelationships(root,{lang='fi',view='full',current=()=>true}={}) {
@@ -44,12 +34,12 @@ export async function renderRelationships(root,{lang='fi',view='full',current=()
   const sourceDate=value=>formatDate(value,lang==='sv'?'sv-FI':lang==='en'?'en-GB':'fi-FI');
   root.innerHTML=`<div class="page relationships-page">${relationshipNavigation(lang,'analysis')}<h1>${tr('Äänestykset & puheet','Omröstningar & anföranden','Votes & speeches')}</h1><p role="status">${tr('Ladataan analyysin lähdekuvausta…','Analysens källbeskrivning laddas…','Loading the analysis manifest…')}</p></div>`;
   const manifest=await loader.manifest();if(!current())return;
-  const params=new URLSearchParams(location.hash.split('?')[1]||'');
-  let feature=names[params.get('feature')]?params.get('feature'):'vote-neighbours',mp=manifest.members.some(m=>String(m.id)===params.get('mp'))?params.get('mp'):String(manifest.members[0]?.id||''),scope=manifest.scopes.find(s=>s.id===params.get('period'))?.id||'all',party=params.get('party')||'all',query=params.get('q')||'',rows=[],method={},revision=0;
-  let analysisFilters={},lobbyOrg=params.get('org'),reporting=params.get('reporting')||'all';
+  const params=explorerParams;
+  const requestedFeature=params.get('feature');
+  let feature=Object.hasOwn(names,requestedFeature)?requestedFeature:'vote-neighbours',mp=manifest.members.some(m=>String(m.id)===params.get('mp'))?params.get('mp'):String(manifest.members[0]?.id||''),scope=manifest.scopes.find(s=>s.id===params.get('period'))?.id||'all',party=params.get('party')||'all',query=params.get('q')||'',rows=[],method={},revision=0;
+  let analysisFilters={},presetIndex=0;
   let comparisonDirection=params.get('order')==='asc'?'asc':'desc',showLowSupport=params.get('low')==='1',neighbourLimit=12,comparisonMp=params.get('compare')||'';
-  let votingLens=params.get('lens')==='same-party'?'same-party':'cross-party';
-  const overrides=new Map(),presets=new Map();
+  const overrides=new Map();
   const effectiveScope=()=>votingFeatures.has(feature)?scope:'all';
   const canPartyFilter=()=>partyFeatures.has(feature)&&!(feature==='keyword-comparisons'&&analysisFilters.groups?.some(group=>group.mpId));
   const memberMap=new Map(manifest.members.map(m=>[String(m.id),m]));
@@ -57,15 +47,24 @@ export async function renderRelationships(root,{lang='fi',view='full',current=()
   const scopeLabel=scope=>scope?.topic?policyTopicLabel(scope.topic,lang):scope?.id==='all'?tr('Koko tallennettu jakso','Hela lagrade perioden','All stored votes'):scope?.label||'';
   const memberName=id=>{const m=memberMap.get(String(id));return m?`${m.firstName} ${m.lastName}`:String(id??'');};
   const memberLink=id=>`<a href="#/members/${encodeURIComponent(id)}">${e(memberName(id))}</a>`;
-  const relationshipLink=id=>`<a href="#/relationships?${e(new URLSearchParams({feature,mp:String(id),period:scope,...(feature==='network-explorer'?{lens:votingLens}:{})}))}">${e(memberName(id))}</a>`;
+  const relationshipLink=id=>`<a href="#/relationships?${e(new URLSearchParams({feature,mp:String(id),period:scope}))}">${e(memberName(id))}</a>`;
   const parties=[...new Set(manifest.members.map(m=>m.party))].sort();
-  root.innerHTML=relationshipShell({lang,manifest,feature,mp,scope,party,query,names,title,tr,memberName,scopeLabel,parties});
+  root.innerHTML=relationshipShell({lang,manifest,feature,mp,scope,party,query,title,tr,memberName,scopeLabel,parties});
   const result=root.querySelector('[data-network-result]'),status=root.querySelector('.relationship-status'),evidence=root.querySelector('[data-network-evidence]'),form=root.querySelector('[data-network-form]');
   const evidencePanel=createRelationshipEvidence(evidence,{lang,current});
   const speechSources=new Map();let nextSources=0,pointEvidenceAction;
   const tables=createRelationshipTables({lang,onSort:(column,direction)=>{status.textContent=tr('Järjestetty: ','Sorterat: ','Sorted: ')+column+' · '+(direction==='asc'?tr('nousevasti','stigande','ascending'):tr('laskevasti','fallande','descending'));}});
   let currentData;
-  function persist(){const p=new URLSearchParams({feature,mp,period:effectiveScope(),party,q:query});if(feature==='vote-neighbours'){if(comparisonDirection==='asc')p.set('order','asc');if(showLowSupport)p.set('low','1');if(comparisonMp)p.set('compare',comparisonMp);}if(feature==='network-explorer'&&votingLens==='same-party')p.set('lens',votingLens);if(feature==='lobbying-network'){if(lobbyOrg)p.set('org',lobbyOrg);p.set('reporting',reporting);}history.replaceState(history.state,'',`#/relationships?${p}`);root.dataset.route=location.hash;}
+  function persist(){
+    const p=new URLSearchParams({feature,mp,period:effectiveScope(),party,q:query});
+    if(feature==='vote-neighbours'){
+      if(comparisonDirection==='asc')p.set('order','asc');
+      if(showLowSupport)p.set('low','1');
+      if(comparisonMp)p.set('compare',comparisonMp);
+    }
+    history.replaceState(history.state,'', '#/relationships?'+p);
+    root.dataset.route=location.hash;
+  }
   function filtered(items){return items.filter(row=>(!canPartyFilter()||party==='all'||JSON.stringify(row).includes(`"${party}"`))&&(!query||JSON.stringify(row).toLocaleLowerCase('fi').includes(query.toLocaleLowerCase('fi'))));}
   function table(headers,data,render,caption=title(feature),values=[]){
     rows=filtered(data);
@@ -76,12 +75,10 @@ export async function renderRelationships(root,{lang='fi',view='full',current=()
   const partyInspect=(a,b='')=>`<button type="button" data-party-a="${e(a)}" data-party-b="${e(b)}">${tr('Äänestykset','Omröstningar','Votes')}</button>`;
   function showEvidence(html,trigger){evidencePanel.open(()=>html,trigger);}
   async function showVote(file){const x=await loader.load(file);if(!current())return;return `<h4>${e(recordText(x.vote,'title'))}</h4><p>${e(x.vote.date)} · ${e(recordText(x.vote,'document'))}</p><p>${e(recordText(x.vote,'question'))}</p><a href="${e(x.vote.resultUrl)}" target="_blank" rel="noopener">${tr('Virallinen lähde','Officiell källa','Official source')}</a>${tables.render(['MP','Party','Choice'],x.ballots,b=>td([memberLink(b[1]),e(b[2]),e(l(b[3]))]),tr('Tallennetut äänet','Lagrade röster','Stored ballots'))}`;}
-  async function showPair(a,b,differencesFirst=false){
-
+  async function showPair(a,b){
     const [left,right,index]=await Promise.all([loader.load(`ballots-${a}.json`),loader.load(`ballots-${b}.json`),loader.load('vote-index.json')]);if(!current())return;
     const active=manifest.scopes.find(s=>s.id===effectiveScope()),common=commonBallotEvidence(left,right,index,active),agree=common.filter(r=>r.agreement).length;
-    if(differencesFirst)common.sort((a,b)=>Number(a.agreement)-Number(b.agreement)||b.date.localeCompare(a.date));
-    const ballotTable=tables.render(['Date / Matter',memberName(a),memberName(b),'Source'],common,r=>td([e(r.date.slice(0,10))+' '+e(r.document)+(differencesFirst&&r.title?`<small>${e(r.title)}</small>`:''),e(l(r.choiceA))+' · '+e(r.partyA),e(l(r.choiceB))+' · '+e(r.partyB),`<button type="button" data-vote-file="${e(r.file)}">${e(r.voteId)}</button>`]),tr('Kaikki yhteiset kelvolliset äänet','Alla gemensamma giltiga röster','All common eligible ballots'));
+    const ballotTable=tables.render(['Date / Matter',memberName(a),memberName(b),'Source'],common,r=>td([e(r.date.slice(0,10))+' '+e(r.document),e(l(r.choiceA))+' · '+e(r.partyA),e(l(r.choiceB))+' · '+e(r.partyB),`<button type="button" data-vote-file="${e(r.file)}">${e(r.voteId)}</button>`]),tr('Kaikki yhteiset kelvolliset äänet','Alla gemensamma giltiga röster','All common eligible ballots'));
     return `<h4>${e(memberName(a))} / ${e(memberName(b))}</h4><p>${agree} / ${common.length} = ${percent(common.length?agree/common.length:null)} · ${e(scopeLabel(active))}</p><div data-ballot-list>${ballotTable}</div>`;
   }
   async function showPartyEvidence(a,b){
@@ -92,12 +89,6 @@ export async function renderRelationships(root,{lang='fi',view='full',current=()
     const same=b?selected.filter(row=>row.parties[a].modalChoice===row.parties[b].modalChoice).length:null;
     const partyCell=group=>e(l(group.modalChoice)||tr('Tasainen','Oavgjort','Tied'))+` · ${group.modalCount}/${group.eligible} · `+Object.entries(group.counts).map(([key,count])=>e(l(key))+': '+count).join(', ');
     return `<h4>${e(a.toUpperCase())}${b?' / '+e(b.toUpperCase()):''}</h4><p>${b?`${same} / ${selected.length} = ${percent(selected.length?same/selected.length:null)}`:tr('Moodin tuki ja tasaiset kannat ovat näkyvissä jokaisesta äänestyksestä.','Typvärdets stöd och oavgjorda positioner visas för varje omröstning.','Modal support and tied positions are shown for every event.')}</p>${tables.render(['Date / Matter',a.toUpperCase(),...(b?[b.toUpperCase()]:[]),'Source'],selected,row=>td([e(row.date.slice(0,10))+' '+e(row.document),partyCell(row.parties[a]),...(b?[partyCell(row.parties[b])]:[]),`<button type="button" data-vote-file="${e(voteFiles.get(row.id))}">${e(row.id)}</button>`]),tr('Kaikki tulokseen sisältyvät äänestykset','Alla ingående omröstningar','All contributing roll calls'))}`;
-  }
-  async function showCrossParty(otherParty,ownParty){
-    const [ballots,events,index]=await Promise.all([loader.load(`ballots-${mp}.json`),loader.load('party-events.json'),loader.load('vote-index.json')]);if(!current())return;
-    const own=new Map(ballots.map(b=>[b[0],b])),active=manifest.scopes.find(s=>s.id===effectiveScope()),files=new Map(index.map(v=>[v.id,v.file]));
-    const items=events.flatMap(event=>{const b=own.get(event.id),group=event.parties[otherParty];if(!b||b[2]!==ownParty||!['yes','no','abstain'].includes(b[3])||!group||event.date.slice(0,10)<active.from||event.date.slice(0,10)>active.to||(active.topic&&!event.topics.includes(active.topic)))return [];return [{date:event.date,voteId:event.id,document:event.document,ownChoice:b[3],ownParty,otherParty,availableGroupSize:group.eligible,agreeingCounterparts:group.counts[b[3]]||0,alignment:(group.counts[b[3]]||0)/group.eligible,file:files.get(event.id)}];});
-    return `<p>${e(memberName(mp))} (${e(ownParty)}) / ${e(otherParty)} · ${items.length} ${tr('äänestystä; äänestysten keskimääräinen yhtenevyys','omröstningar; genomsnittlig samstämmighet','events; equal-event alignment')} ${percent(items.length?items.reduce((s,r)=>s+r.alignment,0)/items.length:null)}</p>${tables.render(['Date / matter','Own choice','Agreeing / available counterparts','Alignment','Source'],items,r=>td([e(r.date.slice(0,10))+' '+e(r.document),e(l(r.ownChoice)),r.agreeingCounterparts+'/'+r.availableGroupSize,percent(r.alignment),`<button data-vote-file="${e(r.file)}">${e(r.voteId)}</button>`]),'Cross-party event evidence')}`;
   }
   async function showSpeech(id,month,group){
     if(!month)throw Error('Speech date is missing from this evidence record.');
@@ -143,14 +134,19 @@ export async function renderRelationships(root,{lang='fi',view='full',current=()
     const ticket=++revision;status.textContent=tr('Ladataan valittu analyysi…','Vald analys laddas…','Loading the selected analysis…');evidencePanel.close({restoreFocus:false});speechSources.clear();pointEvidenceAction=null;
     result.setAttribute('aria-busy','true');result.querySelectorAll('button').forEach(button=>{button.disabled=true;});
     form.querySelector('[data-period-label]').hidden=!votingFeatures.has(feature);
-    form.elements.mp.closest('label').hidden=['party-heatmap','emerging-phrases','communities','lobbying-network','directed-references','phrase-uptake'].includes(feature);
+    form.elements.mp.closest('label').hidden=['party-heatmap','emerging-phrases'].includes(feature);
     form.elements.party.closest('label').hidden=!partyFeatures.has(feature);
-    form.elements.party.closest('label').firstChild.textContent=feature==='committee-overlap'?tr('Nykyinen puolue','Nuvarande parti','Current party'):['vote-neighbours','network-explorer'].includes(feature)?tr('Puolue äänestysaineistossa','Parti i röstningsdata','Party in voting data'):tr('Aineiston puolue','Parti i materialet','Recorded party');
+    form.elements.party.closest('label').firstChild.textContent=votingFeatures.has(feature)?tr('Puolue äänestysaineistossa','Parti i röstningsdata','Party in voting data'):tr('Aineiston puolue','Parti i materialet','Recorded party');
     root.querySelectorAll('[data-network-preset]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.networkPreset===feature)));
-    root.querySelector('[data-analysis-current]').textContent=title(feature);
-    const file=votingFeatures.has(feature)?feature==='party-heatmap'?`${scope}-parties.json`:`${scope}-member-${mp}.json`:feature==='committee-overlap'?`committee-member-${mp}.json`:feature==='layer-comparison'?`layers-${mp}.json`:['betweenness','communities','network-explorer'].includes(feature)?'graph.json':feature==='lobbying-network'?'lobbying-index.json':feature==='topic-profiles'?`topics-member-${mp}.json`:`speech-${({'emerging-phrases':'emerging','directed-references':'references','keyword-comparisons':'keyword-comparisons','phrase-uptake':'phrase-uptake'})[feature]}.json`;
-    let data=await loader.load(file);if(ticket!==revision||!current())return;
-    const override=overrides.get(`${feature}:${mp}`);if(override&&feature==='committee-overlap')data=override;
+    const files={
+      'vote-neighbours':scope+'-member-'+mp+'.json',
+      'party-heatmap':scope+'-parties.json',
+      'topic-profiles':'topics-member-'+mp+'.json',
+      'emerging-phrases':'speech-emerging.json',
+      'keyword-comparisons':'speech-keyword-comparisons.json'
+    };
+    const data=await loader.load(files[feature]);
+    if(ticket!==revision||!current())return;
     currentData=data;method=data.method||data.analysis?.method||{};rows=[];analysisFilters={};
     tables.clear();
     if(feature==='vote-neighbours'){
@@ -162,157 +158,13 @@ export async function renderRelationships(root,{lang='fi',view='full',current=()
       finish(`<p>${tr('Puolueen kanta on kelvollisten äänten yksikäsitteinen moodi. Tasaiset ja puuttuvat kannat ohitetaan. Kukin äänestys painaa yhtä paljon. Alle 30 yhteistä kantaa on vähän näyttöä.','Partiets position är det entydiga typvärdet bland giltiga röster. Oavgjorda och saknade positioner utelämnas. Färre än 30 gemensamma positioner ger litet underlag.','Party positions use unique modal eligible choices. Tied and missing positions are excluded. Each roll call has equal weight. Fewer than 30 common positions is low support.')}</p>${matrix}<details><summary>${tr('Parien haettava taulukko','Sökbar tabell över par','Searchable pair table')}</summary>${table(['Party A','Party B','Agree / common','%',tr('Lähteet','Källor','Evidence')],arr(data.partyPairs),r=>td([e(r.a),e(r.b),`${r.agree} / ${r.common}`,percent(r.agreement),partyInspect(r.a,r.b)]))}</details><h3>${tr('Puolueiden sisäinen yhtenäisyys','Sammanhållning inom partierna','Within-party cohesion')}</h3>${table(['Party','Votes','Equal-event modal support','Ballot-weighted modal support','Evidence'],arr(data.cohesion),r=>td([e(r.party),number(r.votes),percent(r.meanModalSupport),percent(r.modalSupport),partyInspect(r.party)]),'Cohesion')}`);
       // Export both numeric equivalents, without losing the heatmap rows to the second table.
       rows=[...filtered(arr(data.partyPairs)).map(r=>({...r,table:'party-agreement'})),...filtered(arr(data.cohesion)).map(r=>({...r,table:'cohesion'}))];
-    } else if(feature==='cross-party-profiles'){
-      finish(`<p>${tr('Havainnot jaetaan edustajan kulloisenkin puolueen mukaan. Ryhmän jokainen äänestys saa saman painon; vastapuolen koko ja aktiivisuus näkyvät erikseen. Alle 30 tapahtumaa on vähän näyttöä.','Observationerna delas enligt ledamotens dåvarande parti. Varje gruppröstning väger lika; gruppstorlek och aktivitet visas separat. Färre än 30 händelser ger litet underlag.','Observations are split by the MP’s party at the time. Each counterpart group/event receives equal weight; available group size and activity are reported separately. Fewer than 30 events is low support.')}</p>${table(['Own party','Other party','Events','Group size','Alignment','Ballot weighted','Matter weighted','Evidence'],arr(data.crossParty),r=>td([e(r.ownParty),e(r.party),number(r.events)+(r.lowSupport?' · '+tr('Vähän näyttöä','Litet underlag','Low support'):''),number(r.availableGroupSizeMean),percent(r.alignment),percent(r.ballotWeightedAlignment),percent(r.matterWeightedAlignment),`<button data-cross-party="${e(r.party)}" data-own-party="${e(r.ownParty)}">${tr('Lähteet','Källor','Evidence')}</button>`]))}`);
-    } else if(feature==='committee-overlap'){
-      paintCommittees(data);
-    } else if(feature==='layer-comparison'){
-      paintLayers(data);
-    } else if(feature==='network-explorer'){
-      paintVotingPatterns(data);
-    } else if(['betweenness','communities'].includes(feature)){
-      paintGraph(data);
-    } else if(feature==='lobbying-network'){
-      await paintLobbying(data,ticket);
     } else if(feature==='topic-profiles'){
       paintTopics(data);
-    } else if(feature==='directed-references'){
-      paintReferences(data);
     } else if(feature==='emerging-phrases'){
       paintEmerging(data);
     } else {
       await paintSpeech(data,ticket);
     }
-  }
-  function paintCommittees(data){
-    const ownMemberships=arr(data.memberships).filter(r=>r.mpId===mp).map(r=>({...r,party:memberMap.get(mp)?.party}));
-    analysisFilters={from:data.coverage.from,to:data.coverage.to};
-    const pairs=arr(data.pairs).filter(r=>r.a===mp||r.b===mp).map(r=>({...r,neighbour:r.a===mp?r.b:r.a,name:memberName(r.a===mp?r.b:r.a),party:memberMap.get(r.a===mp?r.b:r.a)?.party}));
-    finish(`<p>${tr('Institutionaalinen läheisyys: yhteiset toimielinpäivät. Sama päivä eri toimielimissä lasketaan erikseen. Nimityskaudet ovat [alku, loppu), rajauksen loppupäivä sisältyy mukaan.','Institutionell närhet: gemensamma organdagar. Samma dag i olika organ räknas separat. Mandat är [start,slut); vald slutdag ingår.','Institutional proximity: shared body-days. The same day in different bodies counts separately. Appointments use [start,end); the selected end day is included.')}</p><form class="relationship-controls" data-committee-dates><label>${tr('Alkaen','Från','From')}<input type="date" name="from" min="${e(manifest.coverage.from)}" max="${e(manifest.coverage.to)}" value="${e(data.coverage.from)}" required></label><label>${tr('Asti','Till','To')}<input type="date" name="to" min="${e(manifest.coverage.from)}" max="${e(manifest.coverage.to)}" value="${e(data.coverage.to)}" required></label><button>${tr('Laske aikaväli','Beräkna period','Calculate period')}</button></form>${table(['MP','Shared body-days','Size-corrected days','Bodies / roles'],pairs,r=>td([relationshipLink(r.neighbour),number(r.sharedDays),number(r.weightedDays),`<button type="button" data-committee-pair="${e(r.neighbour)}">${r.bodies.length} · ${tr('Jäsenyydet','Medlemskap','Memberships')}</button>`]))}<details><summary>${tr('Edustajan omat jäsenyydet','Ledamotens medlemskap','MP membership records')}</summary>${table(['Body','Role','From','To (exclusive)','Source'],ownMemberships,r=>td([e(r.names?.[lang]||r.name),e(l(r.role)),e(r.from),e(r.to),r.sourceUrl?`<a href="${e(r.sourceUrl)}">${tr('Lähde','Källa','Source')}</a>`:'—']),'Memberships')}</details>`);
-    rows=[...filtered(pairs).map(r=>({...r,table:'relationships'})),...filtered(ownMemberships).map(r=>({...r,table:'memberships'}))];
-    result.querySelector('[data-committee-dates]').onsubmit=async event=>{
-      event.preventDefault();const dates=Object.fromEntries(new FormData(event.currentTarget));
-      if(dates.from>dates.to){status.textContent=tr('Alkupäivän on oltava ennen loppupäivää.','Startdatum måste föregå slutdatum.','The start date must precede the end date.');return;}
-      const requestRevision=++revision;
-      await guard(async()=>{status.textContent=tr('Lasketaan aikaväli…','Perioden beräknas…','Calculating the selected period…');const profiles=await loader.load('committee-source.json');const calculated=await runWorker({kind:'committee-overlap',profiles,members:manifest.members,settings:dates});if(!current()||requestRevision!==revision)return;overrides.set(`committee-overlap:${mp}`,calculated);currentData=calculated;method=calculated.method;paintCommittees(calculated);});
-    };
-  }
-  function paintLayers(data){
-    const all=[];
-    const content=arr(data.layers).map(layer=>{
-      const items=arr(layer.relationships).map(r=>({...r,layer:layer.layer,unit:layer.unit,neighbour:r.a===mp?r.b:r.a,name:memberName(r.a===mp?r.b:r.a),party:memberMap.get(r.a===mp?r.b:r.a)?.party}));all.push(...items);
-      return `<h3>${layer.layer==='voting'?title('vote-neighbours'):title('committee-overlap')}</h3><p>${e(l(layer.unit))} · ${e(layer.coverage?.from||'—')} – ${e(layer.coverage?.to||'—')}</p>${layer.available?table(['MP','Value','Support / bodies','Evidence'],items,r=>td([relationshipLink(r.neighbour),r.layer==='voting'?percent(r.agreement):number(r.weightedDays),r.layer==='voting'?number(r.common):number(r.bodies.length),r.layer==='voting'?inspect(mp,r.neighbour):`<button data-committee-pair="${e(r.neighbour)}">${tr('Jäsenyydet','Medlemskap','Memberships')}</button>`]),title(layer.layer==='voting'?'vote-neighbours':'committee-overlap')):`<p>${tr('Ei havaintoja','Inga observationer','Unavailable')}</p>`}`;
-    }).join('');
-    finish(`<p>${tr('Äänestykset ja toimielinjaksot käyttävät samoja henkilötunnisteita ja yhteistä aikaikkunaa. Eri kattavuus ja yksiköt näkyvät erikseen. Yhteispistemäärää ei lasketa.','Omröstningar och organperioder har gemensamma person-ID och tidsfönster. Täckning och enheter visas separat. Ingen gemensam poäng beräknas.','Voting and membership layers use shared person IDs and a common time window. Their coverage and units are shown separately. No combined score is calculated.')}</p>${content}`);rows=filtered(all);method={comparison:data.interpretation,window:data.window,layers:data.layers.map(l=>({layer:l.layer,unit:l.unit,coverage:l.coverage}))};
-  }
-  function paintVotingPatterns(data){
-    const minimum=data.method?.minCommon??30;
-    const minority=data.method?.contestedMinority??0.1;
-    const baseline=data.partyByMember?.[mp];
-    const sameParty=votingLens==='same-party';
-    const comparisons=votingComparisonRows(data,mp,manifest.members)
-      .filter(row=>baseline&&row.party&&(sameParty?row.party===baseline:row.party!==baseline))
-      .filter(row=>row.contested?.common>=minimum)
-      .map(row=>({
-        name:row.name,neighbour:row.neighbour,party:row.party,
-        agreement:row.agreement,common:row.common,
-        contestedAgreement:row.contested.agreement,contestedCommon:row.contested.common,
-        contestedSame:row.contested.agree,contestedDifferent:row.contested.common-row.contested.agree
-      }));
-    const rate=row=>sameParty?1-row.contestedAgreement:row.contestedAgreement;
-    const matches=filtered(comparisons)
-      .filter(row=>!sameParty||row.contestedDifferent>0)
-      .sort((a,b)=>rate(b)-rate(a)||a.name.localeCompare(b.name,lang));
-    analysisFilters={lens:votingLens,minimumContestedVotes:minimum,partyBaseline:baseline};
-    method={...data.method,explorer:'Compare contested and all joint votes by scope-specific recorded party baseline'};
-    const evidenceButton=row=>`<button type="button" class="relationship-pair-action" data-pair="${e(mp)}" data-other="${e(row.neighbour)}">${tr('Äänet','Röster','Ballots')}</button>`;
-    const metric=sameParty?tr('Eri mieltä','Olika röster','Voted differently'):tr('Samaa mieltä','Lika röster','Voted alike');
-    const overallLabel=tr('Kaikissa yhteisissä äänestyksissä','I alla gemensamma omröstningar','Across all shared votes');
-    const overall=row=>sameParty?1-row.agreement:row.agreement;
-    const counts=row=>number(sameParty?row.contestedDifferent:row.contestedSame)+' / '+number(row.contestedCommon);
-    const emptyMessage=!baseline
-      ?tr('Tälle edustajalle ei löydy yksiselitteistä puoluetta valitussa aineistossa.','Ingen entydig partitillhörighet hittades för ledamoten i urvalet.','No single recorded party could be assigned to this MP in the selection.')
-      :data.coverage?.contestedVotes<minimum
-        ?tr('Rajauksessa on liian vähän jakautuneita äänestyksiä. Kokeile laajempaa rajausta.','Urvalet har för få delade omröstningar. Prova ett bredare urval.','This selection has too few divided votes. Try a broader scope.')
-        :tr('Näillä rajauksilla ei löytynyt vertailuja.','Inga jämförelser med de här filtren.','No comparisons match these filters.');
-    const bars=matches.slice(0,6).map(row=>`
-      <li>
-        <div class="relationship-neighbour-name">${relationshipLink(row.neighbour)} <small>${e(row.party.toUpperCase())}</small></div>
-        <div class="relationship-agreement-value">
-          <div><strong>${percent(rate(row))}</strong><span>${counts(row)} · ${metric}</span></div>
-          <span class="relationship-agreement-track" aria-hidden="true"><span style="width:${agreementWidth(rate(row))}%"></span></span>
-          <div><span>${overallLabel} ${percent(overall(row))}</span></div>
-        </div>
-        ${evidenceButton(row)}
-      </li>`).join('');
-    const detail=tables.render([
-      'MP','Party',
-      tr('Jakautuneet äänestykset','Delade omröstningar','Divided votes'),
-      tr('Kaikki yhteiset äänestykset','Alla gemensamma omröstningar','All shared votes'),'Evidence'
-    ],matches,row=>td([
-      relationshipLink(row.neighbour),e(row.party.toUpperCase()),
-      percent(rate(row))+' · '+counts(row),
-      percent(overall(row))+' · '+number(row.common),evidenceButton(row)
-    ]),metric,[row=>row.name,row=>row.party,rate,overall]);
-    finish(`
-      <div class="relationship-result-context"><strong>${e(memberName(mp))}</strong>${baseline?`<span class="relationship-party">${e(baseline.toUpperCase())}</span>`:''}<span>${e(scopeLabel(manifest.scopes.find(item=>item.id===scope)))}</span></div>
-      <div class="relationship-controls"><label>${tr('Mitä haluat tutkia?','Vad vill du undersöka?','What do you want to explore?')}
-        <select data-voting-lens>
-          <option value="cross-party"${sameParty?'':' selected'}>${tr('Yhtenevyys puoluerajojen yli','Lika röster över partigränserna','Agreement across parties')}</option>
-          <option value="same-party"${sameParty?' selected':''}>${tr('Erot saman puolueen sisällä','Skillnader inom samma parti','Differences within a party')}</option>
-        </select>
-      </label></div>
-      <p class="relationship-caption">${tr(
-        'Jakautuneessa äänestyksessä vähintään '+percent(minority)+' äänistä poikkeaa yleisimmästä valinnasta. Vertailuun tarvitaan vähintään '+minimum+' yhteistä jakautunutta äänestystä.',
-        'I en delad omröstning avviker minst '+percent(minority)+' av rösterna från det vanligaste valet. Minst '+minimum+' gemensamma delade omröstningar krävs.',
-        'In a divided vote, at least '+percent(minority)+' of ballots differ from the most common choice. Comparisons require at least '+minimum+' shared divided votes.'
-      )}</p>
-      ${bars?`<ul class="relationship-agreement-list" aria-label="${metric}">${bars}</ul>`:`<p>${emptyMessage}</p>`}
-      <details class="relationship-detail-table"><summary>${tr('Kaikki vertailut ja koko aineiston luvut','Alla jämförelser och siffror för hela urvalet','All comparisons and figures for the full selection')} (${matches.length})</summary>${detail}</details>
-      <details class="relationship-detail-table"><summary>${tr('Näin vertailu lasketaan','Så räknas jämförelsen','How the comparison works')}</summary>
-        <p>${tr('Puolue on kunkin edustajan yleisin äänestysaineistoon merkitty puolue valitussa rajauksessa. Mukana ovat jaa-, ei- ja tyhjät äänet. Yhtenevyys kuvaa yhteisiä valintoja äänestyksissä.','Partiet är ledamotens vanligaste registrerade parti i urvalet. Ja-, nej- och blanka röster ingår. Samstämmighet beskriver gemensamma val i omröstningar.','Party is each MP’s most frequently recorded party in the selected votes. Yes, no and abstentions count. Agreement measures shared choices in recorded votes.')}</p>
-        <p><a href="https://arxiv.org/abs/1908.08859">Intal &amp; Yasseri (2021)</a> · <a href="https://theyvoteforyou.org.au/help/faq">They Vote For You</a></p>
-      </details>`);
-    result.querySelector('[data-voting-lens]').onchange=event=>{
-      votingLens=event.target.value;
-      persist();
-      tables.clear();
-      paintVotingPatterns(data);
-      result.querySelector('[data-voting-lens]').focus({preventScroll:true});
-    };
-  }
-  function paintGraph(data){
-    const graph=data.graph,analysis=data.analysis,ego=graph.edges.filter(r=>r.a===mp||r.b===mp),graphNodes=new Map(graph.nodes.map(n=>[n.id,n]));
-    method=analysis.method;
-    const context=`<p>${tr('Äänestysverkosto, koko tallennettu jakso. Viiva tarkoittaa tuettua äänestysyhtenevyyttä. Asettelu on vain selausta varten.','Röstningsnätverk för hela lagrade perioden. En linje betyder samstämmiga röster med tillräckligt underlag. Layouten används endast för navigering.','Voting graph, all stored votes. An edge means supported voting agreement. Layout is for navigation only.')} ${graph.nodes.length} ${tr('solmua','noder','nodes')}, ${graph.edges.length} ${tr('yhteyttä','kanter','edges')}, ${analysis.components.length} ${tr('komponenttia','komponenter','components')}.</p>`;
-    if(feature==='betweenness'){
-      const selected=analysis.betweenness.filter(r=>r.id===mp).map(r=>({...r,name:memberName(r.id),party:graphNodes.get(r.id)?.party}));
-      finish(`${context}<p class="relationship-note">${e(l(analysis.brokerage.status))} · ${tr('Järjestyslistaa ei julkaista. Samankaltaisuusverkon polut ovat laskennallisia rakenteita. Herkkyys sisältää naapurimäärän, asiapainotuksen, vuosijaksot ja asiajaksojen uudelleenotannan.','Ingen rangordning publiceras. Vägar i likhetsnätverket är analytiska konstruktioner. Känslighet omfattar grannantal, ärendeviktning, årsperioder och omsampling av ärenden.','Ordinal rankings are withheld. Similarity paths are analytical constructs. Sensitivity covers neighbour counts, matter weighting, yearly windows and matter-block resampling.')}</p>${table(['MP','Score','Sensitivity min','Sensitivity max','Stable'],selected,r=>td([memberLink(r.id),number(r.score),number(r.min),number(r.max),e(l(String(r.stable)))]))}<h3>${tr('Yhteyttä tukevat ryhmät','Grupper bakom förbindelserna','Contributing connections')}</h3>${table(['MP','Recorded party baseline','Agreement','Common','Evidence'],ego.map(r=>({...r,neighbour:r.a===mp?r.b:r.a,party:graphNodes.get(r.a===mp?r.b:r.a)?.party})),r=>td([relationshipLink(r.neighbour),e(r.party),percent(r.weight),r.common,inspect(mp,r.neighbour)]))}`);
-      rows=[...selected.map(r=>({...r,rowType:'betweenness'})),...filtered(ego.map(r=>({...r,rowType:'connection'})))];
-    }else if(feature==='communities'){
-      const communities=analysis.communities;
-      finish(`${context}<p class="relationship-note">${e(l(communities.status))} · ${tr('Vakausraja','Stabilitetsgräns','Stability target')} ${number(communities.stabilityTarget)}; ${tr('siemenet ja resoluutiot','frön och upplösningar','seeds and resolutions')} ${number(communities.stability)}; ${tr('vaihtoehtoiset verkostot','alternativa nätverk','graph variants')} ${number(communities.variantStability)}.</p><p>${tr('Epävakaat ryhmäjaot ovat julkaisematta. Analyyttinen ryhmä ei ole virallinen poliittinen ryhmittymä. Vertailukohtana on tapahtuma-ajan puoluerakenne.','Instabila grupper publiceras inte. En analytisk grupp är ingen officiell politisk gruppering. Jämförelsen använder dåtidens partistruktur.','Unstable assignments are withheld. An analytical community is not an official political faction. The baseline uses event-time party structure.')}</p>${table(['Metric','Value'],[{metric:'modularity',value:communities.modularity},{metric:'party baseline modularity',value:communities.partyModularity},{metric:'adjusted Rand vs party',value:communities.partyAdjustedRand},{metric:'seed/resolution minimum ARI',value:communities.stability},{metric:'variant minimum ARI',value:communities.variantStability}],r=>td([e(l(r.metric)),number(r.value)]))}${communities.assignments?table(['MP','Exploratory group'],graph.nodes.map(n=>({id:n.id,name:n.name,party:n.party,group:communities.assignments[n.id]})),r=>td([relationshipLink(r.id),number(r.group)])):''}`);
-    }
-  }
-  async function paintLobbying(data,ticket){
-    const selectedOrg=lobbyOrg||data.organisations[0]?.id;
-    let org=data.organisations.find(o=>o.id===selectedOrg)||data.organisations[0],period=reporting,orgRevision=0;
-    finish(`<p class="relationship-note">${tr('Itse ilmoitettu organisaatio–aihe–kohde-yhteys ei tarkoita tapaamista. Henkilökohtaiset listaukset odottavat riippumatonta tunnisteiden tarkistusta.','En självrapporterad organisation–ämne–mottagare-relation är inget möte. Personrankningar väntar på oberoende identitetskontroll.','Self-reported organisation–topic–target associations are not meetings. Person rankings await independent identity review.')}</p><p>${data.coverage.organisations} ${tr('organisaatiota','organisationer','organisations')}, ${data.coverage.topics} ${tr('eri aihetta','olika ämnen','distinct topics')}, ${data.coverage.periods} ${tr('päättynyttä raportointijaksoa','avslutade rapporteringsperioder','closed reporting periods')}. ${data.coverage.inputAssociations} − ${data.coverage.duplicateAssociations} − ${data.coverage.excludedAssociations} = ${data.coverage.relationships} ${tr('yksilöityä yhteyttä','unika relationer','deduplicated associations')}.</p><div class="relationship-controls"><label>${tr('Organisaatio (Y-tunnus)','Organisation (FO-nummer)','Organisation (company ID)')}<select data-lobby-org>${data.organisations.map(o=>`<option value="${e(o.id)}" ${o.id===org?.id?'selected':''}>${e(o.label)} · ${e(o.companyId||o.id)}</option>`).join('')}</select></label><label>${tr('Raportointijakso','Rapporteringsperiod','Reporting period')}<select data-lobby-period><option value="all">${tr('Kaikki päättyneet','Alla avslutade','All closed periods')}</option>${data.periods.map(p=>`<option value="${e(p.id)}" ${period===p.id?'selected':''}>${e(p.from)} – ${e(p.to)}</option>`).join('')}</select></label></div><div data-lobby-table></div>`);
-    const loadOrg=async()=>{
-      if(!org)return;status.textContent=tr('Ladataan organisaation ilmoituksia…','Organisationens anmälningar laddas…','Loading organisation declarations…');result.querySelectorAll('[data-network-export]').forEach(button=>{button.disabled=true;});
-      const chosenOrg=org,chosenPeriod=period,request=++orgRevision;const details=await loader.load(chosenOrg.file);if(ticket!==revision||request!==orgRevision||!current())return;
-      const items=details.relationships.filter(r=>period==='all'||r.periodId===period).map(r=>({...r,topic:details.topicTexts[r.topicId]}));
-      const holder=result.querySelector('[data-lobby-table]');if(!holder)return;
-      holder.innerHTML=table(['Organisation','Topic','Reported target','Identity','Period','Declaration'],items,r=>td([e(org.label),e(r.topic),e(r.targetLabel),e(l(r.identityStatus)),e(r.periodId),`<button data-declaration="${e(r.declarationId)}">${e(r.diaryNumber||r.declarationId)}</button>`]));
-      holder.onclick=event=>{const button=event.target.closest('[data-declaration]');if(!button)return;const declaration=details.declarations.find(d=>d.id===button.dataset.declaration);showEvidence(`<p>${e(declaration?.diaryNumber)} · ${tr('Ilmoitustunniste','Anmälnings-ID','Notification ID')} ${e(declaration?.id)}</p><p>${e(chosenOrg.label)} · ${e(declaration?.period.start)} – ${e(declaration?.period.end)}</p><p>${tr('Alkuperäiset ilmoitusrivit, mukaan lukien yhdistetyt kaksoiskappaleet','Ursprungliga anmälningsrader, inklusive sammanslagna dubletter','Original declaration rows, including deduplicated source records')}</p><pre>${e(JSON.stringify(details.sourceRecords.filter(r=>String(r.notificationId)===declaration?.id),null,2))}</pre><a href="${e(declaration?.sourceUrl)}" target="_blank" rel="noopener">${tr('Virallinen lähdekokoelma (ilmoituksen tunniste yllä)','Officiell källsamling (anmälans ID ovan)','Official source collection (declaration ID above)')}</a>`);};
-      analysisFilters={organisationId:chosenOrg.id,companyId:chosenOrg.companyId,reportingPeriod:chosenPeriod};lobbyOrg=chosenOrg.id;reporting=chosenPeriod;persist();
-      root.querySelector('[data-network-method]').textContent=JSON.stringify({method:data.method,coverage:data.coverage,publicationGate:data.publicationGate,filters:analysisFilters,manifestId:manifest.id},null,2);
-      result.querySelectorAll('[data-network-export]').forEach(button=>{button.disabled=false;});
-      status.textContent=tr('Analyysi valmis.','Analysen är klar.','Analysis ready.');
-    };
-    result.querySelector('[data-lobby-org]').onchange=event=>{org=data.organisations.find(o=>o.id===event.target.value);guard(loadOrg);};
-    result.querySelector('[data-lobby-period]').onchange=event=>{period=event.target.value;guard(loadOrg);};
-    await loadOrg();
   }
   function paintTopics(data){
     const profile=data.results;
@@ -373,19 +225,14 @@ export async function renderRelationships(root,{lang='fi',view='full',current=()
         ${matterTable}
       </details>`);
   }
-  function paintReferences(data){
-    const r=data.results;
-    method={...data.method,reviewPolicy:r.reviewPolicy};
-    finish(`<p class="relationship-note">${tr('Riippumaton ihmisarviointi puuttuu. Julkisia henkilöjärjestyksiä tai vastaanotetun huomion henkilöpisteitä ei julkaista. Alla on arviointinäyte, ei vahvistettu suhdeverkko.','Oberoende mänsklig utvärdering saknas. Inga personrankningar eller personpoäng för mottagen uppmärksamhet publiceras. Nedan visas ett granskningsurval.','Independent human evaluation is pending. Public person rankings and incoming-attention scores are disabled. The sample below is for evaluation and contains unvalidated candidates.')}</p><p>${number(r.counts?.candidates)} ${tr('ehdokasta','kandidater','candidates')}; ${number(r.counts?.ambiguous)} ${tr('monitulkintaista','tvetydiga','ambiguous')}. ${tr('Ennalta asetettu tarkkuustavoite','Förutbestämt precisionsmål','Predeclared precision target')}: ${percent(r.reviewPolicy?.precisionTarget)}, ${tr('95 % alaraja ja vähintään','95 % undre gräns och minst','95% lower bound and at least')} ${r.reviewPolicy?.minimumLabels} ${tr('ihmisarviota','mänskliga etiketter','human labels')}.</p><p><code>npm run network:review -- sample data/networks/${e(manifest.id)}/reference-extraction.json work/reference-review.json</code></p>${table(['Date','Candidate passage','Candidate identities','Status','Evidence'],arr(r.sample),x=>td([e(x.date),e(x.passage),e(x.candidateIds.map(memberName).join(' / ')),e(l(x.confidence)),speechButton({...x,id:x.speechId})]))}`);
-  }
   function paintEmerging(data){
     const result=data.results;method={...data.method,...result.method,windows:result.windows};
     finish(`<p>${tr('Etsivä analyysi yhden ja kahden sanan ilmauksista. Ei merkitsevyystestiä eikä kielten yhdistämistä; taivutusmuodot erillisiä. Vähintään 5 esiintymää, 3 puhujaa ja 2 puoluetta yhdessä ikkunassa; heikko vertailupuoli merkitty.','Explorativ analys av ett- och tvåordsuttryck. Inga signifikanstester eller sammanslagningar av språk; böjningsformer behandlas separat. Minst 5 förekomster, 3 talare och 2 partier i ett fönster.','Exploratory one- and two-word candidates. No significance test, lemmatization or cross-language merging. At least 5 occurrences, 3 speakers and 2 parties in one window; weak comparison support is labelled.')}</p><p>${e(result.windows?.baseline?.start)} – ${e(result.windows?.baseline?.end)} → ${e(result.windows?.recent?.start)} – ${e(result.windows?.recent?.end)}. ${tr('Katso aineiston aukot menetelmästä.','Se luckor i metodbeskrivningen.','See method details for corpus gaps.')}</p>${table(['Phrase','Direction','Baseline count / rate','Recent count / rate','Recent speakers / parties','Support','Evidence'],arr(result.rows),r=>td([e(r.query),e(l(r.direction)),number(r.baseline.count)+' / '+number(r.baseline.per10000Words),number(r.recent.count)+' / '+number(r.recent.per10000Words),r.recent.distinctSpeakers+' / '+r.recent.partyBreadth,r.lowSupport?tr('Vähän näyttöä','Litet underlag','Low support'):'✓',supporting(r.recent.evidence.length?r.recent.evidence:r.baseline.evidence)]))}`);
   }
   async function paintSpeech(data,ticket){
-    const options=arr(data.results),isKeyword=feature==='keyword-comparisons';
+    const options=arr(data.results);
     const loadPreset=option=>option?.file?loader.load(option.file):option;
-    const selected=overrides.get(`${feature}:${mp}`)||await loadPreset(options[presets.get(feature)||0]);
+    const selected=overrides.get(mp)||await loadPreset(options[presetIndex]);
     if(!current()||ticket!==revision)return;
     const presetGroups=new Map();
     options.forEach((option,index)=>{
@@ -395,12 +242,10 @@ export async function renderRelationships(root,{lang='fi',view='full',current=()
     });
     const presetChoices=[...presetGroups].map(([topic,choices])=>topic
       ?`<optgroup label="${e(policyTopicLabel(topic,lang))}">${choices.join('')}</optgroup>`:choices.join('')).join('');
-    const intro=isKeyword
-      ?tr('Valitse ilmaus ja katso, kuinka usein se esiintyy eri puolueiden puheissa.','Välj ett uttryck och se hur ofta det förekommer i partiernas anföranden.','Choose an expression to see how often it appears in speeches from different parties.')
-      :tr('Valitse ilmaus ja katso, milloin se esiintyi ensimmäisen kerran tallennetuissa puheissa.','Välj ett uttryck och se när det först förekom i de sparade anförandena.','Choose an expression to see when it first appeared in the stored speeches.');
+    const intro=tr('Valitse ilmaus ja katso, kuinka usein se esiintyy eri puolueiden puheissa.','Välj ett uttryck och se hur ofta det förekommer i partiernas anföranden.','Choose an expression to see how often it appears in speeches from different parties.');
     const monthOptions=manifest.speechMonths.map((month,index)=>
       `<option value="${e(month.month)}"${index===manifest.speechMonths.length-1?' selected':''}>${e(month.month)}</option>`).join('');
-    const comparisonMembers=manifest.members.map(member=>
+    const comparisonMembers=manifest.members.filter(member=>String(member.id)!==mp).map(member=>
       `<option value="${e(member.id)}">${e(memberName(member.id))}</option>`).join('');
     finish(`<div class="relationship-keyword-picker">
       <p>${intro}</p>
@@ -431,7 +276,7 @@ export async function renderRelationships(root,{lang='fi',view='full',current=()
           <option value="parties">${tr('Puolueet','Partier','Parties')}</option>
           <option value="mp">${tr('Valittu edustaja ja kaikki puhujat','Vald ledamot och alla talare','Selected MP and all speakers')}</option>
         </select></label>
-        <label>${tr('Toinen vertailuedustaja','Andra jämförelseledamot','Second comparison MP')}<select name="compareMp">
+        <label>${tr('Vertaa kohteeseen','Jämför med','Compare with')}<select name="compareMp">
           <option value="all">${tr('Kaikki puhujat','Alla talare','All speakers')}</option>
           ${comparisonMembers}
         </select></label>
@@ -445,130 +290,133 @@ export async function renderRelationships(root,{lang='fi',view='full',current=()
       pointEvidenceAction=null;
       const presetControl=result.querySelector('[data-preset]');
       presetControl.querySelector('[value="custom"]')?.remove();
-      const isCustom=overrides.get(`${feature}:${mp}`)===value;
+      const isCustom=overrides.get(mp)===value;
       if(isCustom){const custom=document.createElement('option');custom.value='custom';custom.textContent=tr('Oma haku: ','Egen sökning: ','Custom query: ')+value.query;presetControl.append(custom);presetControl.value='custom';}
       method=value.method;analysisFilters={query:value.query,mode:value.mode,scope:value.scope||'text',...value.settings,corpusStart:value.corpusStart,corpusEnd:value.corpusEnd};form.elements.party.closest('label').hidden=!canPartyFilter();
       const holder=result.querySelector('[data-speech-results]');
-      if(feature==='phrase-uptake'){
-        const limited=value.settings?.dateFrom||value.settings?.dateTo;
-        holder.innerHTML=`<p class="relationship-note">${limited?tr('Ensimmäinen havaittu käyttö valitussa hakuikkunassa','Första observerade användningen i valt sökfönster','First observed use in the selected searched window'):tr('Ensimmäinen havaittu käyttö tässä aineistossa','Första observerade användningen i detta material','First observed use in our corpus')}: ${e(value.firstObservedAt||'—')}. ${limited?`${e(value.settings.dateFrom)} – ${e(value.settings.dateTo)}. `:''}${tr('Arkiston alku','Arkivets början','Corpus start')}: ${e(value.corpusStart)}. ${tr('Varhaisin havainto ei osoita tekijyyttä eikä ajallinen järjestys leviämisreittiä.','Tidigaste observation visar inte upphov eller spridningsväg.','Earliest stored use does not establish authorship; chronology does not establish transmission.')}</p><p>${value.distinctSpeakers} ${tr('puhujaa','talare','speakers')}, ${value.partyBreadth} ${tr('puoluetta','partier','parties')}, ${value.distinctDates} ${tr('päivää','dagar','dates')}, ${value.distinctMatters} ${tr('asiaa','ärenden','matters')}; ${value.firstUses?.length||0} ${tr('samanaikaista ensihavaintoa','samtidiga första observationer','tied first observations')}.</p>${table(['UTC time','Speaker','Party','Occurrences','Quotation marker','Evidence'],arr(value.uses).map(r=>({...r,name:memberName(r.mpId)})),r=>td([e(r.observedAt),e(r.name),e(r.party),r.occurrences,e(l(String(r.quotationMarkerPresent))),speechButton(r)]))}`;
-      }else{
-        const points=value.series.flatMap(series=>series.points.map(point=>({
-          ...point,series:series.label,group:series.id,party:series.settings?.party
-        })));
-        const visible=filtered(points);
-        const groups=value.series.map(series=>{
-          const months=visible.filter(point=>point.group===series.id);
-          const mentions=months.reduce((sum,point)=>sum+point.occurrences,0);
-          const words=months.reduce((sum,point)=>sum+point.words,0);
-          const matches=months.reduce((sum,point)=>sum+point.matchingSpeeches,0);
-          return {id:series.id,label:l(series.label),months,calendar:series.points.map(point=>point.month),mentions,words,matches,rate:words?mentions/words*10000:null};
-        }).filter(group=>group.months.length);
-        const ceiling=Math.max(1,...groups.map(group=>group.rate||0));
-        const bar=(rate,max)=>rate==null?0:rate/max*100;
-        const summary=groups.map(group=>`<li>
-          <span class="relationship-keyword-group"><strong>${e(group.label)}</strong><small>${number(group.mentions,0)} ${tr('mainintaa','omnämnanden','mentions')} · ${number(group.matches,0)} ${tr('osuvaa puhetta','matchande anföranden','matching speeches')}</small></span>
-          <span class="relationship-agreement-track" aria-hidden="true"><span style="width:${bar(group.rate,ceiling)}%"></span></span>
-          <strong class="relationship-keyword-rate">${number(group.rate,1)}</strong>
-        </li>`).join('');
-        const trendTitle=tr('Kuukausittainen kehitys','Utveckling per månad','Monthly trend');
-        const tableTitle=tr('Kaikki kuukausiluvut ja lähdepuheet','Alla månadsuppgifter och källanföranden','All monthly figures and source speeches');
-        const monthlyTable=table(['Group','Month','Mentions','Words','Per 10,000','Matching speeches / corpus','Prevalence','Speakers','Coverage','Evidence'],points,r=>td([e(l(r.series)),e(r.month),r.occurrences,number(r.words),number(r.per10000Words),r.matchingSpeeches+' / '+r.speeches,percent(r.speechPrevalence),r.distinctSpeakers,r.coverageGap?tr('Aukko','Lucka','Gap'):r.partialMonth?tr('Vajaa kuukausi','Ofullständig månad','Partial month'):'✓',r.occurrences>0?`<button type="button" data-point="${e(r.group)}" data-month-point="${e(r.month)}">${tr('Puheet','Anföranden','Speeches')}</button>`:'—']));
-        const corpusPeriod=visible.length
-          ?`${visible.reduce((earliest,point)=>point.month<earliest?point.month:earliest,visible[0].month)} – ${visible.reduce((latest,point)=>point.month>latest?point.month:latest,visible[0].month)}`
-          :'';
-        holder.innerHTML=`<section class="relationship-keyword-summary" aria-labelledby="keyword-result-title">
-          <h3 id="keyword-result-title">“${e(value.query)}” <span>${e(corpusPeriod)}</span></h3>
-          <p class="relationship-caption">${tr('Mainintoja 10 000 sanaa kohti. Näin erikokoisia puheaineistoja voi verrata.','Omnämnanden per 10 000 ord gör grupper med olika mycket tal jämförbara.','Mentions per 10,000 words lets you compare groups with different amounts of speech.')}</p>
-          ${summary?`<ul class="relationship-keyword-rates">${summary}</ul>`:`<p>${tr('Ei tuloksia näillä rajauksilla.','Inga resultat med dessa filter.','No results for these filters.')}</p>`}
-          <p class="relationship-caption">${tr('Haku:','Sökning:','Match mode:')} ${e(l(value.mode))}. ${tr('Yksi puhe voi sisältää useita mainintoja.','Ett anförande kan innehålla flera omnämnanden.','One speech can contain several mentions.')}</p>
-        </section>${groups.length?`<details class="relationship-detail-table">
-          <summary>${trendTitle}</summary>
-          <label class="relationship-keyword-trend-group">${tr('Ryhmä','Grupp','Group')}<select data-keyword-trend>${groups.map((group,index)=>`<option value="${index}">${e(group.label)}</option>`).join('')}</select></label>
-          <div data-keyword-timeline></div>
-        </details>`:''}<details class="relationship-detail-table"><summary>${tableTitle}</summary>${monthlyTable}</details>`;
-        const trend=holder.querySelector('[data-keyword-trend]');
-        if(trend){
-          const timeline=holder.querySelector('[data-keyword-timeline]');
-          const locale=lang==='sv'?'sv-FI':lang==='en'?'en-GB':'fi-FI';
-          const longDate=new Intl.DateTimeFormat(locale,{month:'long',year:'numeric',timeZone:'UTC'});
-          const shortDate=new Intl.DateTimeFormat(locale,{month:'short',year:'numeric',timeZone:'UTC'});
-          const monthDate=month=>new Date(month+'-01T00:00:00Z');
-          const rateUnit=tr('mainintaa 10 000 sanaa kohti','omnämnanden per 10 000 ord','mentions per 10,000 words');
-          const describeMonth=point=>{
-            const rate=point.coverageGap
-              ? tr('Ei puheita tässä ryhmässä','Inga anföranden i gruppen','No speeches in this group')
-              : point.per10000Words==null
-                ? tr('Ei puhetekstiä','Ingen anförandetext','No transcript words')
-                : `${number(point.per10000Words)} ${rateUnit} · ${number(point.occurrences,0)} ${tr('mainintaa','omnämnanden','mentions')} / ${number(point.words,0)} ${tr('sanaa','ord','words')}`;
-            const coverage=point.partialMonth?` · ${tr('Vajaa kuukausi','Ofullständig månad','Partial month')}`:'';
-            return `${longDate.format(monthDate(point.month))} · ${rate}${coverage}`;
-          };
-          const paintTrend=()=>{
-            const {months,calendar}=groups[Number(trend.value)];
-            const firstMonth=months[0].month,lastMonth=months.at(-1).month;
-            const dates=calendar.slice(calendar.indexOf(firstMonth),calendar.indexOf(lastMonth)+1);
-            const pointsByMonth=new Map(months.map(point=>[point.month,point]));
-            const priorMonth=timeline.querySelector('[data-keyword-month]')?.value;
-            const max=Math.max(1,...months.map(point=>point.per10000Words||0));
-            const ticks=(density,limit)=>{
-              const count=Math.min(dates.length,limit);
-              return `<div class="relationship-keyword-axis relationship-keyword-axis-${density}">${Array.from({length:count},(_,i)=>{
-                const index=count===1?0:Math.round(i*(dates.length-1)/(count-1)),month=dates[index];
-                const offset=i===0?0:i===count-1?100:(index+.5)/dates.length*100;
-                return `<time datetime="${e(month)}" style="inset-inline-start:${offset}%">${e(shortDate.format(monthDate(month)))}</time>`;
-              }).join('')}</div>`;
-            };
-            timeline.innerHTML=`<p class="relationship-caption">0–${number(max)} / 10 000 · ${tr('Katkoviiva: ei tekstiaineistoa. Viivoitus: vajaa kuukausi.','Streckad linje: textunderlag saknas. Skraffering: ofullständig månad.','Dashed line: no transcript data. Hatching: partial month.')}
-              ${dates.length>months.length?tr('Tyhjät kohdat on suodatettu pois.','Tomma platser har filtrerats bort.','Blank positions are filtered out.'):''}</p>
-              <div class="relationship-keyword-plot" aria-hidden="true">
-                <div class="relationship-keyword-timeline">${dates.map(month=>{
-                  const point=pointsByMonth.get(month);
-                  if(!point)return '<span class="relationship-keyword-slot"></span>';
-                  const missing=point.per10000Words==null;
-                  return `<span class="relationship-keyword-slot" data-keyword-slot="${e(month)}" title="${e(describeMonth(point))}"><span class="relationship-bar${point.partialMonth?' relationship-bar-partial':''}${missing?' relationship-bar-gap':''}" style="height:${bar(point.per10000Words,max)}%"></span></span>`;
-                }).join('')}</div>
-                ${ticks('compact',3)}${ticks('medium',5)}${ticks('wide',7)}
-              </div>
-              <label class="relationship-keyword-trend-group relationship-keyword-month">${tr('Tarkastele kuukautta','Granska månad','Inspect a month')}<select data-keyword-month>${months.map(point=>`<option value="${e(point.month)}">${e(longDate.format(monthDate(point.month)))}</option>`).join('')}</select></label>
-              <p class="relationship-keyword-month-detail" data-keyword-month-detail role="status"></p>`;
-            const monthPicker=timeline.querySelector('[data-keyword-month]');
-            const detail=timeline.querySelector('[data-keyword-month-detail]');
-            let selectedSlot;
-            const inspectMonth=()=>{
-              const point=pointsByMonth.get(monthPicker.value);
-              selectedSlot?.classList.remove('is-selected');
-              selectedSlot=timeline.querySelector(`[data-keyword-slot="${point.month}"]`);
-              selectedSlot.classList.add('is-selected');
-              detail.textContent=describeMonth(point);
-            };
-            monthPicker.value=pointsByMonth.has(priorMonth)?priorMonth:lastMonth;
-            monthPicker.onchange=inspectMonth;
-            timeline.querySelector('.relationship-keyword-timeline').onclick=event=>{
-              const slot=event.target.closest('[data-keyword-slot]');
-              if(slot){monthPicker.value=slot.dataset.keywordSlot;inspectMonth();}
-            };
-            inspectMonth();
-          };
-          trend.onchange=paintTrend;
-          paintTrend();
-        }
-        holder.onclick=event=>{
-          const button=event.target.closest('[data-point]');if(!button||button.disabled)return;
-          const point=points.find(p=>p.group===button.dataset.point&&p.month===button.dataset.monthPoint),series=value.series.find(s=>s.id===button.dataset.point);
-          pointEvidenceAction=async()=>{
-            const chunk=await loader.load(`speeches-${point.month}.json`);await loader.verifyCode();
-            const {filterResearchSpeeches,matchRanges}=await import(`./data/networks/${manifest.id}/speech-research.js`),{filterSpeechesBySpeaker}=await import(`./data/networks/${manifest.id}/app-utils.js`);
-            const supported=filterResearchSpeeches(filterSpeechesBySpeaker(chunk.speeches,{...value.settings,...series.settings}),chunk.texts,{...value.settings,query:value.query,mode:value.mode,scope:value.scope}).filter(s=>matchRanges(chunk.texts[s.id]||'',value.query,value.mode).length);
-            return tables.render(['Speaker','Date','Evidence'],supported,r=>td([e(memberName(r.mpId)),e(r.date),speechButton(r)]),'Matching speeches');
-          };
-          showEvidence(`<p>${e(value.query)} · ${e(point.month)} · ${e(l(series.label))} · ${point.occurrences} / ${point.words} × 10000 = ${number(point.per10000Words)}</p><p>${supporting(point.evidence)}</p><button type="button" data-point-all>${tr('Avaa kaikki osuvat puheet tästä kuukaudesta','Öppna alla matchande anföranden i månaden','Open all matching speeches in this month')}</button>`,button);
+      const points=value.series.flatMap(series=>series.points.map(point=>({
+        ...point,series:series.label,group:series.id,party:series.settings?.party
+      })));
+      const visible=filtered(points);
+      const groups=value.series.map(series=>{
+        const months=visible.filter(point=>point.group===series.id);
+        const mentions=months.reduce((sum,point)=>sum+point.occurrences,0);
+        const words=months.reduce((sum,point)=>sum+point.words,0);
+        const matches=months.reduce((sum,point)=>sum+point.matchingSpeeches,0);
+        return {id:series.id,label:l(series.label),months,calendar:series.points.map(point=>point.month),mentions,words,matches,rate:words?mentions/words*10000:null};
+      }).filter(group=>group.months.length);
+      const ceiling=Math.max(1,...groups.map(group=>group.rate||0));
+      const bar=(rate,max)=>rate==null?0:rate/max*100;
+      const summary=groups.map(group=>`<li>
+        <span class="relationship-keyword-group"><strong>${e(group.label)}</strong><small>${number(group.mentions,0)} ${tr('mainintaa','omnämnanden','mentions')} · ${number(group.matches,0)} ${tr('osuvaa puhetta','matchande anföranden','matching speeches')}</small></span>
+        <span class="relationship-agreement-track" aria-hidden="true"><span style="width:${bar(group.rate,ceiling)}%"></span></span>
+        <strong class="relationship-keyword-rate">${number(group.rate,1)}</strong>
+      </li>`).join('');
+      const trendTitle=tr('Kuukausittainen kehitys','Utveckling per månad','Monthly trend');
+      const tableTitle=tr('Kaikki kuukausiluvut ja lähdepuheet','Alla månadsuppgifter och källanföranden','All monthly figures and source speeches');
+      const monthlyTable=table(['Group','Month','Mentions','Words','Per 10,000','Matching speeches / corpus','Prevalence','Speakers','Coverage','Evidence'],points,r=>td([e(l(r.series)),e(r.month),r.occurrences,number(r.words),number(r.per10000Words),r.matchingSpeeches+' / '+r.speeches,percent(r.speechPrevalence),r.distinctSpeakers,r.coverageGap?tr('Aukko','Lucka','Gap'):r.partialMonth?tr('Vajaa kuukausi','Ofullständig månad','Partial month'):'✓',r.occurrences>0?`<button type="button" data-point="${e(r.group)}" data-month-point="${e(r.month)}">${tr('Puheet','Anföranden','Speeches')}</button>`:'—']));
+      const corpusPeriod=visible.length
+        ?`${visible.reduce((earliest,point)=>point.month<earliest?point.month:earliest,visible[0].month)} – ${visible.reduce((latest,point)=>point.month>latest?point.month:latest,visible[0].month)}`
+        :'';
+      holder.innerHTML=`<section class="relationship-keyword-summary" aria-labelledby="keyword-result-title">
+        <h3 id="keyword-result-title">“${e(value.query)}” <span>${e(corpusPeriod)}</span></h3>
+        <p class="relationship-caption">${tr('Mainintoja 10 000 sanaa kohti. Näin erikokoisia puheaineistoja voi verrata.','Omnämnanden per 10 000 ord gör grupper med olika mycket tal jämförbara.','Mentions per 10,000 words lets you compare groups with different amounts of speech.')}</p>
+        ${summary?`<ul class="relationship-keyword-rates">${summary}</ul>`:`<p>${tr('Ei tuloksia näillä rajauksilla.','Inga resultat med dessa filter.','No results for these filters.')}</p>`}
+        <p class="relationship-caption">${tr('Haku:','Sökning:','Match mode:')} ${e(l(value.mode))}. ${tr('Yksi puhe voi sisältää useita mainintoja.','Ett anförande kan innehålla flera omnämnanden.','One speech can contain several mentions.')}</p>
+      </section>${groups.length?`<details class="relationship-detail-table">
+        <summary>${trendTitle}</summary>
+        <label class="relationship-keyword-trend-group">${tr('Ryhmä','Grupp','Group')}<select data-keyword-trend>${groups.map((group,index)=>`<option value="${index}">${e(group.label)}</option>`).join('')}</select></label>
+        <div data-keyword-timeline></div>
+      </details>`:''}<details class="relationship-detail-table"><summary>${tableTitle}</summary>${monthlyTable}</details>`;
+      const trend=holder.querySelector('[data-keyword-trend]');
+      if(trend){
+        const timeline=holder.querySelector('[data-keyword-timeline]');
+        const locale=lang==='sv'?'sv-FI':lang==='en'?'en-GB':'fi-FI';
+        const longDate=new Intl.DateTimeFormat(locale,{month:'long',year:'numeric',timeZone:'UTC'});
+        const shortDate=new Intl.DateTimeFormat(locale,{month:'short',year:'numeric',timeZone:'UTC'});
+        const monthDate=month=>new Date(month+'-01T00:00:00Z');
+        const rateUnit=tr('mainintaa 10 000 sanaa kohti','omnämnanden per 10 000 ord','mentions per 10,000 words');
+        const describeMonth=point=>{
+          const rate=point.coverageGap
+            ? tr('Ei puheita tässä ryhmässä','Inga anföranden i gruppen','No speeches in this group')
+            : point.per10000Words==null
+              ? tr('Ei puhetekstiä','Ingen anförandetext','No transcript words')
+              : `${number(point.per10000Words)} ${rateUnit} · ${number(point.occurrences,0)} ${tr('mainintaa','omnämnanden','mentions')} / ${number(point.words,0)} ${tr('sanaa','ord','words')}`;
+          const coverage=point.partialMonth?` · ${tr('Vajaa kuukausi','Ofullständig månad','Partial month')}`:'';
+          return `${longDate.format(monthDate(point.month))} · ${rate}${coverage}`;
         };
+        const paintTrend=()=>{
+          const {months,calendar}=groups[Number(trend.value)];
+          const firstMonth=months[0].month,lastMonth=months.at(-1).month;
+          const dates=calendar.slice(calendar.indexOf(firstMonth),calendar.indexOf(lastMonth)+1);
+          const pointsByMonth=new Map(months.map(point=>[point.month,point]));
+          const priorMonth=timeline.querySelector('[data-keyword-month]')?.value;
+          const max=Math.max(1,...months.map(point=>point.per10000Words||0));
+          const ticks=(density,limit)=>{
+            const count=Math.min(dates.length,limit);
+            return `<div class="relationship-keyword-axis relationship-keyword-axis-${density}">${Array.from({length:count},(_,i)=>{
+              const index=count===1?0:Math.round(i*(dates.length-1)/(count-1)),month=dates[index];
+              const offset=i===0?0:i===count-1?100:(index+.5)/dates.length*100;
+              return `<time datetime="${e(month)}" style="inset-inline-start:${offset}%">${e(shortDate.format(monthDate(month)))}</time>`;
+            }).join('')}</div>`;
+          };
+          timeline.innerHTML=`<p class="relationship-caption">0–${number(max)} / 10 000 · ${tr('Katkoviiva: ei tekstiaineistoa. Viivoitus: vajaa kuukausi.','Streckad linje: textunderlag saknas. Skraffering: ofullständig månad.','Dashed line: no transcript data. Hatching: partial month.')}
+            ${dates.length>months.length?tr('Tyhjät kohdat on suodatettu pois.','Tomma platser har filtrerats bort.','Blank positions are filtered out.'):''}</p>
+            <div class="relationship-keyword-plot" aria-hidden="true">
+              <div class="relationship-keyword-timeline">${dates.map(month=>{
+                const point=pointsByMonth.get(month);
+                if(!point)return '<span class="relationship-keyword-slot"></span>';
+                const missing=point.per10000Words==null;
+                return `<span class="relationship-keyword-slot" data-keyword-slot="${e(month)}" title="${e(describeMonth(point))}"><span class="relationship-bar${point.partialMonth?' relationship-bar-partial':''}${missing?' relationship-bar-gap':''}" style="height:${bar(point.per10000Words,max)}%"></span></span>`;
+              }).join('')}</div>
+              ${ticks('compact',3)}${ticks('medium',5)}${ticks('wide',7)}
+            </div>
+            <label class="relationship-keyword-trend-group relationship-keyword-month">${tr('Tarkastele kuukautta','Granska månad','Inspect a month')}<select data-keyword-month>${months.map(point=>`<option value="${e(point.month)}">${e(longDate.format(monthDate(point.month)))}</option>`).join('')}</select></label>
+            <p class="relationship-keyword-month-detail" data-keyword-month-detail role="status"></p>`;
+          const monthPicker=timeline.querySelector('[data-keyword-month]');
+          const detail=timeline.querySelector('[data-keyword-month-detail]');
+          let selectedSlot;
+          const inspectMonth=()=>{
+            const point=pointsByMonth.get(monthPicker.value);
+            selectedSlot?.classList.remove('is-selected');
+            selectedSlot=timeline.querySelector(`[data-keyword-slot="${point.month}"]`);
+            selectedSlot.classList.add('is-selected');
+            detail.textContent=describeMonth(point);
+          };
+          monthPicker.value=pointsByMonth.has(priorMonth)?priorMonth:lastMonth;
+          monthPicker.onchange=inspectMonth;
+          timeline.querySelector('.relationship-keyword-timeline').onclick=event=>{
+            const slot=event.target.closest('[data-keyword-slot]');
+            if(slot){monthPicker.value=slot.dataset.keywordSlot;inspectMonth();}
+          };
+          inspectMonth();
+        };
+        trend.onchange=paintTrend;
+        paintTrend();
       }
+      holder.onclick=event=>{
+        const button=event.target.closest('[data-point]');if(!button||button.disabled)return;
+        const point=points.find(p=>p.group===button.dataset.point&&p.month===button.dataset.monthPoint),series=value.series.find(s=>s.id===button.dataset.point);
+        pointEvidenceAction=async()=>{
+          const chunk=await loader.load(`speeches-${point.month}.json`);await loader.verifyCode();
+          const {filterResearchSpeeches,matchRanges}=await import(`./data/networks/${manifest.id}/speech-research.js`),{filterSpeechesBySpeaker}=await import(`./data/networks/${manifest.id}/app-utils.js`);
+          const supported=filterResearchSpeeches(filterSpeechesBySpeaker(chunk.speeches,{...value.settings,...series.settings}),chunk.texts,{...value.settings,query:value.query,mode:value.mode,scope:value.scope}).filter(s=>matchRanges(chunk.texts[s.id]||'',value.query,value.mode).length);
+          return tables.render(['Speaker','Date','Evidence'],supported,r=>td([e(memberName(r.mpId)),e(r.date),speechButton(r)]),'Matching speeches');
+        };
+        showEvidence(`<p>${e(value.query)} · ${e(point.month)} · ${e(l(series.label))} · ${point.occurrences} / ${point.words} × 10000 = ${number(point.per10000Words)}</p><p>${supporting(point.evidence)}</p><button type="button" data-point-all>${tr('Avaa kaikki osuvat puheet tästä kuukaudesta','Öppna alla matchande anföranden i månaden','Open all matching speeches in this month')}</button>`,button);
+      };
       root.querySelector('[data-network-method]').textContent=JSON.stringify({method:value.method,settings:value.settings,coverage:value.coverage,manifestId:manifest.id},null,2);
     };
-    if(feature==='phrase-uptake'){const custom=result.querySelector('[data-custom-speech]');custom.elements.groups.closest('label').hidden=true;custom.elements.compareMp.closest('label').hidden=true;const label=document.createElement('label');label.textContent=tr('Puhuja','Talare','Speaker');const select=document.createElement('select');select.name='speaker';select.innerHTML=`<option value="all">${tr('Kaikki puhujat','Alla talare','All speakers')}</option>${manifest.members.map(m=>`<option value="${e(m.id)}">${e(memberName(m.id))}</option>`).join('')}`;label.append(select);custom.prepend(label);}
-    result.querySelector('[data-preset]').value=String(presets.get(feature)||0);
+    const customForm=result.querySelector('[data-custom-speech]');
+    const toggleComparator=()=>{
+      const enabled=customForm.elements.groups.value==='mp';
+      const comparator=customForm.elements.compareMp;
+      comparator.disabled=!enabled;
+      comparator.closest('label').hidden=!enabled;
+    };
+    customForm.elements.groups.onchange=toggleComparator;
+    toggleComparator();
+    result.querySelector('[data-preset]').value=String(presetIndex);
     if(selected)paint(selected);
     result.querySelector('[data-preset]').onchange=event=>{
       if(event.target.value==='custom')return;
@@ -577,21 +425,22 @@ export async function renderRelationships(root,{lang='fi',view='full',current=()
         status.textContent=tr('Ladataan ilmausta…','Uttrycket laddas…','Loading expression…');
         const value=await loadPreset(options[index]);
         if(!current()||request!==revision||!value)return;
-        overrides.delete(`${feature}:${mp}`);
-        presets.set(feature,index);
+        overrides.delete(mp);
+        presetIndex=index;
         paint(value);
         status.textContent=tr('Analyysi valmis.','Analysen är klar.','Analysis ready.');
       });
     };
-    result.querySelector('[data-custom-speech]').onsubmit=event=>{event.preventDefault();guard(async()=>{
-      const requestedFeature=feature,requestedMp=mp,requestRevision=++revision,settings=Object.fromEntries(new FormData(event.currentTarget)),months=manifest.speechMonths.filter(m=>m.month>=settings.start&&m.month<=settings.end);
-      if(!months.length||months.length>3)throw Error(tr('Valitse 1–3 peräkkäistä kuukautta.','Välj 1–3 på varandra följande månader.','Select 1–3 consecutive months.'));
+    customForm.onsubmit=event=>{event.preventDefault();guard(async()=>{
+      const requestedMp=mp,requestRevision=++revision,settings=Object.fromEntries(new FormData(event.currentTarget)),months=manifest.speechMonths.filter(m=>m.month>=settings.start&&m.month<=settings.end);
+      const monthIndex=month=>Number(month.slice(0,4))*12+Number(month.slice(5));
+      if(!months.length||monthIndex(settings.end)-monthIndex(settings.start)>2)throw Error(tr('Valitse 1–3 peräkkäistä kuukautta.','Välj 1–3 på varandra följande månader.','Select 1–3 consecutive months.'));
       status.textContent=tr('Ladataan valitut kuukaudet ja lasketaan työprosessissa…','Valda månader laddas och beräknas i bakgrunden…','Loading selected months and calculating in a worker…');
       const payloads=await Promise.all(months.map(m=>loader.load(m.file))),speeches=payloads.flatMap(p=>p.speeches),texts=Object.assign({},...payloads.map(p=>p.texts));
-      if(requestedFeature==='phrase-uptake')settings.mpId=settings.speaker||'all';
+      if(!current()||requestRevision!==revision)return;
       settings.dateFrom=settings.start+'-01';settings.dateTo=new Date(Date.UTC(Number(settings.end.slice(0,4)),Number(settings.end.slice(5,7)),0)).toISOString().slice(0,10);
-      settings.coverageStart=manifest.coverage.from;settings.coverageEnd=manifest.coverage.to;settings.groups=settings.groups==='mp'?[{id:mp,mpId:mp,label:memberName(mp)},settings.compareMp==='all'?{id:'all',label:l('All')}:{id:settings.compareMp,mpId:settings.compareMp,label:memberName(settings.compareMp)}]:parties.map(p=>({id:p,party:p,label:p.toUpperCase()}));
-      const calculated=await runWorker({kind:requestedFeature,speeches,texts,settings});if(!current()||requestRevision!==revision||feature!==requestedFeature||mp!==requestedMp)return;overrides.set(`${requestedFeature}:${requestedMp}`,calculated);paint(calculated);status.textContent=tr('Analyysi valmis.','Analysen är klar.','Analysis ready.');
+      settings.coverageStart=manifest.coverage.from;settings.coverageEnd=manifest.coverage.to;settings.groups=settings.groups==='mp'?[{id:requestedMp,mpId:requestedMp,label:memberName(requestedMp)},settings.compareMp==='all'?{id:'all',label:l('All')}:{id:settings.compareMp,mpId:settings.compareMp,label:memberName(settings.compareMp)}]:parties.map(p=>({id:p,party:p,label:p.toUpperCase()}));
+      const calculated=await runWorker({kind:'keyword-comparisons',speeches,texts,settings});if(!current()||requestRevision!==revision)return;overrides.set(requestedMp,calculated);paint(calculated);status.textContent=tr('Analyysi valmis.','Analysen är klar.','Analysis ready.');
     });};
   }
   async function runWorker(data){const id=await loader.verifyCode();return new Promise((resolve,reject)=>{const worker=new Worker(new URL(`./data/networks/${id}/network-worker.js`,import.meta.url),{type:'module'});worker.onmessage=({data})=>{worker.terminate();data.error?reject(Error(data.error)):resolve(data.result);};worker.onerror=event=>{worker.terminate();reject(Error(event.message));};worker.postMessage(data);});}
@@ -605,26 +454,25 @@ export async function renderRelationships(root,{lang='fi',view='full',current=()
     }
   }
   form.onsubmit=event=>event.preventDefault();
-  form.onchange=event=>{if(event.target.name==='q')return;const values=Object.fromEntries(new FormData(form));({feature,mp,party}=values);scope=values.period;neighbourLimit=12;persist();guard(draw);};
+  form.onchange=event=>{if(event.target.name==='q')return;const values=Object.fromEntries(new FormData(form));({mp,party}=values);scope=values.period;neighbourLimit=12;persist();guard(draw);};
   let timer;form.elements.q.oninput=()=>{clearTimeout(timer);timer=setTimeout(()=>{
     if(!current()||!form.isConnected)return;
     query=form.elements.q.value;persist();guard(draw);
   },180);};
   root.onclick=event=>{
-    const preset=event.target.closest('[data-network-preset]');if(preset){feature=preset.dataset.networkPreset;form.elements.feature.value=feature;persist();guard(draw);return;}
+    const preset=event.target.closest('[data-network-preset]');if(preset){if(feature!==preset.dataset.networkPreset){feature=preset.dataset.networkPreset;neighbourLimit=12;persist();guard(draw);}return;}
     if(result.getAttribute('aria-busy')==='true')return;
     if(tables.handleClick(event))return;
     const button=event.target.closest('button');if(!button)return;
     if(button.dataset.networkExport){const selected=tables.rows(result);downloadRelationships(relationshipExport(selected.length?selected:rows,{manifestId:manifest.id,feature,filters:{mp:form.elements.mp.closest('label').hidden?undefined:mp,scope:effectiveScope(),party:canPartyFilter()?party:undefined,q:query,...analysisFilters,tableSort:tables.settings()},method}),button.dataset.networkExport,`relationships-${feature}`);}
-    else if(button.dataset.pair)evidencePanel.open(()=>showPair(button.dataset.pair,button.dataset.other,feature==='network-explorer'),button);
+    else if(button.dataset.pair)evidencePanel.open(()=>showPair(button.dataset.pair,button.dataset.other),button);
     else if(button.dataset.voteFile)evidencePanel.open(()=>showVote(button.dataset.voteFile),button);
     else if(button.dataset.voteId)evidencePanel.open(async()=>{const index=await loader.load('vote-index.json');const vote=index.find(r=>r.id===button.dataset.voteId);if(vote)return showVote(vote.file);},button);
     else if(button.dataset.partyA)evidencePanel.open(()=>showPartyEvidence(button.dataset.partyA,button.dataset.partyB),button);
-    else if(button.dataset.crossParty)evidencePanel.open(()=>showCrossParty(button.dataset.crossParty,button.dataset.ownParty),button);
     else if(button.dataset.speechSources){const group=button.dataset.speechSources,record=speechSources.get(group)?.[0];if(record)evidencePanel.open(()=>showSpeech(record.id||record.speechId,String(record.date||'').slice(0,7),group),button);}
     else if(button.dataset.speech)evidencePanel.open(()=>showSpeech(button.dataset.speech,button.dataset.month,button.dataset.speechGroup),button);
     else if(button.hasAttribute('data-point-all')&&pointEvidenceAction)evidencePanel.open(pointEvidenceAction,button);
-    else if(button.dataset.committeePair)evidencePanel.open(async()=>{const other=button.dataset.committeePair,data=currentData.pairs?currentData:await loader.load(`committee-member-${mp}.json`),pair=data.pairs.find(r=>(r.a===mp&&r.b===other)||(r.b===mp&&r.a===other));if(pair){const source=await loader.load('committee-source.json'),otherData=await loader.load(`committee-member-${other}.json`),ids=new Set(pair.bodies.flatMap(b=>b.evidence)),membershipRecords=[...new Map([...data.memberships,...otherData.memberships].filter(m=>ids.has(m.id)).map(m=>[m.id,m])).values()];return `<h4>${e(memberName(mp))} / ${e(memberName(other))}</h4><pre>${e(JSON.stringify({pairMembers:{a:pair.a,b:pair.b},overlap:pair.bodies,membershipRecords,originalProfiles:[source.members[mp],source.members[other]]},null,2))}</pre>`;}},button);
   };
+  if(requestedFeature!==feature)persist();
   await guard(draw);
 }

@@ -100,9 +100,14 @@ function mountBrief(holder, kind, item, lang) {
         content.removeAttribute('role');
         content.innerHTML = '<div class="ai-language-tabs" role="tablist" aria-label="' + L(lang, 'Lyhennelmän kieli', 'Sammanfattningens språk', 'Brief language') + '">' +
           [['fi','Suomi'],['sv','Svenska'],['en','English']].map(([key, name]) => '<button type="button" role="tab" id="' + uid + '-tab-' + key + '" data-ai-language="' + key + '" aria-controls="' + uid + '-panel" aria-selected="' + (key === lang) + '" tabindex="' + (key === lang ? '0' : '-1') + '">' + name + '</button>').join('') +
-          '</div><div role="tabpanel" id="' + uid + '-panel" aria-labelledby="' + uid + '-tab-' + lang + '" lang="' + lang + '" tabindex="0"><p data-ai-brief-text></p></div>';
-        const panel = content.querySelector('[role="tabpanel"]'), paragraph = content.querySelector('[data-ai-brief-text]');
-        paragraph.textContent = validated.brief[lang];
+          '</div><div role="tabpanel" id="' + uid + '-panel" aria-labelledby="' + uid + '-tab-' + lang + '" lang="' + lang + '" tabindex="0" data-ai-brief-text></div>';
+        const panel = content.querySelector('[role="tabpanel"]');
+        const renderText = language => panel.replaceChildren(...validated.brief[language].split(/\r?\n\s*\r?\n/u).map(text => {
+          const paragraph = document.createElement('p');
+          paragraph.textContent = text.trim();
+          return paragraph;
+        }));
+        renderText(lang);
         holder.querySelector('.ai-provenance').textContent = result.model + ' · ' + L(lang, 'Luotu', 'Skapad', 'Generated') + ' ' + new Date(result.generatedAt).toLocaleDateString(lang);
         if (result.briefBasis === 'document-excerpt' && result.evidence?.length) {
           holder.querySelector('[data-ai-scope]').textContent = L(lang,'Perustuu alkuperäisasiakirjan otteisiin. Ehdotuksen kuvaus ei yksin selitä kaikkia äänestysvaihtoehtoja.','Bygger på utdrag ur originaldokumentet. Beskrivningen av förslaget förklarar inte ensam alla omröstningsalternativ.','Based on original-document excerpts. The proposal description does not by itself explain every voting alternative.');
@@ -119,7 +124,7 @@ function mountBrief(holder, kind, item, lang) {
           buttons.forEach(tab => { tab.setAttribute('aria-selected', String(tab === button)); tab.tabIndex = tab === button ? 0 : -1; });
           panel.lang = button.dataset.aiLanguage;
           panel.setAttribute('aria-labelledby', button.id);
-          paragraph.textContent = validated.brief[button.dataset.aiLanguage];
+          renderText(button.dataset.aiLanguage);
         };
         buttons.forEach((button, i) => {
           button.onclick = () => select(button);

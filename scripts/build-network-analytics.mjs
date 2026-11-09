@@ -11,7 +11,7 @@ import { packPairs } from '../network-format.js';
 
 const root = new URL('../', import.meta.url);
 const output = new URL('data/networks/', root);
-export const NETWORK_FEATURES = ['vote-neighbours','party-heatmap','keyword-comparisons','emerging-phrases','cross-party-profiles','committee-overlap','topic-profiles','layer-comparison','betweenness','communities','network-explorer','lobbying-network','directed-references','phrase-uptake'];
+export const NETWORK_FEATURES = ['topic-profiles','vote-neighbours','keyword-comparisons','party-heatmap','emerging-phrases'];
 const config = { version: 'relationships-1', minCommon: 30, contestedMinority: 0.1, graphLayer: 'voting', comparisonLayers: ['voting','committees'], features: NETWORK_FEATURES };
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const workerPaths=['network-worker.js','network-speech.js','network-institutions.js','speech-research.js','speech-stopwords.js','speech-topics.js','app-utils.js'];

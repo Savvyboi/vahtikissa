@@ -1,7 +1,6 @@
 .ai-brief,.ai-monitor,.ai-programme-tags{margin:1rem 0;border:1px solid var(--line,#777);border-radius:.65rem;overflow:hidden;background:var(--panel,var(--bg,transparent))}
-.ai-brief>summary,.ai-monitor>summary,.ai-programme-tags>summary{padding:1rem;cursor:pointer}
-.ai-brief>summary strong{margin-right:1rem}.ai-brief>summary span{display:block;font-size:.9rem;margin-top:.3rem}
-.ai-brief-body,.ai-monitor-body,.ai-programme-theme{padding:0 1rem 1rem}
+.ai-monitor>summary,.ai-programme-tags>summary{padding:1rem;cursor:pointer}
+.ai-monitor-body,.ai-programme-theme{padding:0 1rem 1rem}
 .ai-notice{border-left:3px solid currentColor;padding:.5rem .8rem}
 .ai-language-tabs,.ai-tags{display:flex;flex-wrap:wrap;gap:.5rem;margin:.75rem 0}
 .ai-language-tabs button,.ai-follow,.ai-tag{border:1px solid currentColor;border-radius:.4rem;padding:.45rem .7rem;color:inherit;background:transparent}
@@ -15,7 +14,24 @@
 .ai-follow{cursor:pointer;margin:.5rem 0}
 .ai-programme-tags .ai-programme-theme{padding-top:.75rem;border-top:1px solid var(--line,#777)}
 .ai-insights [role="tabpanel"]{line-height:1.7;padding:.4rem 0}
-@media(max-width:480px){.ai-brief>summary,.ai-monitor>summary{padding:.8rem}.ai-language-tabs button{flex:1}.ai-brief-body,.ai-monitor-body{padding:0 .8rem .8rem}}
+@media(max-width:480px){.ai-monitor>summary{padding:.8rem}.ai-language-tabs button{flex:1}.ai-monitor-body{padding:0 .8rem .8rem}}
 
-/* A short reading panel; supporting evidence stays in a nested disclosure. */
-.ai-brief{margin:1rem 0 1.4rem}.ai-brief>summary{padding:.65rem .85rem;line-height:1.4}.ai-brief>summary strong{margin-right:.65rem}.ai-brief>summary span{display:inline;font-size:.76rem;margin:0}.ai-brief-body{padding:0 .85rem .75rem;max-width:88ch}.ai-brief-body p,.easy-page .ai-brief-body p{font-size:.875rem;line-height:1.5;margin:.5rem 0;max-width:none}.ai-insights [role="tabpanel"]{padding:0;line-height:1.5}.ai-language-tabs{gap:.35rem;margin:.35rem 0}.ai-language-tabs button{min-height:40px;padding:.35rem .65rem;font-size:.82rem}.ai-brief-scope,.ai-provenance{color:var(--muted);font-size:.76rem!important}.ai-brief-method{margin-top:.5rem;font-size:.8rem}.ai-brief-method>summary{cursor:pointer;font-weight:600;padding:.25rem 0}.ai-brief-method .ai-notice{border:0;padding:0;font-size:.78rem}.ai-brief-method blockquote{margin:.5rem 0;padding:.4rem .65rem;border-left:2px solid var(--line);font-size:.8rem;line-height:1.5}.ai-brief-method .ai-provenance{margin:.4rem 0}@media(max-width:480px){.ai-brief>summary span{display:block;margin-top:.15rem}.ai-brief-body{padding-inline:.7rem}}
+/* Keep the summary compact and give longer briefs room to read. */
+.ai-brief{margin:1rem 0 1.4rem;border-color:var(--control-line);border-inline-start:4px solid var(--blue);background:var(--white)}
+.ai-brief>summary{min-height:44px;padding:.7rem .9rem;background:var(--light-blue);color:var(--blue);line-height:1.4;cursor:pointer}
+.ai-brief>summary:hover strong{text-decoration:underline}
+.ai-brief>summary:focus-visible{outline-offset:-4px}
+.ai-brief>summary strong{margin-inline-end:.65rem}
+.ai-brief>summary span{display:inline;margin:0;color:var(--ink);font-size:.78rem}
+.ai-brief-body{padding:.6rem .9rem 1rem;max-width:80ch}
+.ai-brief-body p,.easy-page .ai-brief-body p{font-size:.95rem;line-height:1.65;margin:.65rem 0;max-width:none}
+.ai-insights [role="tabpanel"]{padding:0;line-height:1.65}
+.ai-language-tabs{gap:.35rem;margin:.35rem 0}
+.ai-language-tabs button{min-height:40px;padding:.35rem .65rem;font-size:.82rem}
+.ai-brief-scope,.ai-provenance{color:var(--muted);font-size:.76rem!important}
+.ai-brief-method{margin-top:.5rem;font-size:.8rem}
+.ai-brief-method>summary{cursor:pointer;font-weight:600;padding:.25rem 0}
+.ai-brief-method .ai-notice{border:0;padding:0;font-size:.78rem}
+.ai-brief-method blockquote{margin:.5rem 0;padding:.4rem .65rem;border-left:2px solid var(--line);font-size:.8rem;line-height:1.5}
+.ai-brief-method .ai-provenance{margin:.4rem 0}
+@media(max-width:480px){.ai-brief>summary span{display:block;margin-top:.15rem}.ai-brief-body{padding-inline:.7rem}}

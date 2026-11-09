@@ -2,6 +2,7 @@
 export const AI_SCHEMA_VERSION = 1;
 export const AI_LANGUAGES = ['fi', 'sv', 'en'];
 export const DEFAULT_AI_MODEL = 'google/gemma-4-31b-it:free';
+export const RECORD_BRIEF_WORD_LIMIT = 180;
 
 export function recordSource(kind, item) {
   const keys = kind === 'votes'
@@ -50,7 +51,7 @@ export function validateTranslations(value, maxLength = 1800) {
 export function validateRecordResult(value, allowedTags) {
   const brief = validateTranslations(value?.brief);
   for (const [language, text] of Object.entries(brief)) {
-    if (text.split(/\s+/u).length > 100) throw new Error("AI brief exceeds 100 words in " + language);
+    if (text.split(/\s+/u).length > RECORD_BRIEF_WORD_LIMIT) throw new Error(`AI brief exceeds ${RECORD_BRIEF_WORD_LIMIT} words in ${language}`);
     if (/[{}]/u.test(text) || /(?:^|\s)(?:tags?|evidence(?:Ids)?|svensk sammanfattning|english summary)\s*[:=]/iu.test(text)) throw new Error("AI brief contains internal fields or language headings in " + language);
   }
   if (!Array.isArray(value.tags) || value.tags.length > 12 || value.tags.some(id => typeof id !== 'string' || !allowedTags.has(id))) throw new Error('Unknown or invalid AI tag');

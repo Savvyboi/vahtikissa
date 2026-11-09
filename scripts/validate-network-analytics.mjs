@@ -32,4 +32,4 @@ const lobbying=await load('lobbying-index.json');assert.equal(lobbying.coverage.
 const references=await load('speech-references.json');assert.equal(references.results.publicPersonRankingsEnabled,false);assert.equal(references.results.publicationGate,'pending-independent-human-review');
 const graph=await load('graph.json');assert.equal(graph.analysis.brokerage.rankingsPublished,false);assert.equal('evaluationAssignments' in graph.analysis.communities,false);
 if(graph.analysis.communities.status==='unavailable-unstable')assert.equal(graph.analysis.communities.assignments,null);
-console.log(`Validated Relationships manifest ${manifest.id}: ${Object.keys(manifest.files).length} payload hashes, ${(bytes/1e6).toFixed(1)} MB on disk, all 14 features, exact sampled pair evidence and publication gates.`);
+console.log(`Validated Relationships manifest ${manifest.id}: ${Object.keys(manifest.files).length} payload hashes, ${(bytes/1e6).toFixed(1)} MB on disk, ${NETWORK_FEATURES.length} public analyses, exact sampled pair evidence and publication gates.`);

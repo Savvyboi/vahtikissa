@@ -29,22 +29,19 @@ try{
     const event=page.waitForEvent('download');await page.locator('[data-network-export="json"]').click();return JSON.parse(await readFile(await(await event).path(),'utf8'));
   }
   await ready();
-  const feature=page.locator('[name="feature"]');
-  async function selectFeature(id){
-    const menu=page.locator('.relationship-analysis-menu');
-    if(!await menu.evaluate(element=>element.open))await menu.locator('summary').click();
-    await feature.selectOption(id);
-  }
+  const features=['topic-profiles','vote-neighbours','keyword-comparisons','party-heatmap','emerging-phrases'];
+  const feature=page.locator('[data-network-preset]');
+  const selectFeature=id=>page.locator(`[data-network-preset="${id}"]`).click();
+  assert.deepEqual(await feature.evaluateAll(buttons=>buttons.map(button=>button.dataset.networkPreset)),features);
+  assert.deepEqual(manifest.config.features,features);
   assert.equal(await page.locator('.relationship-subnav a').count(),2,'The two relationship views remain available after navigation');
   assert.equal(await page.locator('.relationship-subnav [aria-current="page"]').getAttribute('href'),'#/relationships?feature=vote-neighbours','The analysis tab remains selected');
-  for(const id of manifest.config.features){
+  for(const id of features){
     await selectFeature(id);await ready();
     assert.equal(await page.locator('[data-network-result] h2').count(),1,id+' has a heading');
     assert.equal(await page.locator('[data-network-result] table').count()>0,true,id+' has table equivalence');
     const exported=await exportJSON();
     assert.ok(exported.length,id+' export has rows or unavailable state');assert.equal(exported[0].manifestId,manifest.id);assert.equal(exported[0].feature,id);
-    if(id==='directed-references')assert.match(await page.locator('[data-network-result]').innerText(),/Independent human evaluation is pending/);
-    if(id==='communities')assert.match(await page.locator('[data-network-result]').innerText(),/assignments are withheld/);
     console.log(`Browser: ${id}, ${exported.length} exported rows.`);
   }
   await selectFeature('vote-neighbours');await ready();
@@ -62,26 +59,14 @@ try{
   assert.deepEqual(await neighbourTable.locator('tbody tr td:nth-child(3)').allTextContents(),descending.slice(0,300).map(r=>r.agreement==null?'—':new Intl.NumberFormat('en-GB',{maximumFractionDigits:1}).format(r.agreement*100)+' %'),'Displayed percentages round to one decimal while exports retain source precision');
   assert.ok(Object.keys(JSON.parse(descending[0].filters).tableSort).length,'Exports include column sorting settings');
   await page.locator('[name="period"]').selectOption('year-2026');await ready();
-  await selectFeature('network-explorer');await ready();
-  const graphExport=await exportJSON();
-  const graphFilters=JSON.parse(graphExport[0].filters);
-  assert.equal(graphFilters.scope,'year-2026','Voting patterns honor the selected scope');
-  assert.ok(graphExport.every(row=>row.party!==graphFilters.partyBaseline&&row.contestedCommon>=graphFilters.minimumContestedVotes),'Default lens compares supported cross-party patterns');
+  assert.equal(JSON.parse((await exportJSON())[0].filters).scope,'year-2026','Voting neighbours use the selected scope');
   await page.locator('.relationship-agreement-list [data-pair]').first().click();
   await page.locator('[data-ballot-list] table').waitFor();
   assert.match(await page.locator('[data-network-evidence]').innerText(),/2026/,'Voting evidence honors the selected scope');
   await closeEvidence();
-  await page.locator('[data-voting-lens]').selectOption('same-party');
-  const withinParty=await exportJSON();
-  assert.equal(JSON.parse(withinParty[0].filters).lens,'same-party');
-  assert.ok(withinParty.every(row=>row.status||(row.party===graphFilters.partyBaseline&&row.contestedDifferent>0)));
   await selectFeature('party-heatmap');await ready();
   await page.locator('.relationship-matrix [data-party-a]').first().click();await page.locator('[data-network-evidence] table').waitFor();
   assert.match(await page.locator('[data-network-evidence]').innerText(),/All contributing roll calls/);
-  await closeEvidence();
-  await selectFeature('cross-party-profiles');await ready();
-  await page.locator('[data-cross-party]').first().click();await page.locator('[data-network-evidence] table').waitFor();
-  assert.match(await page.locator('[data-network-evidence]').innerText(),/equal-event alignment/);
   await closeEvidence();
   await selectFeature('vote-neighbours');await ready();
   await page.locator('[data-pair]').first().focus();await page.keyboard.press('Enter');await page.locator('[data-ballot-list] table').waitFor();
@@ -105,6 +90,13 @@ try{
   await closeEvidence();
   await page.locator('details:has([data-custom-speech]) > summary').click();
   await page.locator('[data-custom-speech] [name="query"]').fill('talous');
+  const grouping=page.locator('[data-custom-speech] [name="groups"]'),comparator=page.locator('[data-custom-speech] [name="compareMp"]');
+  assert.equal(await comparator.isVisible(),false,'Party comparisons hide the second MP control');
+  await grouping.selectOption('mp');
+  assert.equal(await comparator.isVisible(),true);
+  const selectedMp=await page.locator('[data-network-form] [name="mp"]').inputValue();
+  assert.equal(await comparator.locator(`option[value="${selectedMp}"]`).count(),0,'An MP cannot be compared with themself');
+  await grouping.selectOption('parties');
   const months=manifest.speechMonths.slice(-3);await page.locator('[data-custom-speech] [name="start"]').selectOption(months[0].month);
   await page.locator('[data-custom-speech] [name="exclude"]').fill('ilmasto');
   const customStarted=Date.now();await page.locator('[data-custom-speech] button').click();await ready();
@@ -115,19 +107,11 @@ try{
   const retained=await exportJSON();assert.equal(JSON.parse(retained[0].filters).query,'talous','Table filtering retains the calculated custom query');
   await page.locator('[name="q"]').fill('');await page.waitForFunction(()=>new URLSearchParams(location.hash.split('?')[1]).get('q')==='');await ready();
   console.log(`Custom three-month speech calculation and export: ${Date.now()-customStarted} ms including loading, ${(months.reduce((n,m)=>n+m.bytes,0)/1e6).toFixed(2)} MB selected corpus.`);
-  await selectFeature('phrase-uptake');await ready();await page.locator('details:has([data-custom-speech]) > summary').click();await page.locator('[data-custom-speech] [name="query"]').fill('talous');await page.locator('[data-custom-speech] button').click();await ready();
-  assert.match(await page.locator('[data-speech-results]').innerText(),/First observed use in the selected searched window/);
-  await selectFeature('committee-overlap');await ready();
-  await page.locator('[data-committee-dates] [name="from"]').fill('2025-01-01');await page.locator('[data-committee-dates] button').click();await ready();
-  const committeeExport=await exportJSON();assert.equal(JSON.parse(committeeExport[0].filters).from,'2025-01-01');
-  await page.locator('[data-committee-pair]').first().click();await page.locator('[data-network-evidence] pre').waitFor();assert.match(await page.locator('[data-network-evidence]').innerText(),/membershipRecords/);
-  await closeEvidence();
-  await selectFeature('lobbying-network');await ready();await page.locator('[data-lobby-table] [data-table-sort="1"]').click();await page.locator('[data-declaration]').first().click();await page.locator('[data-network-evidence] pre').waitFor();assert.match(await page.locator('[data-network-evidence]').innerText(),/Original declaration rows/);
-  await closeEvidence();
-  const lobbyingExport=await exportJSON();assert.ok(JSON.parse(lobbyingExport[0].filters).organisationId);
-  await selectFeature('committee-overlap');await ready();
+  await page.goto(`${url}/?view=full#/relationships?feature=committee-overlap`);await ready();
+  assert.equal(new URLSearchParams(new URL(page.url()).hash.split('?')[1]).get('feature'),'vote-neighbours','A retired analysis link opens the default analysis');
   await page.addScriptTag({path:require.resolve('axe-core/axe.min.js')});
-  for(const theme of ['light','dark','contrast']){
+  const themes=['light','dark','forest','dusk','contrast'];
+  for(const theme of themes){
     await page.locator('.theme-select').selectOption(theme);
     await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
     const violations=await page.evaluate(async()=> (await axe.run('.relationships-page')).violations.map(v=>({id:v.id,targets:v.nodes.map(n=>n.target)})));
@@ -137,12 +121,12 @@ try{
   await page.screenshot({path:fileURLToPath(new URL('../.hermes-tmp.networks/relationships-desktop.png',import.meta.url)),fullPage:false});
   for(const width of [320,390]){
     await page.setViewportSize({width,height:850});
-    for(const id of manifest.config.features){await selectFeature(id);await ready();const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth);assert.equal(overflow,false,`${id}: no horizontal page overflow at ${width}`);}
+    for(const id of features){await selectFeature(id);await ready();const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth);assert.equal(overflow,false,`${id}: no horizontal page overflow at ${width}`);}
   }
   await page.screenshot({path:fileURLToPath(new URL('../.hermes-tmp.networks/relationships-mobile.png',import.meta.url)),fullPage:false});
   for(const lang of ['fi','sv','en']){
-    await page.locator('.language-select').selectOption(lang);await page.locator('main[aria-busy="false"] h1').waitFor();assert.equal(await feature.count(),1);
-    for(const id of manifest.config.features){
+    await page.locator('.language-select').selectOption(lang);await ready();assert.equal(await feature.count(),features.length);
+    for(const id of features){
       await selectFeature(id);await page.waitForFunction(()=>/Analyysi valmis\.|Analysen är klar\.|Analysis ready\./.test(document.querySelector('.relationship-status')?.textContent));
       const headers=await page.locator('[data-network-result] th').allTextContents();
       assert.doesNotMatch(await page.locator('[data-network-result]').innerText(),/\d[.,]\d{2,}\s*%/,lang+' '+id+' displays at most one decimal place in percentages');
@@ -153,7 +137,7 @@ try{
   await page.goto(`${url}/?view=full#/members/${manifest.members[0].id}`);await page.locator('[data-pagination="memberVotes"]').waitFor();
   for(const width of [320,390,1440]){
     await page.setViewportSize({width,height:950});
-    for(const theme of ['light','dark','contrast']){
+    for(const theme of themes){
       await page.locator('.theme-select').selectOption(theme);
       // Chromium can expose the preceding theme's paint immediately after change.
       // Measure contrast after the new theme has been painted, in every browser.

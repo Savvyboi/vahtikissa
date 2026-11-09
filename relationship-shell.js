@@ -1,19 +1,19 @@
 import { escapeHTML as e } from './app-utils.js';
 import { relationshipNavigation } from './relationship-navigation.js';
 
-export function relationshipShell({lang,manifest,feature,mp,scope,party,query,names,title,tr,memberName,scopeLabel,parties}) {
+export function relationshipShell({lang,manifest,feature,mp,scope,party,query,title,tr,memberName,scopeLabel,parties}) {
   const tasks = [
-    ['vote-neighbours','↔',tr('Kuka äänestää samoin?','Vem röstar lika?','Who votes alike?'),tr('Vertaa edustajia','Jämför ledamöter','Compare MPs')],
-    ['party-heatmap','▦',tr('Miten puolueet äänestävät?','Hur röstar partierna?','How do parties vote?'),tr('Katso puoluekartta','Se partikartan','Explore party agreement')],
-    ['topic-profiles','◌',tr('Mistä edustaja puhuu?','Vad talar ledamoten om?','What does an MP talk about?'),tr('Tutki puheiden aiheita','Utforska anförandenas ämnen','Explore speech topics')],
-    ['keyword-comparisons','⌕',tr('Miten sanoja käytetään?','Hur används orden?','How are words used?'),tr('Vertaa ilmausten käyttöä','Jämför uttryck','Compare expressions')]
+    ['topic-profiles','◌',tr('Mistä edustaja puhuu?','Vad talar ledamoten om?','What does an MP talk about?')],
+    ['vote-neighbours','↔',tr('Kuka äänestää samoin?','Vem röstar lika?','Who votes alike?')],
+    ['keyword-comparisons','⌕',tr('Miten sanoja käytetään?','Hur används orden?','How are words used?')],
+    ['party-heatmap','▦',tr('Miten puolueet äänestävät?','Hur röstar partierna?','How do parties vote?')],
+    ['emerging-phrases','↗',tr('Mitkä ilmaukset yleistyvät?','Vilka uttryck blir vanligare?','Which phrases are becoming more common?')]
   ];
   return `<div class="page relationships-page relationship-workspace">
     ${relationshipNavigation(lang,'analysis')}
     <header class="relationship-heading"><div><span class="eyebrow">${tr('Eduskunnan avoin aineisto','Riksdagens öppna data','Open parliamentary data')}</span><h1>${tr('Äänestykset & puheet','Omröstningar & anföranden','Votes & speeches')}</h1><p>${tr('Tutki yhteisiä valintoja ja puheiden aiheita. Aloita kysymyksestä.','Utforska gemensamma val och ämnen. Börja med en fråga.','Explore shared choices and speech topics. Start with a question.')}</p></div><span class="relationship-coverage">${e(manifest.coverage.from)} – ${e(manifest.coverage.to)}</span></header>
     <form data-network-form class="relationship-workspace-form">
-      <div class="relationship-task-nav" role="group" aria-label="${tr('Valitse näkökulma','Välj perspektiv','Choose a perspective')}">${tasks.map(([id,icon,label,description])=>`<button type="button" data-network-preset="${id}" aria-pressed="${feature===id}"><span class="relationship-task-icon" aria-hidden="true">${icon}</span><span><strong>${e(label)}</strong><small>${e(description)}</small></span></button>`).join('')}</div>
-      <details class="relationship-analysis-menu"${tasks.some(task=>task[0]===feature)?'':' open'}><summary>${tr('Kaikki analyysit','Alla analyser','All analyses')} <span data-analysis-current>${e(title(feature))}</span></summary><label>${tr('Valitse analyysi','Välj analys','Choose an analysis')}<select name="feature">${Object.keys(names).map(id=>`<option value="${id}" ${id===feature?'selected':''}>${e(title(id))}</option>`).join('')}</select></label></details>
+      <div class="relationship-task-nav" role="group" aria-label="${tr('Valitse analyysi','Välj analys','Choose an analysis')}">${tasks.map(([id,icon,description])=>`<button type="button" data-network-preset="${id}" aria-pressed="${feature===id}"><span class="relationship-task-icon" aria-hidden="true">${icon}</span><span><strong>${e(title(id))}</strong><small>${e(description)}</small></span></button>`).join('')}</div>
       <div class="relationship-controls relationship-selection"><label>${tr('Edustaja','Ledamot','MP')}<select name="mp">${manifest.members.map(m=>`<option value="${e(m.id)}" ${String(m.id)===mp?'selected':''}>${e(memberName(m.id))}</option>`).join('')}</select></label><label data-period-label>${tr('Aikaväli tai aihe','Period eller ämne','Period or topic')}<select name="period">${manifest.scopes.map(s=>`<option value="${e(s.id)}" ${s.id===scope?'selected':''}>${e(scopeLabel(s))} (${s.votes})</option>`).join('')}</select></label><label>${tr('Puolue','Parti','Party')}<select name="party"><option value="all">${tr('Kaikki puolueet','Alla partier','All parties')}</option>${parties.map(p=>`<option ${p===party?'selected':''} value="${e(p)}">${e(p.toUpperCase())}</option>`).join('')}</select></label><label>${tr('Hae tuloksista','Sök i resultaten','Search results')}<input name="q" type="search" value="${e(query)}" placeholder="${tr('Nimi tai hakusana','Namn eller sökord','Name or keyword')}"></label></div>
     </form>
     <p class="relationship-status" role="status" aria-live="polite"></p><section data-network-result aria-labelledby="network-result-heading"></section><dialog class="relationship-evidence" data-network-evidence aria-labelledby="relationship-evidence-heading" hidden></dialog>

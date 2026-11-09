@@ -22,7 +22,7 @@ test('missing original documents fall back explicitly without substituting a fuz
 
 test('source-backed brief generation stores verified passages and upgrades records without reanalysing programmes',async()=>{
  const {mkdtemp,writeFile,readFile,rm}=await import('node:fs/promises');const {tmpdir}=await import('node:os');const {join}=await import('node:path');const {pathToFileURL}=await import('node:url');
- const {syncAI}=await import('../scripts/sync-ai-insights.mjs');
+ const {syncAI,RECORD_PROMPT_VERSION}=await import('../scripts/sync-ai-insights.mjs');
  const dir=await mkdtemp(join(tmpdir(),'vahti-document-test-')),base=pathToFileURL(dir+'/');
  const text='Esityksessä ehdotetaan vähintään kolmen vuoden asumisaikaa kotihoidon tuen saamiseksi. Tuki maksettaisiin vain lasta pääasiallisesti hoitavalle vanhemmalle tai huoltajalle.';
  const quote='We promise to support public services and education.';
@@ -33,9 +33,14 @@ test('source-backed brief generation stores verified passages and upgrades recor
   await writeFile(new URL('programmes.json',base),JSON.stringify({parties:[{code:'kok',programmes:[{id:'p1',url:'https://example.org/programme'}]}]}));
   const fetchImpl=async url=>url.includes('example.org')?{ok:true,text:async()=>'<div class="platform">'+quote+' '+'Source programme text. '.repeat(15)+'</div>'}:{ok:true,json:async()=>({asiakirjat:[{eduskuntatunnus:'HE 69/2026 vp',edktunnus:'EDK-2026-AK-20573',kielikoodi:'fi',nimeketeksti:'Support',fullText:text}]})};
   await syncAI({base,client,fetchImpl,maxRequests:2});const index=JSON.parse(await readFile(new URL('ai-insights.json',base)));
-  assert.equal(index.programmes.p1.promptVersion,4);assert.equal(index.records.votes.v1.promptVersion,5);
+  assert.equal(index.programmes.p1.promptVersion,4);assert.equal(index.records.votes.v1.promptVersion,RECORD_PROMPT_VERSION);
   const brief=JSON.parse(await readFile(new URL('ai/'+index.records.votes.v1.file,base)));assert.equal(brief.briefBasis,'document-excerpt');assert.ok(text.includes(brief.evidence[0].quote));assert.match(brief.documents[0].url,/EDK-2026-AK-20573$/);
-  client.requests=0;await syncAI({base,client,fetchImpl,maxRequests:2});assert.equal(client.requests,0);
+  index.records.votes.v1.promptVersion=5;
+  await writeFile(new URL('ai-insights.json',base),JSON.stringify(index));
+  client.requests=0;
+  const reused=await syncAI({base,client,fetchImpl,maxRequests:2});
+  assert.equal(client.requests,0,'The longer brief format does not trigger regeneration of existing source-backed briefs');
+  assert.equal(reused.pending,false);
  }finally{await rm(dir,{recursive:true,force:true});}
 });
 

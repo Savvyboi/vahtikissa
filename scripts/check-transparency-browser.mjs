@@ -48,6 +48,23 @@ try {
     const result = await wait; return readFile(await result.path());
   }
   const json = async () => JSON.parse(await download('json'));
+  const checkLabels = async (svg, label) => {
+    const result = await page.evaluate(markup => {
+      const map = new DOMParser().parseFromString(markup, 'image/svg+xml').documentElement;
+      map.style.cssText = 'position:absolute;left:-10000px;top:0;visibility:hidden';
+      document.body.append(map);
+      const width = Number(map.getAttribute('width')), height = Number(map.getAttribute('height'));
+      const boxes = [...map.querySelectorAll('text')].filter(text => text.textContent.trim()).map(text => text.getBBox());
+      const clipped = boxes.some(box => box.x < 0 || box.y < 0 || box.x + box.width > width || box.y + box.height > height);
+      const overlapping = boxes.some((a, i) => boxes.slice(i + 1).some(b =>
+        a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y));
+      map.remove();
+      return { count: boxes.length, clipped, overlapping };
+    }, svg);
+    assert.ok(result.count > 1, label + ' keeps multiple labels visible');
+    assert.equal(result.overlapping, false, label + ' keeps labels apart');
+    assert.equal(result.clipped, false, label + ' keeps labels inside the map');
+  };
   const audit = async (target, label) => {
     if (!await target.evaluate(() => !!globalThis.axe)) await target.addScriptTag({ content: axeSource });
     const result = await target.evaluate(() => axe.run(document.querySelector('[data-sna-page]'), { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'] } }));
@@ -81,7 +98,7 @@ try {
   await page.locator('[data-sna-fullscreen]').click(); await page.waitForFunction(() => document.fullscreenElement === null);
   await page.locator('[data-sna-metric]').selectOption('pagerank'); assert.equal((await json()).metric, 'pagerank');
   await page.locator('[data-sna-hull]').selectOption('party');
-  for (const theme of ['light', 'dark', 'contrast']) {
+  for (const theme of ['light', 'dark', 'forest', 'dusk', 'contrast']) {
     await page.locator('.theme-select').selectOption(theme); await page.waitForTimeout(100);
     const svg = (await download('svg')).toString();
     assert.ok(svg.includes('<svg') && svg.includes('<line') && svg.includes('<text'));
@@ -90,6 +107,15 @@ try {
   }
   const png = await download('png'); assert.equal(png.subarray(1, 4).toString(), 'PNG');
   await page.locator('.theme-select').selectOption('light');
+  for (const width of [390, 1440]) {
+    await page.setViewportSize({ width, height: 1100 });
+    await page.goto(`${url}/?view=full#/relationships?preset=dual`);
+    if (width === 390) await page.locator('[data-sna-open]').click();
+    await page.locator('[data-sna-canvas] canvas').first().waitFor();
+    if (!await page.locator('.sna-map-tools').evaluate(details => details.open)) await page.locator('.sna-map-tools > summary').click();
+    for (let i = 0; i < 3; i++) await page.locator('[data-sna-zoom="in"]').click();
+    await checkLabels((await download('svg')).toString(), `Zoomed force map at ${width}px`);
+  }
   await page.locator('[data-sna-preset="backbone"]').click();
   exported = await json();
   const firstEdge = exported.edges[0], a = exported.nodes.find(node => node.id === firstEdge.source), b = exported.nodes.find(node => node.id === firstEdge.target);
