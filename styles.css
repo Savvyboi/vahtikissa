@@ -522,3 +522,4 @@ html[data-theme="contrast"] .cat-character{filter:grayscale(1) contrast(1.8)}
 
 /* Control edges remain distinct from both the page and card surfaces. */
 html :is(input:not([type="checkbox"],[type="radio"],[type="range"]),select,.search-button,.menu-button,.theme-control){border-color:var(--control-line)}
+::placeholder{color:var(--muted);opacity:1}

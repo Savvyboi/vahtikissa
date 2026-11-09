@@ -114,6 +114,14 @@ try{
   for(const theme of themes){
     await page.locator('.theme-select').selectOption(theme);
     await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+    const placeholderContrast=await page.locator('[data-network-form] [name="q"]').evaluate(input=>{
+      const luminance=rgb=>rgb.match(/[\d.]+/g).slice(0,3).map(channel=>Number(channel)/255)
+        .map(channel=>channel<=.04045?channel/12.92:((channel+.055)/1.055)**2.4)
+        .reduce((total,channel,index)=>total+channel*[.2126,.7152,.0722][index],0);
+      const text=luminance(getComputedStyle(input,'::placeholder').color),surface=luminance(getComputedStyle(input).backgroundColor);
+      return (Math.max(text,surface)+.05)/(Math.min(text,surface)+.05);
+    });
+    assert.ok(placeholderContrast>=4.5,`Search placeholder is readable in ${theme}`);
     const violations=await page.evaluate(async()=> (await axe.run('.relationships-page')).violations.map(v=>({id:v.id,targets:v.nodes.map(n=>n.target)})));
     assert.deepEqual(violations,[],`Relationships ${theme} accessibility`);
   }
