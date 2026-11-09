@@ -9,6 +9,7 @@ on:
   workflow_dispatch:
 
 permissions:
+  actions: read
   contents: read
   pages: write
   id-token: write
@@ -25,6 +26,8 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
+    env:
+      PAGES_ARTIFACT_NAME: github-pages-${{ github.run_attempt }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -38,11 +41,41 @@ jobs:
       - run: npm run validate:networks
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
+        id: upload
         with:
+          name: ${{ env.PAGES_ARTIFACT_NAME }}
           path: .
+      - name: Wait for the uploaded Pages artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PAGES_ARTIFACT_ID: ${{ steps.upload.outputs.artifact_id }}
+        run: |
+          node --input-type=module <<'NODE'
+          import { setTimeout as wait } from 'node:timers/promises';
+          const { GITHUB_API_URL, GITHUB_REPOSITORY, GITHUB_RUN_ID, GH_TOKEN, PAGES_ARTIFACT_ID, PAGES_ARTIFACT_NAME } = process.env;
+          const url = new URL(`${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/artifacts`);
+          url.searchParams.set('name', PAGES_ARTIFACT_NAME);
+          for (let attempt = 0; attempt < 12; attempt++) {
+            const response = await fetch(url, { headers: { Authorization: `Bearer ${GH_TOKEN}`, Accept: 'application/vnd.github+json', 'Cache-Control': 'no-cache' }, signal: AbortSignal.timeout(10000) });
+            if (response.ok) {
+              const { artifacts } = await response.json();
+              if (artifacts.some(artifact => String(artifact.id) === PAGES_ARTIFACT_ID && !artifact.expired)) {
+                // Pages looks up the upload through a separate artifact service.
+                await wait(5000);
+                process.exit(0);
+              }
+            } else if (response.status !== 404 && response.status < 500) {
+              throw new Error(`Could not check the Pages artifact (HTTP ${response.status})`);
+            }
+            await wait(5000);
+          }
+          throw new Error(`Pages artifact ${PAGES_ARTIFACT_NAME} did not become visible`);
+          NODE
       - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v4
+        with:
+          artifact_name: ${{ env.PAGES_ARTIFACT_NAME }}
       - name: Verify published code and data
         env:
           SITE_URL: https://vahtikissa.fi/
