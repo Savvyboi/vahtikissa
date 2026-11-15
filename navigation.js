@@ -16,6 +16,7 @@ const navigationSwedishEnglish = {
   parties: ['Riksdagsgrupper och jämförelser', 'Parliamentary groups and comparisons'],
   programmes: ['Valprogram och politiska mål', 'Election platforms and policies'],
   elections: ['Resultat och valkretsar', 'Results and electoral districts'],
+  'campaign-finance': ['Kampanjer och stödgivare', 'Campaigns and donors'],
   power: ['Pengar och inflytande', 'Money and influence'],
   powerHint: ['Budget, bindningar och nätverk', 'Budget, disclosures and networks'],
   budget: ['Statens utgifter och anslag', 'State spending and appropriations'],
@@ -96,7 +97,7 @@ export function setupPrimaryNavigation(nav, toggle, { getPage, translate, menuLa
       for (const [node, finnish] of copy) {
         const key = node.dataset.navCopy;
         node.textContent = simple && key === 'people' ? translate('Edustajat', 'Ledamöter', 'MPs') :
-          simple && key === 'peopleHint' ? translate('Edustajien tiedot', 'Om ledamöterna', 'About MPs') :
+          simple && key === 'peopleHint' ? translate('Edustajaprofiilit ja vaalirahoitus', 'Ledamotsprofiler och valfinansiering', 'MP profiles and campaign finance') :
           translate(finnish, ...navigationSwedishEnglish[key]);
       }
       localizeToggle();

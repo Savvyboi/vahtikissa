@@ -78,11 +78,14 @@ npm run sync
 npm run sync:committees
 npm run build:speech-analytics
 npm run sync:civic:all
+npm run sync:finance
 npm run sync:programmes
 npm run dev
 ```
 
 Open `http://localhost:4173`.
+
+Campaign finance is available in the main menu, election results, and MP and party profiles in both reading modes. `npm run sync:finance` refreshes VTV’s disclosures for the list and card views. Individual donor rows retain the name and amount VTV discloses. The generated snapshot stays outside Git history and omits candidate and donor records after VTV’s publication windows. GitHub Pages generates and verifies the snapshot when deploying.
 
 `npm run sync` can take several minutes because it downloads Parliament's yearly datasets and rebuilds the committee and speech-analysis indexes. The two narrower commands rebuild those derived files independently. `npm run sync:civic:all` rebuilds every budget year from 2020 and the election and influence snapshots. Scheduled civic runs refresh **all budget years**, elections and influence in independent steps. To run one source locally, use `npm run sync:civic -- --only=budget --all`, `--only=elections`, or `--only=influence`. Generated files are committed under `data/` so the public site has no server, database, secrets or runtime API dependency.
 

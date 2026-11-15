@@ -94,7 +94,7 @@ export async function checkSimpleMode(browser,url){
         }
         const links=nav.locator('a:visible');
         assert.deepEqual(await links.evaluateAll(items=>items.map(item=>item.dataset.page)),
-          ['overview','following','votes','legislation','stories','speeches','members','budget','influence','relationships'],
+          ['overview','following','votes','legislation','stories','speeches','members','campaign-finance','budget','influence','relationships'],
           'Simple mode exposes its primary sections');
         assert.equal(await nav.evaluate(element=>element.scrollWidth>element.clientWidth+1),false,language+' menu at '+viewport.width+' fits horizontally');
         if(await menu.isVisible())await page.keyboard.press('Escape');

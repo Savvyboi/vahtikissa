@@ -39,6 +39,8 @@ jobs:
       - run: npm run check
       - run: npm run build:data
       - run: npm run validate:networks
+      - name: Build campaign finance data
+        run: npm run sync:finance
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         id: upload

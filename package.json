@@ -7,6 +7,7 @@
     "dev": "node server.mjs",
     "sync": "node scripts/sync-data.mjs",
     "sync:civic": "node scripts/sync-civic-data.mjs",
+    "sync:finance": "node scripts/sync-campaign-finance.mjs",
     "sync:civic:all": "node scripts/sync-civic-data.mjs --all",
     "sync:committees": "node scripts/sync-data.mjs --committees-only",
     "sync:portraits": "node scripts/sync-member-portraits.mjs",

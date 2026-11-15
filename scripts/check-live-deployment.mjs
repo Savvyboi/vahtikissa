@@ -58,6 +58,10 @@ export const DEPLOYMENT_FILES = Object.freeze([
   'budget-utils.js',
   'budget-app.js',
   'civic-apps.js',
+  'campaign-finance-app.js',
+  'campaign-finance-data.js',
+  'campaign-finance-list.js',
+  'campaign-finance.css',
   'speech-research-app.js',
   'collection-tools.js',
   'filter-panels.js',
@@ -71,6 +75,7 @@ export const DEPLOYMENT_FILES = Object.freeze([
   'data/parliament/core.json',
   'data/budget.json',
   'data/elections-2023.json',
+  'data/campaign-finance.json',
   'data/influence.json',
   'data/programmes.json',
   'data/ai-insights.json'

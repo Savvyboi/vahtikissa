@@ -18,10 +18,13 @@ const e = escapeHTML;
 let data;
 const parliamentLoader = createParliamentLoader();
 let routeRenderSequence = 0;
+const isCampaignFinance = route => route.page === 'elections' && /^funding(?:\/|$)/u.test(route.id || '');
+const navigationPage = route => isCampaignFinance(route) ? 'campaign-finance' : route.page;
 function loadViewModule(route, view) {
   if (route.page === 'stories') return import('./bill-stories/reader.js');
   if (route.page === 'relationships') return import('./relationships-app.js');
   if (route.page === 'following') return import('./following-app.js');
+  if (isCampaignFinance(route)) return import('./campaign-finance-app.js');
   if (view === 'simple') return import('./simple-mode.js');
   if (route.page === 'members' && route.id) return import('./member-insights.js');
   if (route.page === 'speeches') return import('./speech-research-app.js').then(module=>{mountResearchControls=module.mountResearchControls;return module;});
@@ -68,6 +71,7 @@ const copy = {
 copy.en = {overview:'Overview',sessions:'Plenary sessions',votes:'Votes',members:'Members of Parliament',parties:'Parties',programmes:'Party platforms',speeches:'Speeches',legislation:'Legislation',budget:'Budget',elections:'2023 elections',influence:'Interests & lobbying',search:'Search',menu:'Menu',loading:'Loading open parliamentary data…',updated:'Updated',day:'Date',matter:'Matter',result:'Result',yes:'yes',no:'no',abstain:'abstained',absent:'absent',showMore:'Show more',showAll:'Show all',readMore:'Read full speech',readLess:'Show less',latestVotes:'Latest votes',parliament:'Parliament',hero:'How does your MP act?',heroLead:'Explore votes, speeches, party positions and legislation since 2 April 2023.',voteRecords:'individual parliamentary votes recorded',participation:'Participation',partyLine:'Party alignment',recordedVotes:'recorded votes',speechTurns:'speeches',vote:'Vote',background:'Background',stage:'Stage',officialMatter:'Parliamentary matter',minutes:'Minutes',officialVote:'Official voting record',openOfficial:'Open parliamentary source ↗',votesByParty:'Votes by party',recentVotes:'Votes',mpSpeeches:'Speeches',mpActivity:'MP activity during the reporting period.',howVoted:'Voted',allVotes:'All recorded plenary votes since April 2023.',allSpeeches:'Speeches by MPs and their related agenda items.',allLaws:'Parliamentary matters linked to votes and amendments.',searchVotes:'Search by topic or document number…',searchSpeeches:'Search a word, phrase, speaker or topic…',searchMembers:'Search by name or party…',searchLaws:'Search by document number or topic…',all:'All',moreYes:'More YES votes',moreNo:'More NO votes',tie:'Tie',whatWasVoted:'What was the vote about?',voterFilter:'Filter MPs by vote',voteMeaning:'YES and NO refer to the alternatives described above.',noData:'No results.',independent:'An independent open data service. This is not an official service of the Finnish Parliament.',about:'About this service',data:'Data'};
 const ui = (fi,sv,en=fi) => lang==='en'?en:lang==='sv'?sv:fi;
 copy.fi.following = 'Seuratut'; copy.sv.following = 'Följer'; copy.en.following = 'Following';
+copy.fi['campaign-finance'] = 'Vaalirahoitus'; copy.sv['campaign-finance'] = 'Valfinansiering'; copy.en['campaign-finance'] = 'Campaign finance';
 copy.fi.relationships = 'Verkostot'; copy.sv.relationships = 'Nätverk'; copy.en.relationships = 'Networks';
 copy.fi.stories = 'Lait lyhyesti'; copy.sv.stories = 'Lagar i korthet'; copy.en.stories = 'Bills in brief';
 const locale = () => lang==='en'?'en-GB':lang==='sv'?'sv-FI':'fi-FI';
@@ -479,7 +483,7 @@ function decorateCards(page){
 }
 function render(position){
   const r=routeFromHash(location.hash);
-  primaryNavigation.select(r.page);
+  primaryNavigation.select(navigationPage(r));
   if(!data)return;
   readingView=readingMode(location.search,readingView);
   const sequence=++routeRenderSequence,routeKey=location.hash,renderLanguage=lang,view=readingView;
@@ -518,10 +522,23 @@ function render(position){
     if(current())updateRouteContext(r);
     return;
   }
+  if(isCampaignFinance(r)){
+    const pending=viewModule.renderCampaignFinance(root,{lang,view,route:r,current,members:data.members,titleFor});
+    if(previousView!==undefined&&previousView!==routeKey)root.focus({preventScroll:true});
+    await pending;
+    if(current())updateRouteContext(r);
+    return;
+  }
+  const mountFinance = () => {
+    if(!r.id || !['members','parties'].includes(r.page))return;
+    import('./campaign-finance-app.js').then(module=>{
+      if(current())module.mountFinanceProfile(root,{route:r,lang,members:data.members,current,titleFor});
+    }).catch(()=>{});
+  };
   if(readingView==='simple'){
     const pending=viewModule.renderSimple(root,{data,lang,route:r,loadSpeechTexts,speechTexts,titleFor});
     if(previousView!==undefined&&previousView!==routeKey)root.focus({preventScroll:true});
-    const finish=()=>{if(current()){decorateAI(root,{route:r,data,lang,rerender:render});followingControls?.decorateMemberFollowing(root,{route:r,data,lang});decorateRelationshipsEntry(r);updateRouteContext(r)}};
+    const finish=()=>{if(current()){decorateAI(root,{route:r,data,lang,rerender:render});followingControls?.decorateMemberFollowing(root,{route:r,data,lang});decorateRelationshipsEntry(r);mountFinance();updateRouteContext(r)}};
     if(pending?.then)return await pending.finally(finish);
     finish();return;
   }
@@ -539,6 +556,7 @@ function render(position){
   decorateAI(root,{route:r,data,lang,rerender:render});
   followingControls?.decorateMemberFollowing(root,{route:r,data,lang});
   decorateRelationshipsEntry(r);
+  mountFinance();
   updateRouteContext(r);
   } catch(error) { if(current()){root.dataset.route=routeKey;loadError(error)} }
   },position);
@@ -601,7 +619,7 @@ function setupSearch(onOpen=()=>{}){
 }
 function setup(){
   const closeSearch=setupSearch(()=>primaryNavigation.close());
-  const getPage=()=>routeFromHash(location.hash).page;
+  const getPage=()=>navigationPage(routeFromHash(location.hash));
   primaryNavigation=setupPrimaryNavigation($('#main-navigation'),$('.menu-button'),{
     getPage,translate:ui,menuLabel:()=>t('menu'),onOpen:closeSearch
   });

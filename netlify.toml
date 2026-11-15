@@ -1,6 +1,6 @@
 [build]
   publish = "."
-  command = "npm run check && npm run build:data"
+  command = "npm run check && npm run build:data && npm run sync:finance"
 
 [[headers]]
   for = "/data/*"

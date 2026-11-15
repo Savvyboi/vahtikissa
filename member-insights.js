@@ -29,6 +29,7 @@ export function memberSectionNavigation(member, lang, { vocabulary = true } = {}
     <button type="button" data-member-jump="member-speeches">${L('Puheet','Anföranden','Speeches')}</button>
     <button type="button" data-member-jump="member-about">${L('Taustatiedot','Bakgrundsuppgifter','Background')}</button>
     <a href="#/influence/${encodeURIComponent(member.id)}">${L('Sidonnaisuudet ja lahjat','Bindningar och gåvor','Interests and gifts')}</a>
+    <button type="button" data-member-jump="member-finance">${L('Vaalirahoitus','Valfinansiering','Campaign finance')}</button>
     ${vocabulary ? `<button type="button" data-member-jump="member-vocabulary">${L('Sanasto','Ordförråd','Vocabulary')}</button>` : ''}</nav>`;
 }
 export function bindMemberSections(root) {

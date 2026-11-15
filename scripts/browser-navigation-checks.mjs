@@ -13,12 +13,13 @@ export async function openPrimaryNavigationFor(page, route) {
 
 export async function followPrimaryNavigation(page, route) {
   const link=await openPrimaryNavigationFor(page,route);
+  const href=await link.getAttribute('href');
   const previousScroll=await page.evaluate(()=>scrollY);
   await link.click();
-  await page.waitForFunction(route => {
+  await page.waitForFunction(href => {
     const main=document.querySelector('main');
-    return main?.dataset.route===`#/${route}`&&main.getAttribute('aria-busy')==='false'&&main.querySelector('h1');
-  },route);
+    return main?.dataset.route===href&&main.getAttribute('aria-busy')==='false'&&main.querySelector('h1');
+  },href);
   await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
   const position=await page.evaluate(()=>({y:scrollY,max:Math.max(0,document.documentElement.scrollHeight-innerHeight)}));
   assert.ok(Math.abs(position.y-Math.min(previousScroll,position.max))<=2,`${route} keeps the reader's position within the available page height: before ${previousScroll}, after ${position.y}, max ${position.max}`);

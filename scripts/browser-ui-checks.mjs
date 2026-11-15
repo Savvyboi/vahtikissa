@@ -20,11 +20,11 @@ export async function checkUI(page, navigate, data) {
       const collection=element.closest('[data-collection]');
       const facet=element.closest('[data-facet]');
       const attrs=[...element.attributes].filter(a=>a.name.startsWith('data-')).map(a=>`[${a.name}="${CSS.escape(a.value)}"]`).join('');
-      const selector=`${collection?`[data-collection="${collection.dataset.collection}"] `:''}${facet?`[data-facet="${facet.dataset.facet}"] `:''}${element.tagName.toLowerCase()}${attrs}`;
+      const selector=element.id?`#${CSS.escape(element.id)}`:`${collection?`[data-collection="${collection.dataset.collection}"] `:''}${facet?`[data-facet="${facet.dataset.facet}"] `:''}${element.tagName.toLowerCase()}${attrs}`;
       return {selector,type:element.type,value:element.value,options:element.tagName==='SELECT'?[...element.options].filter(o=>!o.disabled).map(o=>o.value):null};
     }));
     for(const control of controls) {
-      const input=page.locator(control.selector).first();
+      const input=page.locator('main').locator(control.selector).first();
       if(!await input.count()||!await input.isVisible())continue;
       if(control.options) {
         // All sorting choices; a representative choice for long data-driven lists.
@@ -93,7 +93,7 @@ export async function checkUI(page, navigate, data) {
 
 /** Exercise the grouped sidebar and drawer independently of collection/filter checks. */
 export async function checkPrimaryNavigation(page) {
-  const primaryRoutes=['overview','following','votes','sessions','legislation','stories','speeches','members','parties','programmes','elections','budget','influence','relationships'];
+  const primaryRoutes=['overview','following','votes','sessions','legislation','stories','speeches','members','parties','programmes','elections','campaign-finance','budget','influence','relationships'];
   const nav=page.locator('#main-navigation');
   const viewports=[{width:320,height:568},{width:375,height:667},{width:390,height:844},
     {width:844,height:390},{width:1024,height:768},{width:1180,height:820},
@@ -115,8 +115,8 @@ export async function checkPrimaryNavigation(page) {
       assert.deepEqual(await nav.locator('a').evaluateAll(items=>items.map(item=>item.dataset.page)),
         primaryRoutes,'Every primary view has a direct menu link');
       assert.deepEqual(await nav.locator('details').evaluateAll(groups=>groups.map(group=>[group.dataset.navGroup,[...group.querySelectorAll('a')].map(link=>link.dataset.page)])),
-        [['parliament',['votes','sessions','legislation','stories','speeches']],['people',['members','parties','programmes','elections']],['power',['budget','influence','relationships']]]);
-      assert.equal(await nav.locator('a small').count(),14,'Every page has a description');
+        [['parliament',['votes','sessions','legislation','stories','speeches']],['people',['members','parties','programmes','elections','campaign-finance']],['power',['budget','influence','relationships']]]);
+      assert.equal(await nav.locator('a small').count(),primaryRoutes.length,'Every page has a description');
       await page.waitForFunction(() => {
         const icons = [...document.querySelectorAll('#main-navigation .nav-item-icon')];
         const visible = icons.filter(icon => icon.getClientRects().length);
@@ -160,8 +160,9 @@ export async function checkPrimaryNavigation(page) {
         }
         await followPrimaryNavigation(page,route);
         assert.equal(await menu.getAttribute('aria-expanded'),'false');
-        assert.equal(await page.locator('main').getAttribute('data-route'),`#/${route}`);
-        assert.equal(await nav.locator(`[data-page="${route}"][aria-current="page"]`).count(),1);
+        const selected=nav.locator(`[data-page="${route}"][aria-current="page"]`);
+        assert.equal(await selected.count(),1);
+        assert.equal(await page.locator('main').getAttribute('data-route'),await selected.getAttribute('href'));
         const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1);
         assert.equal(overflow,false,language+' / '+viewport.width+' / '+route+' horizontal overflow');
       }

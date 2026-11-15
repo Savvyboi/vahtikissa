@@ -11,6 +11,8 @@ data/ai-insights.json.tmp
 
 data/parliament/
 data/networks/
+data/campaign-finance.json
+data/campaign-finance.json.*.tmp
 
 data/ai-sources/*.tmp
 data/ai-request-budget.json.tmp
