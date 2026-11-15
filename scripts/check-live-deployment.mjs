@@ -4,6 +4,13 @@ import { createHash } from 'node:crypto';
 export const DEPLOYMENT_FILES = Object.freeze([
   'index.html',
   'app.js',
+  'bill-stories/reader.js',
+  'bill-stories/reader.css',
+  'bill-stories/structure.js',
+  'bill-stories/content-fi.js',
+  'bill-stories/content-sv.js',
+  'bill-stories/content-en.js',
+  'bill-stories/icons.svg',
   'ai-insights-app.js',
   'ai-insights.js',
   'ai-insights.css',

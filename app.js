@@ -19,6 +19,7 @@ let data;
 const parliamentLoader = createParliamentLoader();
 let routeRenderSequence = 0;
 function loadViewModule(route, view) {
+  if (route.page === 'stories') return import('./bill-stories/reader.js');
   if (route.page === 'relationships') return import('./relationships-app.js');
   if (route.page === 'following') return import('./following-app.js');
   if (view === 'simple') return import('./simple-mode.js');
@@ -67,6 +68,7 @@ copy.en = {overview:'Overview',sessions:'Plenary sessions',votes:'Votes',members
 const ui = (fi,sv,en=fi) => lang==='en'?en:lang==='sv'?sv:fi;
 copy.fi.following = 'Seuratut'; copy.sv.following = 'Följer'; copy.en.following = 'Following';
 copy.fi.relationships = 'Verkostot'; copy.sv.relationships = 'Nätverk'; copy.en.relationships = 'Networks';
+copy.fi.stories = 'Lait lyhyesti'; copy.sv.stories = 'Lagar i korthet'; copy.en.stories = 'Bills in brief';
 const locale = () => lang==='en'?'en-GB':lang==='sv'?'sv-FI':'fi-FI';
 const t = key => copy[lang][key] || copy.fi[key] || key;
 const titleFor = party => partyNames[party]?.[lang] || partyNames[party]?.fi || String(party || '').toUpperCase();
@@ -492,6 +494,15 @@ function render(position){
   const previousView=root.dataset.route;
   root.dataset.route=location.hash;
   root.setAttribute('aria-busy','true');document.querySelectorAll('.nav a').forEach(a=>{const active=a.dataset.page===r.page;a.classList.toggle('active',active);if(active)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current')});
+  if(r.page==='stories'){
+    await viewModule.renderBillStories(root,{
+      lang,route:r,current,
+      navigate:hash=>{if(pushRoute(hash))render({x:0,y:0})},
+      focusFrame:previousView!==undefined&&previousView!==routeKey
+    });
+    if(current())updateRouteContext(r);
+    return;
+  }
   if(r.page==='relationships'){
     const relationshipCurrent=()=>sequence===routeRenderSequence&&lang===renderLanguage&&readingView===view&&routeFromHash(location.hash).page==='relationships';
     await viewModule.renderRelationships(root,{lang,view,current:relationshipCurrent});
