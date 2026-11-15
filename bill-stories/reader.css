@@ -64,6 +64,7 @@
   font-weight: 700;
   line-height: 1.16;
   overflow-wrap: anywhere;
+  hyphens: auto;
 }
 .bill-stories .case-list a:hover { background: var(--paper-dark); }
 .bill-stories .case-list a[aria-current], .bill-stories .case-list a:active {
@@ -460,7 +461,7 @@
   .bill-stories .story-controls [data-disclosure][aria-expanded="true"] { background: var(--green-tint); }
 }
 @media (max-width: 23rem) {
-  .bill-stories .case-list a { font-size: .78rem; }
+  .bill-stories .case-list a { font-size: .78rem; padding-inline: .32rem; }
   .bill-stories .story-frame { gap: .66rem; }
   .bill-stories .notice-row { grid-template-columns: minmax(0, 3.65rem) minmax(0, 1fr); padding-inline: .45rem; }
   .bill-stories .party { padding-inline: .24rem; }
