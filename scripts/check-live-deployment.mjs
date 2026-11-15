@@ -52,6 +52,7 @@ export const DEPLOYMENT_FILES = Object.freeze([
   'styles.css',
   'navigation.css',
   'navigation.js',
+  'assets/navigation-icons.svg',
   'app-utils.js',
   'parliament-data.js',
   'budget-utils.js',

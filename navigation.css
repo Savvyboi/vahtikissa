@@ -22,11 +22,16 @@
 #main-navigation details{margin-top:.3rem;padding-top:.3rem;border-top:1px solid var(--line)}
 #main-navigation ul{list-style:none;margin:.15rem 0 .3rem .75rem;padding:0 0 0 .35rem;border-left:1px solid var(--line)}
 #main-navigation a,#main-navigation summary{
-  position:relative;display:flex;flex-direction:column;justify-content:center;align-items:flex-start;
-  gap:.13rem;min-width:0;min-height:44px;height:auto;padding:.35rem .55rem;margin:0;
+  position:relative;display:flex;align-items:center;
+  gap:.55rem;min-width:0;min-height:44px;height:auto;padding:.35rem .55rem;margin:0;
   border:1px solid transparent;border-radius:6px;color:var(--ink);
   font-size:.84rem;font-weight:650;text-decoration:none;white-space:normal;overflow-wrap:anywhere;
 }
+#main-navigation .nav-item-icon{
+  display:block;flex:none;width:18px;height:18px;
+  fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;
+}
+#main-navigation .nav-item-copy{display:grid;gap:.13rem;min-width:0}
 #main-navigation summary{
   padding-inline-end:1.7rem;list-style:none;cursor:pointer;font-weight:750;
 }

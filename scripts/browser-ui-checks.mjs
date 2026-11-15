@@ -117,9 +117,26 @@ export async function checkPrimaryNavigation(page) {
       assert.deepEqual(await nav.locator('details').evaluateAll(groups=>groups.map(group=>[group.dataset.navGroup,[...group.querySelectorAll('a')].map(link=>link.dataset.page)])),
         [['parliament',['votes','sessions','legislation','stories','speeches']],['people',['members','parties','programmes','elections']],['power',['budget','influence','relationships']]]);
       assert.equal(await nav.locator('a small').count(),14,'Every page has a description');
-      for(const control of await nav.locator('a:visible, summary:visible').all()){
-        const box=await control.boundingBox();
-        assert.ok(box.x>=0&&box.x+box.width<=viewport.width+1&&box.height>=44,'A visible control fits and is touch sized');
+      await page.waitForFunction(() => {
+        const icons = [...document.querySelectorAll('#main-navigation .nav-item-icon')];
+        const visible = icons.filter(icon => icon.getClientRects().length);
+        return visible.length > 0 && visible.every(icon => icon.getBBox().width > 0);
+      });
+      const controls = await nav.locator('a:visible, summary:visible').evaluateAll(items => items.map(control => {
+        const icon = control.querySelector('.nav-item-icon');
+        const copy = control.querySelector('.nav-item-copy');
+        const { left, right, height } = control.getBoundingClientRect();
+        return {
+          label: copy?.textContent.trim(),
+          left, right, height,
+          iconFits: icon && copy && icon.getBoundingClientRect().right <= copy.getBoundingClientRect().left,
+          iconIsDecorative: icon?.getAttribute('aria-hidden') === 'true' && icon.getAttribute('focusable') === 'false'
+        };
+      }));
+      for (const { label, left, right, height, iconFits, iconIsDecorative } of controls) {
+        const location = `${language} / ${viewport.width}px / ${label}`;
+        assert.ok(left >= 0 && right <= viewport.width + 1 && height >= 44, `${location}: control fits and is touch sized`);
+        assert.ok(iconFits && iconIsDecorative, `${location}: decorative icon fits beside its label`);
       }
       if(mobile){
         const category=nav.locator('[data-nav-group="power"]');

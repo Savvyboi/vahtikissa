@@ -93,33 +93,159 @@
   <p id="route-status" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></p>
   <div class="site-layout">
   <nav class="nav" id="main-navigation" aria-label="Päänavigaatio">
-    <a data-page="overview" href="#/overview"><span data-nav-label>Yleiskuva</span><small data-nav-copy="overview">Ajankohtaista eduskunnasta</small></a>
-    <a data-page="following" href="#/following"><span data-nav-label>Seuratut</span><small data-nav-copy="following">Seuraamasi edustajat ja teemat</small></a>
+    <a data-page="overview" href="#/overview">
+      <svg class="nav-item-icon" width="18" height="18" aria-hidden="true" focusable="false"><use href="assets/navigation-icons.svg#home"></use></svg>
+      <span class="nav-item-copy">
+        <span data-nav-label>Yleiskuva</span>
+        <small data-nav-copy="overview">Ajankohtaista eduskunnasta</small>
+      </span>
+    </a>
+    <a data-page="following" href="#/following">
+      <svg class="nav-item-icon" width="18" height="18" aria-hidden="true" focusable="false"><use href="assets/navigation-icons.svg#bookmark"></use></svg>
+      <span class="nav-item-copy">
+        <span data-nav-label>Seuratut</span>
+        <small data-nav-copy="following">Seuraamasi edustajat ja teemat</small>
+      </span>
+    </a>
     <details data-nav-group="parliament" open>
-      <summary><span data-nav-copy="parliament">Eduskunnan työ</span><small data-nav-copy="parliamentHint">Äänestykset, lait ja puheet</small></summary>
+      <summary>
+        <svg class="nav-item-icon" width="18" height="18" aria-hidden="true" focusable="false"><use href="assets/navigation-icons.svg#parliament"></use></svg>
+        <span class="nav-item-copy">
+          <span data-nav-copy="parliament">Eduskunnan työ</span>
+          <small data-nav-copy="parliamentHint">Äänestykset, lait ja puheet</small>
+        </span>
+      </summary>
       <ul>
-        <li><a data-page="votes" href="#/votes"><span data-nav-label>Äänestykset</span><small data-nav-copy="votes">Tulokset ja edustajien äänet</small></a></li>
-        <li class="nav-full-only"><a data-page="sessions" href="#/sessions"><span data-nav-label>Istunnot</span><small data-nav-copy="sessions">Täysistunnot päivämäärän mukaan</small></a></li>
-        <li><a data-page="legislation" href="#/legislation"><span data-nav-label>Lakiasiat</span><small data-nav-copy="legislation">Lakiesitykset ja käsittelyvaiheet</small></a></li>
-        <li><a data-page="stories" href="#/stories"><span data-nav-label>Lait lyhyesti</span><small data-nav-copy="stories">Lakiesitykset selitettyinä</small></a></li>
-        <li><a data-page="speeches" href="#/speeches"><span data-nav-label>Puheet</span><small data-nav-copy="speeches">Puheenvuorot aiheittain</small></a></li>
+        <li>
+          <a data-page="votes" href="#/votes">
+            <svg class="nav-item-icon" width="18" height="18" aria-hidden="true" focusable="false"><use href="assets/navigation-icons.svg#ballot"></use></svg>
+            <span class="nav-item-copy">
+              <span data-nav-label>Äänestykset</span>
+              <small data-nav-copy="votes">Tulokset ja edustajien äänet</small>
+            </span>
+          </a>
+        </li>
+        <li class="nav-full-only">
+          <a data-page="sessions" href="#/sessions">
+            <svg class="nav-item-icon" width="18" height="18" aria-hidden="true" focusable="false"><use href="assets/navigation-icons.svg#calendar"></use></svg>
+            <span class="nav-item-copy">
+              <span data-nav-label>Istunnot</span>
+              <small data-nav-copy="sessions">Täysistunnot päivämäärän mukaan</small>
+            </span>
+          </a>
+        </li>
+        <li>
+          <a data-page="legislation" href="#/legislation">
+            <svg class="nav-item-icon" width="18" height="18" aria-hidden="true" focusable="false"><use href="assets/navigation-icons.svg#scales"></use></svg>
+            <span class="nav-item-copy">
+              <span data-nav-label>Lakiasiat</span>
+              <small data-nav-copy="legislation">Lakiesitykset ja käsittelyvaiheet</small>
+            </span>
+          </a>
+        </li>
+        <li>
+          <a data-page="stories" href="#/stories">
+            <svg class="nav-item-icon" width="18" height="18" aria-hidden="true" focusable="false"><use href="assets/navigation-icons.svg#book-open"></use></svg>
+            <span class="nav-item-copy">
+              <span data-nav-label>Lait lyhyesti</span>
+              <small data-nav-copy="stories">Lakiesitykset selitettyinä</small>
+            </span>
+          </a>
+        </li>
+        <li>
+          <a data-page="speeches" href="#/speeches">
+            <svg class="nav-item-icon" width="18" height="18" aria-hidden="true" focusable="false"><use href="assets/navigation-icons.svg#microphone"></use></svg>
+            <span class="nav-item-copy">
+              <span data-nav-label>Puheet</span>
+              <small data-nav-copy="speeches">Puheenvuorot aiheittain</small>
+            </span>
+          </a>
+        </li>
       </ul>
     </details>
     <details data-nav-group="people" open>
-      <summary><span data-nav-copy="people">Edustajat ja puolueet</span><small data-nav-copy="peopleHint">Edustajat, ohjelmat ja vaalit</small></summary>
+      <summary>
+        <svg class="nav-item-icon" width="18" height="18" aria-hidden="true" focusable="false"><use href="assets/navigation-icons.svg#people"></use></svg>
+        <span class="nav-item-copy">
+          <span data-nav-copy="people">Edustajat ja puolueet</span>
+          <small data-nav-copy="peopleHint">Edustajat, ohjelmat ja vaalit</small>
+        </span>
+      </summary>
       <ul>
-        <li><a data-page="members" href="#/members"><span data-nav-label>Kansanedustajat</span><small data-nav-copy="members">Edustajaprofiilit ja toiminta</small></a></li>
-        <li class="nav-full-only"><a data-page="parties" href="#/parties"><span data-nav-label>Puolueet</span><small data-nav-copy="parties">Eduskuntaryhmät ja vertailu</small></a></li>
-        <li class="nav-full-only"><a data-page="programmes" href="#/programmes"><span data-nav-label>Puolueohjelmat</span><small data-nav-copy="programmes">Vaaliohjelmat ja linjaukset</small></a></li>
-        <li class="nav-full-only"><a data-page="elections" href="#/elections"><span data-nav-label>Vaalit 2023</span><small data-nav-copy="elections">Tulokset ja vaalipiirit</small></a></li>
+        <li>
+          <a data-page="members" href="#/members">
+            <svg class="nav-item-icon" width="18" height="18" aria-hidden="true" focusable="false"><use href="assets/navigation-icons.svg#identity-card"></use></svg>
+            <span class="nav-item-copy">
+              <span data-nav-label>Kansanedustajat</span>
+              <small data-nav-copy="members">Edustajaprofiilit ja toiminta</small>
+            </span>
+          </a>
+        </li>
+        <li class="nav-full-only">
+          <a data-page="parties" href="#/parties">
+            <svg class="nav-item-icon" width="18" height="18" aria-hidden="true" focusable="false"><use href="assets/navigation-icons.svg#flag"></use></svg>
+            <span class="nav-item-copy">
+              <span data-nav-label>Puolueet</span>
+              <small data-nav-copy="parties">Eduskuntaryhmät ja vertailu</small>
+            </span>
+          </a>
+        </li>
+        <li class="nav-full-only">
+          <a data-page="programmes" href="#/programmes">
+            <svg class="nav-item-icon" width="18" height="18" aria-hidden="true" focusable="false"><use href="assets/navigation-icons.svg#platform"></use></svg>
+            <span class="nav-item-copy">
+              <span data-nav-label>Puolueohjelmat</span>
+              <small data-nav-copy="programmes">Vaaliohjelmat ja linjaukset</small>
+            </span>
+          </a>
+        </li>
+        <li class="nav-full-only">
+          <a data-page="elections" href="#/elections">
+            <svg class="nav-item-icon" width="18" height="18" aria-hidden="true" focusable="false"><use href="assets/navigation-icons.svg#election-results"></use></svg>
+            <span class="nav-item-copy">
+              <span data-nav-label>Vaalit 2023</span>
+              <small data-nav-copy="elections">Tulokset ja vaalipiirit</small>
+            </span>
+          </a>
+        </li>
       </ul>
     </details>
     <details data-nav-group="power" open>
-      <summary><span data-nav-copy="power">Raha ja vaikuttaminen</span><small data-nav-copy="powerHint">Budjetti, sidonnaisuudet ja verkostot</small></summary>
+      <summary>
+        <svg class="nav-item-icon" width="18" height="18" aria-hidden="true" focusable="false"><use href="assets/navigation-icons.svg#pie-chart"></use></svg>
+        <span class="nav-item-copy">
+          <span data-nav-copy="power">Raha ja vaikuttaminen</span>
+          <small data-nav-copy="powerHint">Budjetti, sidonnaisuudet ja verkostot</small>
+        </span>
+      </summary>
       <ul>
-        <li><a data-page="budget" href="#/budget"><span data-nav-label>Budjetti</span><small data-nav-copy="budget">Valtion menot ja määrärahat</small></a></li>
-        <li><a data-page="influence" href="#/influence"><span data-nav-label>Sidonnaisuudet</span><small data-nav-copy="influence">Tulot, lahjat ja lobbaus</small></a></li>
-        <li><a data-page="relationships" href="#/relationships"><span data-nav-label>Verkostot</span><small data-nav-copy="relationships">Äänet, puheet ja lobbaussuhteet</small></a></li>
+        <li>
+          <a data-page="budget" href="#/budget">
+            <svg class="nav-item-icon" width="18" height="18" aria-hidden="true" focusable="false"><use href="assets/navigation-icons.svg#wallet"></use></svg>
+            <span class="nav-item-copy">
+              <span data-nav-label>Budjetti</span>
+              <small data-nav-copy="budget">Valtion menot ja määrärahat</small>
+            </span>
+          </a>
+        </li>
+        <li>
+          <a data-page="influence" href="#/influence">
+            <svg class="nav-item-icon" width="18" height="18" aria-hidden="true" focusable="false"><use href="assets/navigation-icons.svg#disclosures"></use></svg>
+            <span class="nav-item-copy">
+              <span data-nav-label>Sidonnaisuudet</span>
+              <small data-nav-copy="influence">Tulot, lahjat ja lobbaus</small>
+            </span>
+          </a>
+        </li>
+        <li>
+          <a data-page="relationships" href="#/relationships">
+            <svg class="nav-item-icon" width="18" height="18" aria-hidden="true" focusable="false"><use href="assets/navigation-icons.svg#connections"></use></svg>
+            <span class="nav-item-copy">
+              <span data-nav-label>Verkostot</span>
+              <small data-nav-copy="relationships">Äänet, puheet ja lobbaussuhteet</small>
+            </span>
+          </a>
+        </li>
       </ul>
     </details>
   </nav>
