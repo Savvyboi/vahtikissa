@@ -254,7 +254,7 @@ test('member speech page resets when navigating to another member', async () => 
   const app = await source('app.js');
   assert.match(
     app,
-    /function memberDetail\(m\)\{if\(!m\)return notFound\(\);if\(activeMemberId!==m\.id\)\{state\.memberSpeeches=1;state\.memberVotes=1\}activeMemberId=m\.id;/
+    /function memberDetail\(m,[^)]*\)\{if\(!m\)return notFound\(\);if\(activeMemberId!==m\.id\)\{state\.memberSpeeches=1;state\.memberVotes=1\}activeMemberId=m\.id;/
   );
 });
 

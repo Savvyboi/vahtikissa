@@ -5,15 +5,15 @@ import { createParliamentLoader } from './parliament-data.js';
 import { setupBackToTop } from './back-to-top.js';
 import { updatePageMetadata } from './seo.js';
 import { filterItems, percent, routeFromHash, pageSlice, choiceLabel, formatDate, escapeHTML, localizedSearchFields, memberMatchesQuery, parliamentMatterUrl, isLongSpeech, filterBallots, voteOutcome, filterVotes, filterAndSortMembers, paginationItems, searchSpeeches, voteAlternatives, brandName, decodeSpeechSearchIndex, filterAndSortLegislation, legislationMatterType, legislationStatusTone, legislationPhase, speechParagraphs, filterSpeechesBySpeaker, fetchJSONWithTimeout, policyTopicKeys, policyTopicLabel, policyTopicOptions, committeeOptions } from './app-utils.js';
-import { mountMemberInsights, memberSectionNavigation, bindMemberSections } from './member-insights.js';
 let mountResearchControls;
 import { filterResearchSpeeches, matchRanges } from './speech-research.js';
 import { bindExportButtons, exportButtons, safeFilename } from './data-tools.js';
 import { collectionState, applyCollection, facetOptions, mountCollectionTools, preserveFocus, collapseQuickFilters } from './collection-tools.js';
-import { currentScrollPosition, preservePageScroll, pushRoute, savedScrollPosition, trackScrollHistory } from './navigation.js';
+import { currentScrollPosition, preservePageScroll, pushRoute, savedScrollPosition, setupPrimaryNavigation, trackScrollHistory } from './navigation.js';
 
 const $ = selector => document.querySelector(selector);
 const root = $('#content');
+let primaryNavigation;
 const e = escapeHTML;
 let data;
 const parliamentLoader = createParliamentLoader();
@@ -23,6 +23,7 @@ function loadViewModule(route, view) {
   if (route.page === 'relationships') return import('./relationships-app.js');
   if (route.page === 'following') return import('./following-app.js');
   if (view === 'simple') return import('./simple-mode.js');
+  if (route.page === 'members' && route.id) return import('./member-insights.js');
   if (route.page === 'speeches') return import('./speech-research-app.js').then(module=>{mountResearchControls=module.mountResearchControls;return module;});
   if (route.page === 'programmes') return import('./programmes-app.js');
   if (['budget', 'elections', 'influence'].includes(route.page)) return import('./civic-apps.js');
@@ -161,12 +162,10 @@ function updateRouteContext(route,{announce=true}={}){
   if(announce){const status=$('#route-status');status.textContent='';requestAnimationFrame(()=>{status.textContent=ui(label+' avattu',label+' har öppnats',label+' opened')})}
 }
 function applyChrome(){
-  const brand=brandName(lang),menuOpen=$('.menu-button').getAttribute('aria-expanded')==='true';document.documentElement.lang=lang;
+  const brand=brandName(lang);document.documentElement.lang=lang;
   updatePageMetadata({lang,route:routeFromHash(location.hash)});
-  $('.skip').textContent=ui('Siirry sisältöön','Hoppa till innehållet','Skip to content');$('.nav').setAttribute('aria-label',ui('Päänavigaatio','Huvudnavigation','Main navigation'));
+  $('.skip').textContent=ui('Siirry sisältöön','Hoppa till innehållet','Skip to content');
   document.querySelectorAll('.brand').forEach(x=>x.setAttribute('aria-label',ui('Vahtikissan etusivu','Vaktkatts startsida','Vahtikissa home')));document.querySelectorAll('.brand > span:last-child').forEach(x=>x.textContent=brand);
-  document.querySelectorAll('.nav a').forEach(a=>a.textContent=t(a.dataset.page));
-  $('.menu-button').textContent=menuOpen?'×':t('menu');$('.menu-button').setAttribute('aria-label',menuOpen?ui('Sulje valikko','Stäng meny','Close menu'):ui('Avaa valikko','Öppna meny','Open menu'));
   $('[data-search-label]').textContent=t('search');$('.search-button').setAttribute('aria-label',ui('Avaa haku','Öppna sökning','Open search'));
   $('.search-button kbd').textContent=/Mac|iPhone|iPad/.test(navigator.platform)?'⌘ K':'Ctrl K';
   $('.site-footer-note').textContent=t('independent');$('.footer-data').textContent=t('data');
@@ -185,7 +184,7 @@ function applyViewChrome(){
   toggle.setAttribute('aria-checked',String(simple));toggle.setAttribute('aria-label',name);$('[data-view-label]').textContent=name;
   toggle.title=simple?ui('Vaihda tarkkaan näkymään','Byt till detaljerad vy','Switch to the detailed view'):ui('Näytä asiat selkeästi ja lyhyesti','Visa saker enkelt och kort','Show shorter, simpler explanations');
   const names={overview:ui('Aloita tästä','Börja här','Start here'),members:ui('Edustajat','Ledamöter','MPs'),legislation:ui('Lait ja ehdotukset','Lagar och förslag','Laws and proposals'),influence:ui('Lahjat ja lobbaus','Gåvor och lobbning','Gifts and lobbying')};
-  document.querySelectorAll('.nav a').forEach(a=>a.textContent=simple&&names[a.dataset.page]||t(a.dataset.page));
+  primaryNavigation.localize(simple,page=>simple&&names[page]||t(page));
 }
 function setReadingView(mode){
   readingView=mode;preferences.set('vahtikissa-view',mode);
@@ -253,8 +252,8 @@ function bindVoteFilters(id){
   addTools(root.querySelector('.choice-filters'),'ballots',extra,config,redraw);redraw();
   bindExportButtons(root,'ballots',()=>ballotExportRows(filtered),`vahtikissa-aanestys-${id}`);
 }
-function members(id){
-  if(id)return memberDetail(data.members.find(m=>m.id===id));
+function members(id,insights){
+  if(id)return memberDetail(data.members.find(m=>m.id===id),insights);
   const controls=state.memberFilters,extra=toolState('members','name'),config=memberTools(data.members),parties=[...new Set(data.members.map(m=>m.party).filter(Boolean))].sort((a,b)=>titleFor(a).localeCompare(titleFor(b),lang));
   const renderList=items=>items.length?table([t('members'),t('participation'),t('partyLine'),t('speeches')],memberRows(items)):`<div class="empty">${t('noData')}</div>`;
   root.innerHTML=`<div class="page">${header(t('parliament'),t('members'))}<p class="portrait-credit">${label('Viralliset muotokuvat: Eduskunta. Mukana myös seuranta-ajanjakson entiset edustajat.','Officiella porträtt: Riksdagen. Även tidigare ledamöter under uppföljningsperioden ingår.')} <a href="https://www.eduskunta.fi/kansanedustajat-ja-toimielimet/kansanedustajat" target="_blank" rel="noreferrer">${label('Kuvien lähde','Bildkälla')} ↗</a></p><div class="filters member-filters"><input data-member-query aria-label="${e(t('searchMembers'))}" placeholder="${e(t('searchMembers'))}" value="${e(controls.query)}"><label class="filter-control"><span>${lang==='sv'?'Parti':'Puolue'}</span><select data-member-party><option value="all">${lang==='sv'?'Alla partier':'Kaikki puolueet'}</option>${parties.map(party=>`<option value="${e(party)}">${e(titleFor(party))}</option>`).join('')}</select></label></div><div class="data-actions"><p class="filter-summary" data-member-count aria-live="polite"></p>${exportButtons('members',lang)}</div><div data-list></div></div>`;
@@ -284,7 +283,7 @@ function speechAnalyticsView(analytics,topic='all'){
   const rank=(items,label,name)=>`<section><h3>${label}</h3><ol role="list" aria-label="${e(label)}">${items.slice(0,5).map((item,index)=>`<li><span aria-hidden="true">${index+1}</span><div><strong>${item.mpId?`<a class="mp-name-link" href="${href('members',item.mpId)}">${e(name(item))}</a>`:e(name(item))}</strong><small>${e(metric(item))}</small></div><span class="analytics-bar" aria-hidden="true" style="--rank:${percent(item.words,items[0]?.words||1)}%"></span></li>`).join('')||`<li>${t('noData')}</li>`}</ol></section>`;
   return `<div class="section-head"><div><span class="eyebrow">${lang==='sv'?'Anförandeanalys':'Puheanalytiikka'}</span><h2>${topic==='all'?(lang==='sv'?'Vem talar mest?':'Ketkä puhuvat eniten?'):policyTopicLabel(topic,lang)}</h2><p class="sub">${lang==='sv'?'Hela uppföljningsmaterialet: endast ämnesvalet avgränsar denna jämförelse. Ordmängden beskriver längd; antalet beskriver frekvens.':'Koko seuranta-aineisto: vain aihevalinta rajaa tätä vertailua. Sanamäärä kuvaa pituutta ja puheenvuorojen määrä esiintymistiheyttä.'}</p></div></div><div class="speech-rankings">${rank(bucket.members,lang==='sv'?'Ledamöter':'Kansanedustajat',memberName)}${rank(bucket.parties,lang==='sv'?'Partier':'Puolueet',item=>titleFor(item.party))}</div>`;
 }
-function memberDetail(m){if(!m)return notFound();if(activeMemberId!==m.id){state.memberSpeeches=1;state.memberVotes=1}activeMemberId=m.id;
+function memberDetail(m,{mountMemberInsights,memberSectionNavigation,bindMemberSections}){if(!m)return notFound();if(activeMemberId!==m.id){state.memberSpeeches=1;state.memberVotes=1}activeMemberId=m.id;
   const ballots=data.ballots.filter(ballot=>ballot.mpId===m.id),ids=new Set(ballots.map(ballot=>ballot.voteId));
   const votes=data.votes.filter(vote=>ids.has(vote.id)),speechesForMember=data.speeches.filter(speech=>speech.mpId===m.id);
   const voteState=toolState(`member-votes-${m.id}`,'date','desc'),speechState=toolState(`member-speeches-${m.id}`,'date','desc');
@@ -479,9 +478,11 @@ function decorateCards(page){
   mountCollectionTools(holder,page,extra,config,lang,redraw);redraw();
 }
 function render(position){
+  const r=routeFromHash(location.hash);
+  primaryNavigation.select(r.page);
   if(!data)return;
   readingView=readingMode(location.search,readingView);
-  const sequence=++routeRenderSequence,r=routeFromHash(location.hash),routeKey=location.hash,renderLanguage=lang,view=readingView;
+  const sequence=++routeRenderSequence,routeKey=location.hash,renderLanguage=lang,view=readingView;
   const current=()=>sequence===routeRenderSequence&&location.hash===routeKey&&lang===renderLanguage&&readingView===view;
   return preservePageScroll(root,async()=>{
   try {
@@ -493,7 +494,7 @@ function render(position){
   applyViewChrome();
   const previousView=root.dataset.route;
   root.dataset.route=location.hash;
-  root.setAttribute('aria-busy','true');document.querySelectorAll('.nav a').forEach(a=>{const active=a.dataset.page===r.page;a.classList.toggle('active',active);if(active)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current')});
+  root.setAttribute('aria-busy','true');
   if(r.page==='stories'){
     await viewModule.renderBillStories(root,{
       lang,route:r,current,
@@ -525,7 +526,7 @@ function render(position){
     finish();return;
   }
   let html,pending=null;
-  if(r.page==='overview')html=overview();else if(r.page==='votes')html=r.id?voteDetail(r.id):null;else if(r.page==='members')html=members(r.id);else if(r.page==='parties')html=parties(r.id);else if(r.page==='speeches')html=null;else if(r.page==='legislation')html=legislation(r.id);else if(r.page==='sessions')html=sessions(r.id);else if(r.page==='programmes')html=null;else if(r.page==='budget')html=null;else if(r.page==='elections')html=null;else if(r.page==='influence')html=null;else if(r.page==='about')html=about();else html=notFound();
+  if(r.page==='overview')html=overview();else if(r.page==='votes')html=r.id?voteDetail(r.id):null;else if(r.page==='members')html=members(r.id,viewModule);else if(r.page==='parties')html=parties(r.id);else if(r.page==='speeches')html=null;else if(r.page==='legislation')html=legislation(r.id);else if(r.page==='sessions')html=sessions(r.id);else if(r.page==='programmes')html=null;else if(r.page==='budget')html=null;else if(r.page==='elections')html=null;else if(r.page==='influence')html=null;else if(r.page==='about')html=about();else html=notFound();
   if(r.page==='votes'&&!r.id)voteList();else if(r.page==='speeches')speeches(r.id,{scrollToTarget:position===undefined&&previousView!==routeKey});else if(r.page==='programmes')pending=viewModule.renderProgrammes(root,lang,e);else if(r.page==='budget')pending=viewModule.renderBudget(root,lang,r.id,e);else if(r.page==='elections')pending=viewModule.renderElections(root,lang,e,data.members);else if(r.page==='influence')pending=viewModule.renderInfluence(root,lang,e,data.members,r.id);else if(typeof html==='string')root.innerHTML=html;
   if(r.page==='votes'&&r.id&&data.votes.some(vote=>vote.id===r.id))bindVoteFilters(r.id);
   if(r.page==='legislation'&&r.id){const item=data.legislation.find(matter=>matter.id===r.id);if(item)decorateLegislationDetail(item)}
@@ -542,7 +543,7 @@ function render(position){
   } catch(error) { if(current()){root.dataset.route=routeKey;loadError(error)} }
   },position);
 }
-document.addEventListener('click',event=>{if(event.defaultPrevented||event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;const link=event.target.closest('a[href^="#/"]');if(!link||link.hasAttribute('download')||(link.target&&link.target!=='_self'))return;event.preventDefault();if(pushRoute(link.getAttribute('href')))render();if(data)root.focus({preventScroll:true})});
+document.addEventListener('click',event=>{if(event.defaultPrevented||event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;const link=event.target.closest('a[href^="#/"]');if(!link||link.hasAttribute('download')||(link.target&&link.target!=='_self'))return;event.preventDefault();if(pushRoute(link.getAttribute('href')))render();if(data||link.closest('#main-navigation'))root.focus({preventScroll:true})});
 function setupSearch(onOpen=()=>{}){
   const panel=$('.search-panel'),button=$('.search-button'),input=$('#global-search'),results=$('.search-results'),status=$('.search-status');
   let timer,searchVersion=0;
@@ -599,22 +600,22 @@ function setupSearch(onOpen=()=>{}){
   return close;
 }
 function setup(){
-  const menu=$('.menu-button'),nav=$('.nav');
-  const closeMenu=(restore=false)=>{nav.classList.remove('open');menu.setAttribute('aria-expanded','false');menu.setAttribute('aria-label',ui('Avaa valikko','Öppna meny','Open menu'));menu.textContent=t('menu');document.body.classList.remove('menu-open');if(restore)menu.focus({preventScroll:true})};
+  const closeSearch=setupSearch(()=>primaryNavigation.close());
+  const getPage=()=>routeFromHash(location.hash).page;
+  primaryNavigation=setupPrimaryNavigation($('#main-navigation'),$('.menu-button'),{
+    getPage,translate:ui,menuLabel:()=>t('menu'),onOpen:closeSearch
+  });
+  primaryNavigation.select(getPage());
+  const closeMenu=primaryNavigation.close;
   trackScrollHistory();
   setupBackToTop(document.querySelector('.back-to-top'),root);
   new ResizeObserver(()=>document.documentElement.style.setProperty('--site-header-height',document.querySelector('.site-header').offsetHeight+'px')).observe(document.querySelector('.site-header'));
   if(readingView==='simple'&&!new URLSearchParams(location.search).has('view'))history.replaceState(history.state,'',readingModeURL(location.href,readingView));
-  applyChrome();applyViewChrome();applyLocalizedExtras();applyTheme();const closeSearch=setupSearch(()=>closeMenu());
+  applyChrome();applyViewChrome();applyLocalizedExtras();applyTheme();
   $('.view-toggle').onclick=()=>{closeSearch();closeMenu();setReadingView(readingView==='simple'?'full':'simple')};
   root.addEventListener('click',event=>{if(event.target.closest('[data-full-view]')){closeSearch();closeMenu();setReadingView('full');root.focus({preventScroll:true})}});
   $('.language-select').onchange=event=>{lang=event.target.value;preferences.set('vahtikissa-lang',lang);applyChrome();applyViewChrome();applyLocalizedExtras();closeSearch();closeMenu();if(data)render();else if(lastLoadError)loadError(lastLoadError);else loadingView()};
   $('.theme-select').onchange=event=>{theme=event.target.value;preferences.set('vahtikissa-theme',theme);applyTheme()};
-  menu.onclick=()=>{closeSearch();const open=nav.classList.toggle('open');menu.setAttribute('aria-expanded',open);menu.setAttribute('aria-label',open?ui('Sulje valikko','Stäng meny','Close menu'):ui('Avaa valikko','Öppna meny','Open menu'));menu.textContent=open?'×':t('menu');document.body.classList.toggle('menu-open',open);if(open)nav.querySelector('a')?.focus({preventScroll:true});else menu.focus({preventScroll:true})};
-  document.querySelectorAll('.nav a').forEach(link=>link.onclick=()=>{closeSearch();closeMenu()});
-  document.addEventListener('click',event=>{if(!nav.contains(event.target)&&!menu.contains(event.target))closeMenu()});
-  document.addEventListener('keydown',event=>{if(event.key!=='Escape')return;if(nav.classList.contains('open'))closeMenu(true)});
-  matchMedia('(max-width:1399px)').addEventListener('change',()=>closeMenu());
   const restoreRoute=()=>{closeMenu();if(root.dataset.route!==location.hash||root.dataset.view!==readingMode(location.search,readingView))render(savedScrollPosition())};
   window.addEventListener('hashchange',restoreRoute);window.addEventListener('popstate',restoreRoute);
   $('.skip').onclick=event=>{event.preventDefault();root.focus({preventScroll:true});root.scrollIntoView({block:'start',behavior:'instant'})};

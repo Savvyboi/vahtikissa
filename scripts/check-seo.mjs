@@ -4,6 +4,7 @@ import { mkdir } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 import { SITE_URL, siteMetadata } from '../seo.js';
+import { openPrimaryNavigationFor } from './browser-navigation-checks.mjs';
 
 const port = process.env.SEO_TEST_PORT || '4194';
 const url = process.env.BROWSER_TEST_URL || `http://localhost:${port}`;
@@ -97,11 +98,7 @@ try {
       assert.equal(await page.locator('link[rel="canonical"]').count(), 1);
       assert.equal(await page.locator('link[rel="canonical"]').getAttribute('href'), SITE_URL);
     };
-    const navigate = async pageName => {
-      const link = page.locator(`.nav a[data-page="${pageName}"]`);
-      if (!await link.isVisible()) await page.locator('.menu-button').click();
-      await link.click();
-    };
+    const navigate = async pageName => (await openPrimaryNavigationFor(page,pageName)).click();
     await metadata('#/overview');
     await navigate('votes');
     await metadata('#/votes');

@@ -14,7 +14,6 @@
 .view-toggle[aria-checked="true"]{border-color:var(--blue);color:var(--blue)}
 .view-toggle[aria-checked="true"] .view-toggle-track{background:var(--blue);border-color:var(--blue)}
 .view-toggle[aria-checked="true"] .view-toggle-track::after{left:14px;background:var(--white)}
-html[data-view="simple"] .site-header .nav a[data-page="sessions"],html[data-view="simple"] .site-header .nav a[data-page="parties"],html[data-view="simple"] .site-header .nav a[data-page="programmes"],html[data-view="simple"] .site-header .nav a[data-page="elections"]{display:none}
 .easy-page{width:min(1100px,calc(100% - 44px));margin:0 auto;padding:3.5rem 0 5rem;max-width:1100px;font-size:1rem;line-height:1.7}
 .easy-page h1{max-width:850px;font-size:clamp(2.3rem,5.5vw,4.5rem);line-height:1.07;letter-spacing:-.04em;text-wrap:balance}
 .easy-page h2{font-size:clamp(1.65rem,3vw,2.2rem);line-height:1.2;letter-spacing:-.02em}
@@ -79,7 +78,6 @@ a.easy-card:hover{border-color:var(--blue)}
 .easy-page .easy-transcript p{margin:1rem 0}
 html:is([data-theme="dark"],[data-theme="dusk"]) .view-toggle[aria-checked="true"] .view-toggle-track::after,html[data-theme="contrast"] .view-toggle[aria-checked="true"] .view-toggle-track::after{background:var(--paper)}
 html:is([data-theme="dark"],[data-theme="dusk"]) .easy-choices button[aria-pressed="true"],html:is([data-theme="dark"],[data-theme="dusk"]) .easy-choices a[aria-current="page"],html:is([data-theme="dark"],[data-theme="dusk"]) .easy-page button[aria-current="page"],html[data-theme="contrast"] .easy-choices button[aria-pressed="true"],html[data-theme="contrast"] .easy-choices a[aria-current="page"],html[data-theme="contrast"] .easy-page button[aria-current="page"]{color:var(--paper)}
-@media(min-width:1400px) and (max-width:1999px){html[data-view="full"] .site-header .menu-button{display:block;margin-left:auto}html[data-view="full"] .site-header .nav{display:none;position:absolute;inset:100% 0 auto}html[data-view="full"] .site-header .nav.open{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.35rem;padding:1rem 22px;background:var(--paper);border-bottom:1px solid var(--line)}html[data-view="full"] .site-header .nav.open a{min-height:44px;justify-content:start;padding:.5rem}}
 @media(max-width:900px){.easy-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.easy-hero{padding-top:1rem}}
 @media(max-width:600px){.view-toggle{order:1;margin-left:auto;font-size:.75rem;gap:.4rem}.site-header .menu-button{order:2;margin-left:0}.site-header .theme-control{margin-left:auto}.easy-page{width:calc(100% - 24px);padding-top:1.5rem}.easy-page h1{font-size:clamp(2.15rem,10vw,3.1rem)}.easy-grid{grid-template-columns:1fr}.easy-card{padding:1.2rem}.easy-toolbar{padding:1rem;gap:.8rem}.easy-field{flex-basis:100%}.easy-hero{padding:1rem 0 2rem}.easy-lead{font-size:1.05rem}.easy-stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:.6rem}.easy-stats>div,.easy-stats>a,.easy-stats>article{padding:.9rem}.easy-stats strong{font-size:1.9rem}.easy-section{margin-top:2.25rem}.easy-callout{padding:1rem}.easy-page button,.easy-page .easy-button{max-width:100%;white-space:normal;overflow-wrap:anywhere}}
 @media(prefers-reduced-motion:no-preference){.view-toggle-track::after{transition:left .15s ease}.easy-card{transition:border-color .15s ease}}
@@ -89,7 +87,7 @@ html:is([data-theme="dark"],[data-theme="dusk"]) .easy-choices button[aria-press
  .site-header>.brand{order:0}.site-header>.view-toggle{order:1;margin-left:auto}.site-header>.menu-button{order:2;margin-left:0}
  .site-header>.theme-control{order:3;margin-left:auto}.site-header>.language-control{order:4}.site-header>.search-button{order:5}
 }
-@media(max-width:600px){.site-header::after{content:"";width:100%;order:2}.site-header .nav.open{inset:100% 0 auto;max-height:calc(100dvh - 128px)}}
+@media(max-width:600px){.site-header::after{content:"";width:100%;order:2}}
 .search-panel{top:calc(var(--site-header-height,70px) + 8px);max-height:min(680px,calc(100dvh - var(--site-header-height,70px) - 24px))}
 .easy-choices>div{flex:1 1 220px;min-width:0;padding:1rem;border:1px solid var(--line);border-radius:8px;background:var(--white)}
 .easy-choices dt{font-weight:700;color:var(--blue)}.easy-choices dd{margin:.4rem 0 0;overflow-wrap:anywhere}

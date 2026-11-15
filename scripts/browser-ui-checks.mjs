@@ -1,6 +1,6 @@
 import { openFilterPanels } from './browser-filter-checks.mjs';
 import assert from 'node:assert/strict';
-import { followPrimaryNavigation } from './browser-navigation-checks.mjs';
+import { followPrimaryNavigation, openPrimaryNavigationFor } from './browser-navigation-checks.mjs';
 
 export async function checkUI(page, navigate, data) {
   let fields = 0, links = 0;
@@ -91,9 +91,10 @@ export async function checkUI(page, navigate, data) {
   console.log(`${fields} filter interactions; ${links} rendered links; ${data.members.length} decoded portraits; all primary menu routes at 10 phone/tablet/desktop sizes in Finnish, Swedish and English passed.`);
 }
 
-/** Exercise flat navigation independently of the longer collection/filter checks. */
+/** Exercise the grouped sidebar and drawer independently of collection/filter checks. */
 export async function checkPrimaryNavigation(page) {
-  const primaryRoutes=['overview','sessions','votes','members','following','parties','programmes','speeches','relationships','legislation','stories','budget','elections','influence'];
+  const primaryRoutes=['overview','following','votes','sessions','legislation','stories','speeches','members','parties','programmes','elections','budget','influence','relationships'];
+  const nav=page.locator('#main-navigation');
   const viewports=[{width:320,height:568},{width:375,height:667},{width:390,height:844},
     {width:844,height:390},{width:1024,height:768},{width:1180,height:820},
     {width:1280,height:800},{width:1400,height:900},{width:1440,height:1000},{width:1920,height:1080}];
@@ -109,23 +110,29 @@ export async function checkPrimaryNavigation(page) {
       if(mobile){
         await menu.focus();await page.keyboard.press('Enter');
         assert.equal(await menu.getAttribute('aria-expanded'),'true');
-        assert.equal(await page.locator('.nav > a').first().evaluate(element=>element===document.activeElement),true);
+        assert.equal(await nav.locator('a').first().evaluate(element=>element===document.activeElement),true);
       }
-      assert.deepEqual(await page.locator('.nav > a').evaluateAll(items=>items.map(item=>item.dataset.page)),
+      assert.deepEqual(await nav.locator('a').evaluateAll(items=>items.map(item=>item.dataset.page)),
         primaryRoutes,'Every primary view has a direct menu link');
-      assert.equal(await page.locator('.nav details').count(),0,'The menu uses the original flat structure');
-      const boxes=await page.locator('.nav > a').evaluateAll(elements=>elements.map(element=>{
-        const box=element.getBoundingClientRect();return {text:element.textContent,left:box.left,right:box.right,top:box.top,bottom:box.bottom};
-      }));
-      for(const box of boxes)assert.ok(box.left>=0&&box.right<=viewport.width+1&&box.top>=0&&box.bottom<=viewport.height,
-        `Menu link outside ${language} ${viewport.width}x${viewport.height}: ${box.text}`);
+      assert.deepEqual(await nav.locator('details').evaluateAll(groups=>groups.map(group=>[group.dataset.navGroup,[...group.querySelectorAll('a')].map(link=>link.dataset.page)])),
+        [['parliament',['votes','sessions','legislation','stories','speeches']],['people',['members','parties','programmes','elections']],['power',['budget','influence','relationships']]]);
+      assert.equal(await nav.locator('a small').count(),14,'Every page has a description');
+      for(const control of await nav.locator('a:visible, summary:visible').all()){
+        const box=await control.boundingBox();
+        assert.ok(box.x>=0&&box.x+box.width<=viewport.width+1&&box.height>=44,'A visible control fits and is touch sized');
+      }
       if(mobile){
+        const category=nav.locator('[data-nav-group="power"]');
+        const summary=category.locator('summary');
+        const wasOpen=await category.evaluate(details=>details.open);
+        await summary.focus();await page.keyboard.press('Space');
+        assert.equal(await category.evaluate(details=>details.open),!wasOpen,'Space toggles a category');
         await page.keyboard.press('Escape');
         assert.equal(await menu.getAttribute('aria-expanded'),'false');
         assert.equal(await menu.evaluate(element=>element===document.activeElement),true);
-        await menu.focus();await page.keyboard.press('Enter');
+        assert.equal(await nav.isVisible(),false);
       }
-      await page.locator('.nav [data-page="members"]').focus();await page.keyboard.press('Enter');
+      await (await openPrimaryNavigationFor(page,'members')).focus();await page.keyboard.press('Enter');
       await page.waitForFunction(()=>document.querySelector('main')?.dataset.route==='#/members'&&document.querySelector('main')?.getAttribute('aria-busy')==='false');
       assert.equal(await page.locator('main').evaluate(element=>element===document.activeElement),true);
       assert.equal(await menu.getAttribute('aria-expanded'),'false');
@@ -137,11 +144,11 @@ export async function checkPrimaryNavigation(page) {
         await followPrimaryNavigation(page,route);
         assert.equal(await menu.getAttribute('aria-expanded'),'false');
         assert.equal(await page.locator('main').getAttribute('data-route'),`#/${route}`);
-        assert.equal(await page.locator(`.nav > [data-page="${route}"][aria-current="page"]`).count(),1);
+        assert.equal(await nav.locator(`[data-page="${route}"][aria-current="page"]`).count(),1);
         const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1);
         assert.equal(overflow,false,language+' / '+viewport.width+' / '+route+' horizontal overflow');
       }
-      console.log(`Flat menu passed: ${language} / ${viewport.width}x${viewport.height} / ${mobile?'menu button':'desktop links'}`);
+      console.log(`Grouped menu passed: ${language} / ${viewport.width}x${viewport.height} / ${mobile?'drawer':'sidebar'}`);
     }
   }
 }

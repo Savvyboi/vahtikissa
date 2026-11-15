@@ -88,12 +88,15 @@ export async function checkSimpleMode(browser,url){
         await page.setViewportSize(viewport);
         const menu=page.locator('.menu-button');
         if(await menu.isVisible()&&await menu.getAttribute('aria-expanded')!=='true')await menu.click();
-        const links=page.locator('.nav > a:visible');
+        const nav=page.locator('#main-navigation');
+        for(const group of await nav.locator('details').all()){
+          if(!await group.evaluate(element=>element.open))await group.locator('summary').click();
+        }
+        const links=nav.locator('a:visible');
         assert.deepEqual(await links.evaluateAll(items=>items.map(item=>item.dataset.page)),
-          ['overview','votes','members','following','speeches','relationships','legislation','stories','budget','influence'],
+          ['overview','following','votes','legislation','stories','speeches','members','budget','influence','relationships'],
           'Simple mode exposes its primary sections');
-        const boxes=await links.evaluateAll(items=>items.map(item=>{const r=item.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,text:item.textContent}}));
-        for(const box of boxes)assert.ok(box.left>=0&&box.right<=viewport.width+1&&box.top>=0&&box.bottom<=viewport.height,language+' menu at '+viewport.width+': '+box.text);
+        assert.equal(await nav.evaluate(element=>element.scrollWidth>element.clientWidth+1),false,language+' menu at '+viewport.width+' fits horizontally');
         if(await menu.isVisible())await page.keyboard.press('Escape');
       }
     }

@@ -4,6 +4,7 @@ import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
+import { openPrimaryNavigationFor } from './browser-navigation-checks.mjs';
 
 const require=createRequire(import.meta.url),port=process.env.NETWORK_TEST_PORT||'4214',url=process.env.BROWSER_TEST_URL||`http://localhost:${port}`;
 const server=process.env.BROWSER_TEST_URL?null:spawn(process.execPath,['server.mjs'],{cwd:new URL('..',import.meta.url),env:{...process.env,PORT:port},windowsHide:true,stdio:'ignore'});
@@ -18,8 +19,7 @@ try{
   await page.goto(`${url}/?view=full#/overview`);await page.locator('main[aria-busy="false"] h1').waitFor();
   assert.equal(requests.some(p=>p.includes('/networks/')||p.endsWith('/relationships-app.js')),false,'Homepage keeps analytics lazy');
   await page.locator('.language-select').selectOption('en');await page.locator('main[aria-busy="false"] h1').waitFor();
-  const menu=page.locator('.menu-button');if(await menu.isVisible()&&await menu.getAttribute('aria-expanded')!=='true')await menu.click();
-  await page.locator('.nav [data-page="relationships"]').click();
+  await (await openPrimaryNavigationFor(page,'relationships')).click();
   await page.locator('.relationship-subnav a[href*="feature=vote-neighbours"]').click();
   const ready=()=>page.waitForFunction(()=>/^(Analyysi valmis\.|Analysen är klar\.|Analysis ready\.)$/.test(document.querySelector('.relationship-status')?.textContent));
   const closeEvidence=async()=>{await page.locator('[data-evidence-close]').click();await page.locator('[data-network-evidence]').waitFor({state:'hidden'});};

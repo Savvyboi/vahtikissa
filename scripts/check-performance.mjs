@@ -45,7 +45,7 @@ try {
       assert.ok(!requests.some(path => /parliament\.json|speech-search|speech-texts|\/parliament\/(speeches|member-|vote-)/.test(path)), 'The home page must not request complete or scoped detail collections');
       if (view === 'full') {
         assert.ok(metrics.scriptBytes < 230000, `Detailed home JavaScript budget: ${metrics.scriptBytes}`);
-        assert.ok(!requests.some(path => /\/(simple-mode|simple-civic|civic-apps|programmes-app)\.js$/.test(path)), 'Unused reading/civic modules must remain lazy');
+        assert.ok(!requests.some(path => /\/(simple-mode|simple-civic|civic-apps|programmes-app|member-insights)\.js$/.test(path)), 'Page-specific modules must remain lazy');
       }
       console.log(JSON.stringify({ viewport: viewport.width, view, ...metrics }));
       const arrow = page.locator('.back-to-top');

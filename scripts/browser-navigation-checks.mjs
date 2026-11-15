@@ -1,12 +1,20 @@
 import assert from 'node:assert/strict';
 import { siteMetadata } from '../seo.js';
 
-/** Follow primary navigation through the same visible controls as a keyboard or pointer user. */
-export async function followPrimaryNavigation(page, route) {
+/** Reveal a link through the same menu controls as a visitor. */
+export async function openPrimaryNavigationFor(page, route) {
   const menu = page.locator('.menu-button');
   if (await menu.isVisible() && await menu.getAttribute('aria-expanded') !== 'true') await menu.click();
+  const link=page.locator(`#main-navigation [data-page="${route}"]`);
+  const group=link.locator('xpath=ancestor::details[1]');
+  if(await group.count() && !(await group.evaluate(details=>details.open))) await group.locator('summary').click();
+  return link;
+}
+
+export async function followPrimaryNavigation(page, route) {
+  const link=await openPrimaryNavigationFor(page,route);
   const previousScroll=await page.evaluate(()=>scrollY);
-  await page.locator(`.nav [data-page="${route}"]`).click();
+  await link.click();
   await page.waitForFunction(route => {
     const main=document.querySelector('main');
     return main?.dataset.route===`#/${route}`&&main.getAttribute('aria-busy')==='false'&&main.querySelector('h1');
@@ -100,9 +108,7 @@ export async function checkSeamlessNavigation(browser, url) {
 
     const waiting=new Promise(resolve=>{releaseAsync=resolve});
     await page.route('**/data/influence.json',async route=>{await waiting;await route.continue()});
-    const menu=page.locator('.menu-button');
-    if(await menu.isVisible()&&await menu.getAttribute('aria-expanded')!=='true')await menu.click();
-    await page.locator('.nav [data-page="influence"]').click();
+    await (await openPrimaryNavigationFor(page,'influence')).click();
     await page.locator('main .loading').waitFor();
     await retained(620,'The asynchronous loading placeholder does not collapse the page');
     await scroll(900);

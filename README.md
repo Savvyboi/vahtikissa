@@ -21,7 +21,7 @@ The visual and information hierarchy is inspired by the public-facing `mijnkamer
 - Parliamentary party programmes from Pohtiva’s 2023 election collection, with document type/language search, verified current representation and original source links
 - Official 2023 parliamentary election results by party, district and elected candidate
 - Searchable MP financial interests, outside income declarations, gift disclosures and lobbying contacts
-- Flat navigation with direct links to all thirteen views, a compact mobile grid and a persistent FI / SV / EN selector
+- Grouped navigation with descriptions for all fourteen primary views, a persistent desktop sidebar, a compact drawer, and Finnish, Swedish and English labels
 - Keyboard-accessible global search with a visible shortcut (`Ctrl/Cmd + K`)
 - Ten-second data-loading deadline with retry, including stalled response bodies
 - Budget navigation beside the results, always-readable item lists, plain-language hierarchy and reset controls

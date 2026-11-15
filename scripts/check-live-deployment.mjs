@@ -51,6 +51,7 @@ export const DEPLOYMENT_FILES = Object.freeze([
   'data/networks/transparency.json',
   'styles.css',
   'navigation.css',
+  'navigation.js',
   'app-utils.js',
   'parliament-data.js',
   'budget-utils.js',
