@@ -90,8 +90,8 @@ export async function checkSimpleMode(browser,url){
         if(await menu.isVisible()&&await menu.getAttribute('aria-expanded')!=='true')await menu.click();
         const links=page.locator('.nav > a:visible');
         assert.deepEqual(await links.evaluateAll(items=>items.map(item=>item.dataset.page)),
-          ['overview','votes','members','following','speeches','relationships','legislation','budget','influence'],
-          'Simple mode exposes its primary sections, including Following and Relationships');
+          ['overview','votes','members','following','speeches','relationships','legislation','stories','budget','influence'],
+          'Simple mode exposes its primary sections');
         const boxes=await links.evaluateAll(items=>items.map(item=>{const r=item.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,text:item.textContent}}));
         for(const box of boxes)assert.ok(box.left>=0&&box.right<=viewport.width+1&&box.top>=0&&box.bottom<=viewport.height,language+' menu at '+viewport.width+': '+box.text);
         if(await menu.isVisible())await page.keyboard.press('Escape');
@@ -99,7 +99,7 @@ export async function checkSimpleMode(browser,url){
     }
     await page.setViewportSize({width:1440,height:1000});
     await page.locator('.language-select').selectOption('fi');
-    const routes=['overview','votes','members','speeches','legislation','sessions','parties','budget','influence','elections','programmes','about',
+    const routes=['overview','votes','members','speeches','legislation','stories','sessions','parties','budget','influence','elections','programmes','about',
       detail,'members/'+parliament.members[0].id,'speeches/'+encodeURIComponent(parliament.speeches[0].id),
       'legislation/'+encodeURIComponent(parliament.legislation.find(item=>item.voteIds.length)?.id)];
     for(const language of ['fi','sv','en']){
@@ -112,7 +112,7 @@ export async function checkSimpleMode(browser,url){
     }
     await page.locator('.theme-select').selectOption('light');await page.locator('.language-select').selectOption('fi');
     await page.setViewportSize({width:320,height:740});
-    for(const route of ['overview','votes','members','speeches','legislation','budget','influence','elections','programmes']){
+    for(const route of ['overview','votes','members','speeches','legislation','stories','budget','influence','elections','programmes']){
       await navigate(route);await audit('320px / simple / '+route);
     }
     await navigate('overview');

@@ -9,7 +9,7 @@ export async function checkUI(page, navigate, data) {
     parties:new Set(data.parties.map(item=>item.code)), sessions:new Set(data.sessions.map(item=>item.id)),
     legislation:new Set(data.legislation.map(item=>item.id))
   };
-  const routes = ['overview','votes','members','parties','programmes','sessions','speeches','legislation','budget','elections','influence','about',
+  const routes = ['overview','votes','members','parties','programmes','sessions','speeches','legislation','stories','budget','elections','influence','about',
     `members/${data.members[0].id}`,`votes/${encodeURIComponent(data.votes[0].id)}`,`parties/${data.parties[0].code}`,`sessions/${data.sessions[0].id}`,`legislation/${encodeURIComponent(data.legislation.find(item=>item.voteIds.length).id)}`];
   async function inspectFields() {
     // Open each filter panel so the fields are exercised through visible controls.
@@ -93,7 +93,7 @@ export async function checkUI(page, navigate, data) {
 
 /** Exercise flat navigation independently of the longer collection/filter checks. */
 export async function checkPrimaryNavigation(page) {
-  const primaryRoutes=['overview','sessions','votes','members','following','parties','programmes','speeches','relationships','legislation','budget','elections','influence'];
+  const primaryRoutes=['overview','sessions','votes','members','following','parties','programmes','speeches','relationships','legislation','stories','budget','elections','influence'];
   const viewports=[{width:320,height:568},{width:375,height:667},{width:390,height:844},
     {width:844,height:390},{width:1024,height:768},{width:1180,height:820},
     {width:1280,height:800},{width:1400,height:900},{width:1440,height:1000},{width:1920,height:1080}];
@@ -112,7 +112,7 @@ export async function checkPrimaryNavigation(page) {
         assert.equal(await page.locator('.nav > a').first().evaluate(element=>element===document.activeElement),true);
       }
       assert.deepEqual(await page.locator('.nav > a').evaluateAll(items=>items.map(item=>item.dataset.page)),
-        primaryRoutes,'Every primary view has a direct menu link, including Following');
+        primaryRoutes,'Every primary view has a direct menu link');
       assert.equal(await page.locator('.nav details').count(),0,'The menu uses the original flat structure');
       const boxes=await page.locator('.nav > a').evaluateAll(elements=>elements.map(element=>{
         const box=element.getBoundingClientRect();return {text:element.textContent,left:box.left,right:box.right,top:box.top,bottom:box.bottom};

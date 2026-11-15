@@ -34,7 +34,7 @@ try {
   page.on('pageerror',error=>{const finding=`JavaScript (${page.url()}): ${error.stack||error.message}`;failures.push(finding);console.error(finding)});
   await page.goto(url);
   await page.locator('main[aria-busy="false"] h1').waitFor();
-  const routes=['overview','votes','members','parties','programmes','sessions','speeches','legislation','budget','elections','influence','about',`votes/${encodeURIComponent(data.votes[0].id)}`,`members/${data.members[0].id}`,`parties/${data.parties[0].code}`,`sessions/${data.sessions[0].id}`,`legislation/${encodeURIComponent(data.legislation.find(item=>item.voteIds.length)?.id)}`];
+  const routes=['overview','votes','members','parties','programmes','sessions','speeches','legislation','stories','budget','elections','influence','about',`votes/${encodeURIComponent(data.votes[0].id)}`,`members/${data.members[0].id}`,`parties/${data.parties[0].code}`,`sessions/${data.sessions[0].id}`,`legislation/${encodeURIComponent(data.legislation.find(item=>item.voteIds.length)?.id)}`];
   async function navigate(route) {
     await page.evaluate(route=>{location.hash=`#/${route}`;},route);
     await page.waitForFunction(route=>{const main=document.querySelector('main');return main?.dataset.route===`#/${route}`&&main.getAttribute('aria-busy')==='false'&&main.querySelector('h1');},route);
@@ -129,7 +129,7 @@ try {
   await checkUI(page,navigate,data);
   await checkMobileLayouts(page,navigate);
   await page.setViewportSize({width:320,height:740});
-  for(const route of ['overview','votes','members','sessions','speeches','legislation','budget','programmes','elections','influence']) {await navigate(route);await audit(`fi / 320px / ${route}`);}
+  for(const route of ['overview','votes','members','sessions','speeches','legislation','stories','budget','programmes','elections','influence']) {await navigate(route);await audit(`fi / 320px / ${route}`);}
   await page.locator('.menu-button').click();await audit('fi / 320px / open menu');await page.keyboard.press('Escape');
   await page.setViewportSize({width:1440,height:1000});
   await page.locator('.language-select').selectOption('en');
