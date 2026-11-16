@@ -12,25 +12,25 @@ const chrome = {
     title: 'Lait lyhyesti', choose: 'Valitse juttu', chapters: 'Jutun osat',
     stage: 'Jutun sisältö', back: 'Takaisin', next: 'Seuraava', nextBill: 'Seuraava juttu',
     more: 'Lue lisää', less: 'Näytä vähemmän', sources: 'Lähteet', terms: 'Sanasto ja lyhenteet',
-    shortTerms: 'Sanasto', docket: 'Avaa lakiasian tiedot', frame: 'Osa',
+    docket: 'Avaa lakiasian tiedot', frame: 'Osa',
     help: 'Siirry osasta toiseen nuolinäppäimillä tai pyyhkäisemällä sivulle.',
-    names: { sports: 'Urheilijoiden eläketurva', gambling: 'Rahapeliuudistus' }
+    news: 'Uutisjutut'
   },
   sv: {
     title: 'Lagar i korthet', choose: 'Välj ett lagärende', chapters: 'Avsnitt',
     stage: 'Berättelsens innehåll', back: 'Tillbaka', next: 'Nästa', nextBill: 'Nästa lag',
     more: 'Läs mer', less: 'Visa mindre', sources: 'Källor', terms: 'Ordlista och förkortningar',
-    shortTerms: 'Ordlista', docket: 'Öppna lagärendet', frame: 'Avsnitt',
+    docket: 'Öppna lagärendet', frame: 'Avsnitt',
     help: 'Bläddra mellan avsnitten med piltangenterna eller genom att svepa i sidled.',
-    names: { sports: 'Idrottarnas pensionsskydd', gambling: 'Penningspelsreformen' }
+    news: 'Nyhetsartiklar'
   },
   en: {
     title: 'Bills in brief', choose: 'Choose a bill', chapters: 'Story frames',
     stage: 'Story content', back: 'Back', next: 'Next', nextBill: 'Next bill',
     more: 'Read more', less: 'Read less', sources: 'Sources', terms: 'Terms and abbreviations',
-    shortTerms: 'Terms', docket: 'Open the bill record', frame: 'Frame',
+    docket: 'Open the bill record', frame: 'Frame',
     help: 'Use the arrow keys or swipe sideways to change frames.',
-    names: { sports: 'Sports pensions', gambling: 'Gambling reform' }
+    news: 'News coverage'
   }
 };
 
@@ -38,6 +38,7 @@ const storyPath = (story, frame = story.frames[0]) => `#/stories/${story.id}/${f
 const proposalLabel = (story, lang) => lang === 'sv' ? story.proposal.replace('HE ', 'RP ').replace(' vp', ' rd') : story.proposal;
 
 function icon(name) {
+  if (name === 'waves' || name === 'border') return `<span class="icon topic-mark ${name}-mark" aria-hidden="true"></span>`;
   return name === 'lottery'
     ? '<span class="icon lottery-mark" aria-hidden="true"></span>'
     : `<svg class="icon" aria-hidden="true"><use href="./bill-stories/icons.svg#icon-${e(name)}"></use></svg>`;
@@ -94,7 +95,7 @@ function extraLabel(ui) {
   return `<span class="read-more-label">${e(ui.more)}</span><span class="read-less-label">${e(ui.less)}</span>`;
 }
 
-function disclosures(id, copy, meta, ui) {
+function disclosures(id, copy, meta, ui, news, language, date) {
   return `
     <details class="frame-more" id="${id}-more">
       <summary>${extraLabel(ui)}</summary>
@@ -105,6 +106,15 @@ function disclosures(id, copy, meta, ui) {
         <summary>${e(ui.sources)}</summary>
         <ul role="list">${meta.urls.map((url, i) => `<li><a href="${e(copy.sourceURLs?.[i] || url)}" target="_blank" rel="noopener noreferrer">${e(copy.sources[i])} <span aria-hidden="true">↗</span></a></li>`).join('')}</ul>
       </details>
+      ${news?.length ? `<details class="frame-news">
+        <summary>${e(ui.news)}</summary>
+        <ul role="list">${news.map(([publisher, day, url, titles]) => `<li>
+          <a href="${e(url)}" target="_blank" rel="noreferrer" hreflang="fi">
+            <small>${e(publisher)} · ${time(day, date.format(new Date(day)))}</small>
+            ${e(titles[language])} <span aria-hidden="true">↗</span>
+          </a>
+        </li>`).join('')}</ul>
+      </details>` : ''}
       <details class="frame-terms" id="${id}-terms">
         <summary>${e(ui.terms)}</summary>
         <dl class="term-list">${copy.terms.map(([term, definition], i) => `
@@ -124,21 +134,24 @@ export async function renderBillStories(root, { lang, route, current, navigate, 
   const copy = frames[id];
   const meta = structure[id];
   const ui = chrome[lang];
-  const otherStory = stories.find(item => item !== story);
+  const language = ['fi', 'sv', 'en'].indexOf(lang);
+  const date = new Intl.DateTimeFormat(lang, { dateStyle: 'medium', timeZone: 'UTC' });
+  const otherStory = stories[(stories.indexOf(story) + 1) % stories.length];
   const atEnd = index === story.frames.length - 1;
-  const docket = '#/legislation/' + encodeURIComponent(story.proposal);
-  const moreShortcut = (kind, label, fullLabel = label) => `<button type="button" class="${kind}-shortcut" data-disclosure="${kind}" aria-expanded="false"
-    aria-controls="${id}-${kind}"${fullLabel !== label ? ` aria-label="${e(fullLabel)}"` : ''}><span class="control-label">${label}</span></button>`;
+  const docket = story.docket || '#/legislation/' + encodeURIComponent(story.proposal);
+  const docketLink = className => `<a class="read-link ${className}" href="${e(docket)}"${story.docket ? ' target="_blank" rel="noreferrer"' : ''}>
+    ${e(ui.docket)} <span aria-hidden="true">${story.docket ? '↗' : '→'}</span></a>`;
   root.innerHTML = `
     <section class="bill-stories" aria-labelledby="bill-stories-title">
       <div class="story-layout">
         <header class="story-picker">
           <h1 id="bill-stories-title">${e(ui.title)}</h1>
           <nav class="case-list" aria-label="${e(ui.choose)}">${stories.map(item => `
-            <a href="${storyPath(item)}"${item === story ? ' aria-current="location"' : ''}>
-              <span>${e(ui.names[item.id])}</span><small>${e(proposalLabel(item, lang))}</small>
+            <a class="story-choice" data-topic="${e(item.id)}" href="${storyPath(item)}"${item === story ? ' aria-current="location"' : ''}>
+              <span class="story-ring" aria-hidden="true"><span class="story-cover">${icon(item.cover)}</span></span>
+              <span class="story-name">${e(item.names[language])}</span>
             </a>`).join('')}</nav>
-          <a class="read-link" href="${docket}">${e(ui.docket)} <span aria-hidden="true">→</span></a>
+          ${docketLink('docket-desktop')}
         </header>
         <div class="reader is-interactive">
           <p class="visually-hidden" id="bill-stories-help">${e(ui.help)}</p>
@@ -156,17 +169,14 @@ export async function renderBillStories(root, { lang, route, current, navigate, 
               </header>
               <div class="frame-visual">${diagram(meta, copy.chart)}</div>
               ${copy.notes.map(note => `<p class="frame-note">${e(note)}</p>`).join('')}
-              ${disclosures(id, copy, meta, ui)}
-              <a class="read-link docket-mobile" href="${docket}">${e(ui.docket)} <span aria-hidden="true">→</span></a>
+              ${disclosures(id, copy, meta, ui, story.news, language, date)}
+              ${docketLink('docket-mobile')}
             </article>
           </div>
           <div class="story-controls">
             <button class="back" type="button"${index === 0 ? ' disabled' : ''}><span aria-hidden="true">←</span><span class="control-label">${e(ui.back)}</span></button>
-            ${moreShortcut('more', extraLabel(ui))}
-            ${moreShortcut('sources', e(ui.sources))}
-            ${moreShortcut('terms', e(ui.shortTerms), ui.terms)}
             <button class="next${atEnd ? ' next-story' : ''}" type="button"><span class="control-label">
-              <span class="next-label">${e(atEnd ? ui.names[otherStory.id] : ui.next)}</span><span class="next-bill-label">${e(ui.nextBill)}</span>
+              <span class="next-label">${e(atEnd ? ui.nextBill : ui.next)}</span>
             </span><span aria-hidden="true">→</span></button>
           </div>
         </div>
@@ -176,6 +186,9 @@ export async function renderBillStories(root, { lang, route, current, navigate, 
   const reader = root.querySelector('.bill-stories');
   const stage = reader.querySelector('.story-stage');
   const heading = stage.querySelector('[data-story-title]');
+  const tray = reader.querySelector('.case-list');
+  const selected = tray.querySelector('[aria-current]');
+  tray.scrollLeft = selected.offsetLeft - (tray.clientWidth - selected.offsetWidth) / 2;
   if (focusFrame) heading.focus({ preventScroll: true });
 
   function move(direction) {
@@ -185,56 +198,18 @@ export async function renderBillStories(root, { lang, route, current, navigate, 
   }
   reader.querySelector('.back').onclick = () => move(-1);
   reader.querySelector('.next').onclick = () => move(1);
-  bindDisclosures(reader, stage);
   bindGestures(stage, move);
   reader.addEventListener('keydown', event => {
-    if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || event.target.closest('details')) return;
+    const openDetails = event.target.closest('details[open]');
+    if (event.key === 'Escape' && openDetails) {
+      openDetails.open = false;
+      openDetails.querySelector('summary').focus();
+      return;
+    }
+    if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || event.target.closest('details, .case-list')) return;
     if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
     event.preventDefault();
     move(event.key === 'ArrowLeft' ? -1 : 1);
-  });
-}
-
-function bindDisclosures(reader, stage) {
-  const shortcuts = new Map([...reader.querySelectorAll('[data-disclosure]')].map(button => [
-    reader.querySelector('#' + button.getAttribute('aria-controls')), button
-  ]));
-  const before = new WeakMap();
-  const first = details => details.querySelector('[tabindex="-1"], a');
-  for (const [details, button] of shortcuts) {
-    button.onclick = () => {
-      if (!details.open) before.set(details, stage.scrollTop);
-      details.open = !details.open;
-      if (details.open) first(details)?.focus({ preventScroll: true });
-    };
-  }
-  stage.addEventListener('toggle', event => {
-    const details = event.target;
-    const shortcut = shortcuts.get(details);
-    if (!shortcut) return;
-    shortcut.setAttribute('aria-expanded', String(details.open));
-    if (details.open) {
-      const text = shortcut.dataset.disclosure !== 'sources';
-      const fromShortcut = before.has(details);
-      const target = text && !fromShortcut ? details : first(details);
-      target?.scrollIntoView({ block: text && fromShortcut ? 'start' : 'nearest', behavior: 'instant' });
-    } else if (before.has(details)) {
-      stage.scrollTop = before.get(details);
-      before.delete(details);
-    }
-  }, true);
-  reader.addEventListener('keydown', event => {
-    if (event.key !== 'Escape') return;
-    const openDetails = event.target.closest('details[open]');
-    for (const [details, shortcut] of shortcuts) {
-      if (details !== openDetails && !shortcut.contains(event.target)) continue;
-      if (!details.open) return;
-      details.open = false;
-      event.preventDefault();
-      if (shortcut.getClientRects().length) shortcut.focus({ preventScroll: true });
-      else details.querySelector('summary')?.focus();
-      return;
-    }
   });
 }
 

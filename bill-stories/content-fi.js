@@ -19,7 +19,10 @@ const period = ['Ilmoitusjakso', 'Ajanjakso, jota rekisteri-ilmoitus koskee. Sam
 const lookback = ['Tarkasteluaika', 'Ajanjakso ennen luvan arviointia, jolta viranomainen tarkistaa säännön piiriin kuuluvat kiellot ja maksut.'];
 const lotteries = ['Arpajaislaki', 'Laki, jonka rikkomisesta annettuja kieltopäätöksiä ja seuraamusmaksuja käsitellään tässä kahden vuoden säännössä.'];
 
+import { currentFrames } from './current-stories.js';
+
 export const frames = {
+  ...currentFrames(0),
   'sports-intro': {
     step: 'Mitä laki muuttaa',
     tag: 'Voimassa 1.7.2026 alkaen',

@@ -148,6 +148,10 @@ const englishGuides = {
 function updateRouteContext(route,{announce=true}={}){
   const fallback=t(route.page)||t('overview'),heading=root.querySelector('h1')?.textContent?.trim(),label=heading||fallback;
   updatePageMetadata({lang,route,heading});root.setAttribute('aria-busy','false');
+  if(route.page==='legislation'&&!route.id&&!root.querySelector('.law-stories-link')){
+    root.querySelector('.page-head,.easy-hero')?.insertAdjacentHTML('afterend',
+      `<a class="law-stories-link" href="#/stories">${t('stories')} <span aria-hidden="true">→</span></a>`);
+  }
   if(readingView!=='simple'&&lang==='en'&&!root.querySelector('.load-error')&&englishGuides[route.page]&&!root.querySelector('.language-note')){
     const note=document.createElement('aside');note.className='language-note';note.setAttribute('aria-label','English guide');
     const guide=document.createElement('p');guide.textContent=englishGuides[route.page];note.append(guide);

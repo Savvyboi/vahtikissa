@@ -1,4 +1,7 @@
+import { currentFrames } from './current-stories.js';
+
 export const frames = {
+  ...currentFrames(2),
   "sports-intro": {
     "step": "What the law does",
     "tag": "In force since 1 July 2026",

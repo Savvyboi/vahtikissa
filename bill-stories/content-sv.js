@@ -20,7 +20,10 @@ const period = ['Rapporteringsperiod', 'De månader som registeranmälan gäller
 const lookback = ['Granskningsperiod', 'Hur långt tillbaka myndigheten går när den kontrollerar vilka tidigare förbud eller avgifter som kan påverka licensen.'];
 const lotteries = ['Lotterilagen', 'Den lag som de förbud och påföljdsavgifter som omfattas av tvåårsregeln gäller.'];
 
+import { currentFrames } from './current-stories.js';
+
 export const frames = {
+  ...currentFrames(1),
   'sports-intro': {
     step: 'Vad ändras i lagen',
     tag: 'Gäller sedan 1 juli 2026',

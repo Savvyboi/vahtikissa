@@ -7,6 +7,7 @@ export const DEPLOYMENT_FILES = Object.freeze([
   'bill-stories/reader.js',
   'bill-stories/reader.css',
   'bill-stories/structure.js',
+  'bill-stories/current-stories.js',
   'bill-stories/content-fi.js',
   'bill-stories/content-sv.js',
   'bill-stories/content-en.js',
