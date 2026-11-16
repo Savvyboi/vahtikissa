@@ -6,7 +6,7 @@ export const stories = [
     "id": "sports",
     "proposal": "HE 65/2026 vp",
     "cover": "insurance",
-    "names": ["Urheilijoiden eläke", "Idrottspensioner", "Sports pensions"],
+    "names": ["Eläketurva", "Idrotts\u00adpensioner", "Sports pensions"],
     "frames": [
       "intro",
       "outcome",
@@ -21,7 +21,7 @@ export const stories = [
     "id": "gambling",
     "proposal": "HE 16/2025 vp",
     "cover": "lottery",
-    "names": ["Rahapeliuudistus", "Penningspel", "Gambling reform"],
+    "names": ["Rahapelit", "Penningspel", "Gambling reform"],
     "news": [
       ["Yle", "2025-12-20", "https://yle.fi/a/74-20200811",
         ["Rahapelilaki ja SM-liigan Veikkaus-sopimus", "Penningspelslagen och ligans avtal med Veikkaus", "Gambling Act and the hockey league’s Veikkaus deal"]]

@@ -4,7 +4,7 @@ const entries = [
   {
     id: 'valmiuslaki', proposal: 'HE 294/2026 vp', cover: 'waves',
     frames: ['intro', 'powers'],
-    names: ['Valmiuslaki', 'Beredskapslagen', 'Emergency powers'],
+    names: ['Valmiuslaki', 'Beredskap', 'Emergency powers'],
     status: ['Esitys puolustusvaliokunnassa.', 'Propositionen i försvarsutskottet.', 'Bill with the Defence Committee.'],
     urls: [
       'https://data.finlex.fi/fi/hallituksen-esitykset/2026/294',
@@ -115,7 +115,7 @@ const entries = [
   {
     id: 'ihmiskauppa', proposal: 'HE 127/2026 vp', cover: 'register',
     frames: ['intro', 'recording'],
-    names: ['Ihmiskauppa', 'Människohandel', 'Trafficking'],
+    names: ['Ihmiskauppa', 'Människo\u00adhandel', 'Trafficking'],
     status: ['Vahvistettu · voimaan 1.12.2026.', 'Stadfäst · träder i kraft den 1 december 2026.', 'Enacted · takes effect on 1 December 2026.'],
     urls: [
       'https://www.finlex.fi/fi/lainsaadanto/saadoskokoelma/2026/976',
@@ -170,7 +170,7 @@ const entries = [
   {
     id: 'sosiaalihuoltolaki', proposal: 'HE 180/2026 vp', cover: 'discussion',
     frames: ['intro', 'access'],
-    names: ['Sosiaalihuolto', 'Socialvård', 'Social welfare'],
+    names: ['Sosiaali\u00adhuolto', 'Socialvård', 'Social welfare'],
     status: ['Esitys sosiaali- ja terveysvaliokunnassa.', 'Propositionen i social- och hälsovårdsutskottet.', 'Bill with the Social Affairs and Health Committee.'],
     urls: [
       'https://data.finlex.fi/fi/hallituksen-esitykset/2026/180',

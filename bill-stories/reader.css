@@ -471,7 +471,7 @@
     scroll-snap-type: x proximity;
     scrollbar-width: thin;
   }
-  .bill-stories .story-choice { flex: 0 0 4.3rem; scroll-snap-align: center; }
+  .bill-stories .story-choice { flex: 0 0 4.7rem; scroll-snap-align: center; }
   .bill-stories .story-chrome, .bill-stories .story-controls { padding-inline: 1rem; }
   .bill-stories .story-controls button { padding-inline: min(.69rem, 4vw); }
   .bill-stories .story-frame { padding: 1.02rem 1rem .38rem; gap: .76rem; }
