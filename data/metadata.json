@@ -1,21 +1,21 @@
 {
-  "generatedAt": "2026-11-17T10:51:48.508Z",
+  "generatedAt": "2026-11-18T10:19:29.083Z",
   "source": "https://api.eduskunta.fi/api/v1",
   "startDate": "2023-04-02",
   "latest": {
     "vote": "2026-11-13T13:09:55.001+02:00",
-    "speech": "2026-11-13T11:26:55+00:00",
-    "session": "2026-11-13",
-    "matter": "2026-11-17T10:39:07.619+00:00"
+    "speech": "2026-11-17T19:52:56+00:00",
+    "session": "2026-11-17",
+    "matter": "2026-11-18T10:06:07.614+00:00"
   },
   "counts": {
     "votes": 2833,
     "ballots": 563767,
-    "speeches": 41713,
+    "speeches": 41883,
     "members": 219,
     "parties": 12,
-    "sessions": 450,
-    "legislation": 7853,
+    "sessions": 451,
+    "legislation": 7856,
     "amendments": 1867
   }
 }
