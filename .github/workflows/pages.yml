@@ -16,7 +16,7 @@ permissions:
 
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   deploy:
@@ -39,7 +39,9 @@ jobs:
       - run: npm run check
       - run: npm run build:data
       - run: npm run validate:networks
-      - name: Build campaign finance data
+      - name: Refresh campaign finance data with published snapshots as fallback
+        env:
+          PUBLISHED_FINANCE_URL: https://vahtikissa.fi/data/campaign-finance.json
         run: npm run sync:finance
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

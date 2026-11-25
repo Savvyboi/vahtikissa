@@ -23,6 +23,12 @@ export function sourceFingerprint(kind, item) {
 export function sameSource(kind, item, source) {
   return JSON.stringify(recordSource(kind, item)) === JSON.stringify(source);
 }
+export function voteSourcesPublishedByVote(brief) {
+  if (brief.briefBasis !== 'document-excerpt') return true;
+  const date = Date.parse(brief.source?.date);
+  return Array.isArray(brief.documents) && brief.documents.length > 0 &&
+    brief.documents.every(document => Date.parse(document?.publishedAt) <= date);
+}
 export function emptyInsights() {
   return { version: AI_SCHEMA_VERSION, generatedAt: null, model: null, programmes: {}, records: { votes: {}, legislation: {} } };
 }

@@ -1,7 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { businessId, campaignRows, campaignStats, memberCampaign, trackerRows } from '../campaign-finance-data.js';
-import { parseCandidates, parseCandidateDonations, parsePartyReceipts, readVtvCsv, vtvLinks } from '../scripts/sync-campaign-finance.mjs';
+import { parseCandidates, parseCandidateDonations, parsePartyReceipts, readVtvCsv, syncCampaignFinance, vtvLinks } from '../scripts/sync-campaign-finance.mjs';
 
 test('VTV CSV parsing handles UTF-8, apostrophe-quoted fields and embedded delimiters', () => {
   assert.deepEqual(readVtvCsv("\uFEFF'Ehdokas';'Lisätietoja'\r\n'Mäkelä';'Rivi 1; rivi 2\nO''Brien'\r\n"), [
@@ -83,4 +87,39 @@ test('campaign summary reports the median and weights the own-funds share by fun
   const row = (expenses, funding, own) => ({ expenses, funding, fundingSources: { own } });
   assert.deepEqual(campaignStats([row(100, 100, 20), row(300, 300, 180), row(null, 500, null)]),
     { count: 3, medianExpenses: 200, ownShare: 0.5 });
+});
+test('an unavailable candidate or annual feed preserves its prior records while another year refreshes', async t => {
+  const directory = await mkdtemp(join(tmpdir(), 'vahtikissa-finance-'));
+  const outputFile = pathToFileURL(join(directory, 'campaign-finance.json'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const original = {
+    generatedAt: '2026-11-24T00:00:00Z',
+    candidates: [{ key: 'old' }],
+    contributions: [{ candidateKey: 'old', amount: 123 }],
+    years: [2025, 2024], receipts: [{ year: 2024, amount: 456 }, { year: 2025, amount: 789 }],
+    statements: [{ party: 'kok', expenses: 100 }]
+  };
+  await writeFile(outputFile, JSON.stringify(original));
+  const get = async (_url, name) => {
+    if (name === 'parties') return '<a href="/2025_ajantasaiset_ilmoitukset.csv">2025</a><a href="/2024_ajantasaiset_ilmoitukset.csv">2024</a>';
+    if (name === 'party2025') return [
+      'Date;Amended;Recipient;Ilmoittajan rekisteritunnus;Month;Year;Organisation;ID;Tuen määrä;In kind;First;Last;Town;Amount;In kind;Transfer;Notes',
+      ['2025-06-01','','Esimerkkipuolue','0771677-3','06','2025','Esimerkki ry','2219607-5','100,00','','','','','','','',''].join(';')
+    ].join('\n');
+    throw new Error('Fixture: HTTP 503');
+  };
+  const snapshot = await syncCampaignFinance({ now: new Date('2026-11-25'), outputFile, get });
+  assert.deepEqual(snapshot.candidates, original.candidates);
+  assert.deepEqual(snapshot.contributions, original.contributions);
+  assert.deepEqual(snapshot.statements, original.statements);
+  assert.deepEqual(snapshot.years, original.years);
+  assert.equal(snapshot.receipts.find(row => row.year === 2025).amount, 10000);
+  assert.equal(snapshot.receipts.find(row => row.year === 2024).amount, 456);
+  assert.equal(snapshot.sources['receipts-2024'].state, 'retained');
+  assert.equal(snapshot.sources.candidates.state, 'retained');
+  await syncCampaignFinance({ now: new Date('2028-04-05'), outputFile, get });
+  const after = JSON.parse(await readFile(outputFile, 'utf8'));
+  assert.deepEqual(after.candidates, []);
+  assert.deepEqual(after.contributions, []);
+  assert.deepEqual(after.years, original.years);
 });

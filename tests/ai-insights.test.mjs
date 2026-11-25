@@ -81,7 +81,9 @@ test('bounded backfill checkpoints, resumes, skips cached work and invalidates c
   try {
     await writeFile(new URL('parliament.json', base), JSON.stringify(data));
     await writeFile(new URL('programmes.json', base), JSON.stringify(sources));
-    const fetchImpl = async () => ({ ok: true, text: async () => html });
+    const fetchImpl = async url => url === programme.url
+      ? { ok: true, text: async () => html }
+      : new Response(null, { status: 404 });
     const first = await syncAI({ base, client: makeClient(), maxRequests: 2, fetchImpl });
     assert.equal(first.pending, true);
     let index = JSON.parse(await readFile(new URL('ai-insights.json', base)));

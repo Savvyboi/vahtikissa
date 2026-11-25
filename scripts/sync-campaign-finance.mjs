@@ -184,92 +184,138 @@ async function fetchVtv(url, { soft404 = false } = {}) {
 async function collect(items, load) {
   const records = [];
   for (let index = 0; index < items.length; index += 4) {
-    const results = await Promise.allSettled(items.slice(index, index + 4).map(load));
-    for (const result of results) {
-      if (result.status === 'fulfilled') records.push(result.value);
-      else console.warn(result.reason.message);
-    }
+    records.push(...await Promise.all(items.slice(index, index + 4).map(load)));
   }
   return records.filter(Boolean);
 }
 
-async function loadCandidateData(elections, today, get) {
-  const links = vtvLinks(await get(candidateDatasets, 'index'), candidateDatasets);
-  const file = (year, kind, prefix = '') => links.find(url => new URL(url).pathname.endsWith(`/${prefix}E_${kind}_eduskuntavaalit${year}.csv`));
-  const load = async (year, kind, type, cacheName) => {
-    const url = file(year, kind);
-    return url ? parseCandidates(await get(url, cacheName), elections, year, type) : null;
-  };
-  const candidates = today < expires2023 ? await load(2023, 'VI', 'final', 'candidate') : [];
-  if (today < expires2023 && (candidates?.length !== 273 || candidates.filter(row => row.resultId).length !== elections.candidates.length)) {
-    throw new Error('The 2023 VTV snapshot does not cover the 273 expected disclosures and all elected results.');
-  }
-  const donorFile = file(2023, 'VI', 'RAHOITUSRIVIT_');
-  const contributions = candidates.length && donorFile
-    ? await get(donorFile, 'donors').then(csv => parseCandidateDonations(csv, candidates)).catch(error => { console.warn(error.message); return null; })
-    : (candidates.length ? null : []);
-  if (candidates.length && !contributions?.length) throw new Error('VTV candidate donor data is unavailable.');
-  const inTrackerPeriod = today >= elections2027.advanceStart && today < elections2027.expiresFrom;
-  const [advance, final] = inTrackerPeriod
-    ? await Promise.all([load(2027, 'EI', 'advance', '2027-advance'), load(2027, 'VI', 'final', '2027-final')]
-      .map(task => task.catch(error => { console.warn(error.message); return null; })))
-    : [null, null];
-  const tracker = trackerRows(advance, final, today);
-  return {
-    candidates, contributions, tracker: {
-      advances: tracker.flatMap(row => row.advance ? [row.advance] : []),
-      finals: tracker.flatMap(row => row.final ? [row.final] : [])
-    }
-  };
+function candidateFile(links, year, kind, prefix = '') {
+  return links.find(url => new URL(url).pathname.endsWith(`/${prefix}E_${kind}_eduskuntavaalit${year}.csv`));
 }
 
-async function loadPartyReceipts(get) {
+async function loadCandidateData(links, elections, get) {
+  const candidateFileUrl = candidateFile(links, 2023, 'VI');
+  const donorFileUrl = candidateFile(links, 2023, 'VI', 'RAHOITUSRIVIT_');
+  if (!candidateFileUrl || !donorFileUrl) throw new Error('VTV candidate or donor export is missing.');
+  const candidates = parseCandidates(await get(candidateFileUrl, 'candidate'), elections, 2023, 'final');
+  if (candidates.length < 273 || candidates.filter(row => row.resultId).length !== elections.candidates.length) {
+    throw new Error('The 2023 VTV snapshot does not cover the 273 expected disclosures and all elected results.');
+  }
+  const contributions = parseCandidateDonations(await get(donorFileUrl, 'donors'), candidates);
+  if (!contributions.length) throw new Error('VTV candidate donor data is unavailable.');
+  return { candidates, contributions };
+}
+
+async function loadTrackerFile(links, elections, get, type) {
+  const url = candidateFile(links, 2027, type === 'advance' ? 'EI' : 'VI');
+  return url ? parseCandidates(await get(url, '2027-' + type), elections, 2027, type) : null;
+}
+
+async function loadPartyReceipts(get, prior, track) {
   const links = vtvLinks(await get(partyDatasets, 'parties'), partyDatasets);
   const files = links.filter(url => /\/\d{4}_ajantasaiset_ilmoitukset\.csv$/u.test(new URL(url).pathname));
   if (!files.length) throw new Error('No VTV annual party contributions CSVs found');
-  const years = await collect(files, async url => {
-    const year = /\/(\d{4})_ajantasaiset_ilmoitukset/u.exec(url)[1];
-    return { year: Number(year), totals: parsePartyReceipts(await get(url, 'party' + year), year, url) };
+  const byYear = new Map(files.map(url => [/\/(\d{4})_ajantasaiset_ilmoitukset/u.exec(url)[1], url]));
+  for (const year of prior.years || []) if (!byYear.has(String(year))) byYear.set(String(year), null);
+  const years = await collect([...byYear], async ([year, url]) => {
+    const old = prior.receipts?.filter(row => row.year === Number(year));
+    const totals = await track('receipts-' + year, async () => {
+      if (!url) throw new Error('Year is missing from the VTV dataset index.');
+      const rows = parsePartyReceipts(await get(url, 'party' + year), year, url);
+      if (!rows.length && old?.length) throw new Error('Export contains no valid contribution rows.');
+      return rows;
+    }, prior.years?.includes(Number(year)) ? old : null);
+    return totals && { year: Number(year), totals };
   });
   return { years: years.map(row => row.year).sort((a, b) => b - a), receipts: years.flatMap(row => row.totals) };
 }
 
-async function loadPartyStatements(get) {
+async function loadPartyStatements(get, prior, track) {
   return collect(Object.entries(partyBusinessIds), async ([party, id]) => {
     const url = `${partyStatements}/2023/${id}/P_VI_EV2023.html`;
-    const html = await get(url, 'statement-' + party, { soft404: true });
-    return html ? parsePartyStatement(html, id, party, 2023, url) : null;
+    return track('statement-' + party, async () => {
+      const html = await get(url, 'statement-' + party, { soft404: true });
+      return html ? parsePartyStatement(html, id, party, 2023, url) : null;
+    }, prior.statements?.find(row => row.party === party));
   });
 }
 
-export async function syncCampaignFinance({ directory, now = new Date() } = {}) {
-  const get = (url, name, options) => directory ? cachedFile(directory, name) : fetchVtv(url, options);
-  const elections = JSON.parse(await readFile(new URL('data/elections-2023.json', root), 'utf8'));
-  const [candidates, parties, statements] = await Promise.allSettled([
-    loadCandidateData(elections, helsinkiDate(now), get), loadPartyReceipts(get), loadPartyStatements(get)
-  ]);
-  for (const result of [candidates, parties, statements]) {
-    if (result.status === 'rejected') console.warn(result.reason.message);
+async function previousSnapshot(file, publishedURL) {
+  try { return JSON.parse(await readFile(file, 'utf8')); }
+  catch (error) { if (error.code !== 'ENOENT') throw error; }
+  if (!publishedURL) return {};
+  try {
+    const response = await fetch(publishedURL, { signal: AbortSignal.timeout(10000), cache: 'no-store' });
+    if (!response.ok) throw new Error('HTTP ' + response.status);
+    const snapshot = await response.json();
+    if (!Array.isArray(snapshot.years) || !Array.isArray(snapshot.receipts) || !Array.isArray(snapshot.statements)) {
+      throw new Error('Unexpected campaign finance snapshot');
+    }
+    return snapshot;
+  } catch (error) {
+    console.warn('Previous published campaign finance snapshot unavailable: ' + error.message);
+    return {};
   }
-  if (candidates.status === 'rejected' && parties.status === 'rejected' && statements.status === 'rejected') {
-    throw new Error('Campaign finance sources unavailable');
-  }
-  const snapshot = {
-    generatedAt: now.toISOString(), ...candidates.value, ...parties.value, statements: statements.value || []
+}
+
+export async function syncCampaignFinance({
+  directory, now = new Date(), publishedURL, outputFile = output,
+  get = (url, name, options) => directory ? cachedFile(directory, name) : fetchVtv(url, options)
+} = {}) {
+  const today = helsinkiDate(now), checkedAt = now.toISOString();
+  const prior = await previousSnapshot(outputFile, publishedURL);
+  const sources = {};
+  const track = async (key, load, fallback) => {
+    const updatedAt = fallback == null ? null : prior.sources?.[key]?.updatedAt || prior.generatedAt;
+    try {
+      const data = await load();
+      sources[key] = data == null
+        ? { checkedAt, updatedAt, state: fallback == null ? 'pending' : 'retained' }
+        : { checkedAt, updatedAt: checkedAt, state: 'current' };
+      return data ?? fallback;
+    } catch (error) {
+      console.warn(key + ': ' + error.message);
+      sources[key] = { checkedAt, updatedAt, state: fallback == null ? 'unavailable' : 'retained' };
+      return fallback;
+    }
   };
-  const temp = new URL(`data/campaign-finance.json.${process.pid}.tmp`, root);
+  const elections = JSON.parse(await readFile(new URL('data/elections-2023.json', root), 'utf8'));
+  const inTrackerPeriod = today >= elections2027.advanceStart && today < elections2027.expiresFrom;
+  const links = today < expires2023 || inTrackerPeriod
+    ? Promise.resolve().then(() => get(candidateDatasets, 'index')).then(html => vtvLinks(html, candidateDatasets))
+    : Promise.resolve([]);
+  const [candidateData, parties, statements, advance, final] = await Promise.all([
+    today < expires2023 ? track('candidates', async () => loadCandidateData(await links, elections, get),
+      prior.candidates?.length ? { candidates: prior.candidates, contributions: prior.contributions } : null) : null,
+    track('receipts-index', () => loadPartyReceipts(get, prior, track),
+      prior.years?.length ? { years: prior.years, receipts: prior.receipts } : null),
+    loadPartyStatements(get, prior, track),
+    inTrackerPeriod ? track('advance', async () => loadTrackerFile(await links, elections, get, 'advance'), prior.tracker?.advances) : null,
+    inTrackerPeriod ? track('final', async () => loadTrackerFile(await links, elections, get, 'final'), prior.tracker?.finals) : null
+  ]);
+  const tracker = trackerRows(advance, final, today);
+  const snapshot = {
+    generatedAt: checkedAt, sources: Object.fromEntries(Object.entries(sources).sort(([a], [b]) => a.localeCompare(b))),
+    candidates: [], contributions: [], years: [], receipts: [],
+    ...candidateData, ...parties, statements,
+    tracker: {
+      advances: tracker.flatMap(row => row.advance ? [row.advance] : []),
+      finals: tracker.flatMap(row => row.final ? [row.final] : [])
+    }
+  };
+  const temp = new URL(outputFile.href + '.' + process.pid + '.tmp');
   try {
     await writeFile(temp, JSON.stringify(snapshot) + '\n');
-    await rename(temp, output);
+    await rename(temp, outputFile);
   } finally {
     await rm(temp, { force: true });
   }
   console.log(`Campaign finance: ${snapshot.candidates?.length ?? 0} final 2023 filings, ${snapshot.contributions?.length ?? 0} named contribution rows, ${snapshot.years?.length ?? 0} annual party datasets and ${snapshot.statements.length} party statements.`);
-  if (candidates.status === 'rejected') throw candidates.reason;
   return snapshot;
 }
 
 if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) {
   const directory = process.argv.find(arg => arg.startsWith('--from='))?.slice('--from='.length);
-  syncCampaignFinance({ directory }).catch(error => { console.error(error.message, fileURLToPath(output)); process.exitCode = 1; });
+  syncCampaignFinance({ directory, publishedURL: process.env.PUBLISHED_FINANCE_URL })
+    .catch(error => { console.error(error.message, fileURLToPath(output)); process.exitCode = 1; });
 }

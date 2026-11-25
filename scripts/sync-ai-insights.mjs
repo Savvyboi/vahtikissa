@@ -3,7 +3,7 @@ import {createRecordDocumentLoader,documentPassages,validateDocumentEvidence} fr
 import { readFile, writeFile, mkdir, rename, appendFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
-import { AI_SCHEMA_VERSION, DEFAULT_AI_MODEL, RECORD_BRIEF_WORD_LIMIT, emptyInsights, insightTags, recordSource, sourceFingerprint, validateTranslations, validateRecordResult } from '../ai-insights.js';
+import { AI_SCHEMA_VERSION, DEFAULT_AI_MODEL, RECORD_BRIEF_WORD_LIMIT, emptyInsights, insightTags, recordSource, sourceFingerprint, validateTranslations, validateRecordResult, voteSourcesPublishedByVote } from '../ai-insights.js';
 
 export const PROMPT_VERSION = 4;
 export const RECORD_PROMPT_VERSION = 6;
@@ -268,13 +268,15 @@ export async function syncAI({ base = new URL('../data/', import.meta.url), apiK
   if (!Number.isInteger(maxRequests) || maxRequests < 1 || maxRequests > 1000) throw new Error('AI_MAX_REQUESTS must be an integer from 1 to 1000');
   const router = client || createOpenRouterClient({ apiKey, model, maxRequests, fetchImpl });
   const loadDocuments = createRecordDocumentLoader({base,fetchImpl});
-  const [parliament, programmes, index] = await Promise.all([
+  const sourceChecksFile = new URL('ai-source-checks.json', base);
+  const [parliament, programmes, index, sourceChecks] = await Promise.all([
     readJSON(new URL('parliament.json', base)), readJSON(new URL('programmes.json', base)),
-    readJSON(new URL('ai-insights.json', base), emptyInsights())
+    readJSON(new URL('ai-insights.json', base), emptyInsights()),
+    readJSON(sourceChecksFile, { votes: {}, legislation: {} })
   ]);
   if (index.version !== AI_SCHEMA_VERSION) throw new Error('Unsupported AI cache version');
   await mkdir(new URL('ai/', base), { recursive: true });
-  let changed = false, rejected = 0;
+  let changed = false, checksChanged = false, rejected = 0;
   let checkpointQueue=Promise.resolve();
   const checkpoint = () => {
     const next=checkpointQueue.then(async()=>{
@@ -296,7 +298,23 @@ export async function syncAI({ base = new URL('../data/', import.meta.url), apiK
     for (const [id, entry] of Object.entries(index.records[kind])) if (entry.fingerprint !== current.get(id)) {
       delete index.records[kind][id]; changed = true;
     }
+    for (const [id, check] of Object.entries(sourceChecks[kind])) if (check.fingerprint !== current.get(id)) {
+      delete sourceChecks[kind][id]; checksChanged = true;
+    }
   }
+  const unverifiedVotes = Object.entries(index.records.votes)
+    .filter(([, entry]) => entry.briefBasis === 'document-excerpt' && !entry.voteSourcesVerified);
+  let retired = 0;
+  for (let offset = 0; offset < unverifiedVotes.length; offset += 32) {
+    await Promise.all(unverifiedVotes.slice(offset, offset + 32).map(async ([id, entry]) => {
+      const brief = await readJSON(new URL('ai/' + entry.file, base), null);
+      if (brief?.briefBasis === 'document-excerpt' && voteSourcesPublishedByVote(brief)) return;
+      delete index.records.votes[id];
+      changed = true;
+      retired++;
+    }));
+  }
+  if (retired) console.warn('Queued ' + retired + ' cached vote briefs for regeneration because their sources could not be verified as published by the vote.');
   await checkpoint();
   const needsProgramme = document => {
     const cached = index.programmes[document.id];
@@ -352,11 +370,20 @@ export async function syncAI({ base = new URL('../data/', import.meta.url), apiK
       try {
       const previous = index.records[kind][item.id];
       const current = compatible(previous);
-      if (current && (previous.briefBasis === 'document-excerpt' || Date.now()-Date.parse(previous.sourceCheckedAt||0)<86400000)) continue;
+      const lastCheck = sourceChecks[kind][item.id]?.checkedAt || previous?.sourceCheckedAt;
+      if (current && (previous.briefBasis === 'document-excerpt' || Date.now()-Date.parse(lastCheck)<86400000)) continue;
       if (router.requests + (needsAgentHarness(model) && !client ? 2 : 1) > maxRequests) { stopped=true; break; }
       const source = recordSource(kind, item);
-      const documents = await loadDocuments(source.document || source.id,{asOf:source.latestDate || source.date,includeReport:kind==='votes' && /mietintö|betänkande/i.test(source.question||'')});
-      if (current && !documents.length) { previous.sourceCheckedAt=new Date().toISOString(); changed=true; await checkpoint(); continue; }
+      const documents = kind==='votes' && !Number.isFinite(Date.parse(source.date)) ? [] : await loadDocuments(source.document || source.id,{
+        updatedAt:source.latestDate || source.date,
+        publishedBy:kind==='votes' ? source.date : undefined,
+        includeReport:kind==='votes' && /mietintö|betänkande/i.test(source.question||'')
+      });
+      if (current && !documents.length) {
+        sourceChecks[kind][item.id] = { fingerprint:previous.fingerprint, checkedAt:new Date().toISOString() };
+        checksChanged = true;
+        continue;
+      }
       const passages = documentPassages(documents);
       const analyse = result => { validateRecordResult(result,allowed); validateDocumentEvidence(result,passages); };
       let result;
@@ -370,9 +397,16 @@ export async function syncAI({ base = new URL('../data/', import.meta.url), apiK
       }
       const value = {...validateRecordResult(result,allowed),evidence:validateDocumentEvidence(result,passages)};
       const generatedAt = new Date().toISOString();
-      const file = hash({ kind, source, taxonomyHash, model, prompt: RECORD_PROMPT_VERSION, value }) + '.json';
-      await atomicJSON(new URL('ai/' + file, base), { version: AI_SCHEMA_VERSION, kind, id: item.id, source, ...value, briefBasis:documents.length?'document-excerpt':'metadata', documents:documents.map(({text,...metadata})=>metadata), model, generatedAt });
+      const documentMetadata = documents.map(({text,...metadata})=>metadata);
+      const versions = documentMetadata.map(({edkId,publishedAt,sourceHash})=>({edkId,publishedAt,sourceHash}));
+      const file = hash({ kind, source, taxonomyHash, model, prompt: RECORD_PROMPT_VERSION, value, versions }) + '.json';
+      await atomicJSON(new URL('ai/' + file, base), { version: AI_SCHEMA_VERSION, kind, id: item.id, source, ...value, briefBasis:documents.length?'document-excerpt':'metadata', documents:documentMetadata, model, generatedAt });
       index.records[kind][item.id] = { fingerprint: sourceFingerprint(kind, item), tags: value.tags, file, taxonomyHash, promptVersion: RECORD_PROMPT_VERSION, model, briefBasis:documents.length?'document-excerpt':'metadata',sourceCheckedAt:generatedAt };
+      if (kind==='votes' && documents.length) index.records[kind][item.id].voteSourcesVerified = true;
+      if (Object.hasOwn(sourceChecks[kind], item.id)) {
+        delete sourceChecks[kind][item.id];
+        checksChanged = true;
+      }
       changed = true;
       await checkpoint();
       } catch(error) {
@@ -391,7 +425,10 @@ export async function syncAI({ base = new URL('../data/', import.meta.url), apiK
     if (error.code !== 'AI_REQUEST_BUDGET_EXHAUSTED') throw error;
     console.log('AI request budget reached; completed results retained. '+rejected+' briefs rejected and left pending. Rerun to continue.');
     return { pending: true, requests: router.requests, ...(rejected ? { rejected } : {}) };
-  } finally { await checkpoint(); }
+  } finally {
+    await checkpoint();
+    if (checksChanged) await atomicJSON(sourceChecksFile, sourceChecks);
+  }
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

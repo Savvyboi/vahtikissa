@@ -18,7 +18,7 @@ on:
         default: false
   push:
     branches: [main]
-    paths: ['.github/workflows/daily-ai-sync.yml', 'scripts/sync-ai-insights.mjs', 'scripts/ai-document-sources.mjs', 'scripts/ai-request-budget.mjs', 'scripts/continue-ai-backfill.mjs']
+    paths: ['.github/workflows/daily-ai-sync.yml', 'scripts/sync-ai-insights.mjs', 'scripts/ai-document-sources.mjs', 'scripts/ai-request-budget.mjs', 'scripts/continue-ai-backfill.mjs', 'scripts/http-retry.mjs']
 
 permissions:
   contents: write
@@ -102,9 +102,10 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add data/ai-insights.json data/ai-request-budget.json
+          if [ -f data/ai-source-checks.json ]; then git add data/ai-source-checks.json; fi
           if [ -d data/ai ]; then git add data/ai/; fi
           if [ -d data/ai-sources ]; then git add data/ai-sources/; fi
-          if git diff --cached --name-only | grep -qv '^data/ai-request-budget\.json$'; then
+          if ! git diff --cached --quiet -- data/ai-insights.json data/ai/; then
             echo "content_changed=true" >> "$GITHUB_OUTPUT"
           fi
           git diff --cached --quiet && exit 0

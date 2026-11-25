@@ -15,11 +15,15 @@ test('published source-based briefs stay concise and retain exact source evidenc
   for(const text of Object.values(file.brief))assert.ok(!text.includes('undefined'));
   if(file.briefBasis==='document-excerpt'){
    assert.ok(file.evidence.length>0);
+   const citedSources=new Map();
    for(const document of file.documents){
     if(!sources.has(document.document))sources.set(document.document,await json('data/ai-sources/'+hash(document.document)+'.json'));
-    assert.equal(hash(sources.get(document.document).text),document.sourceHash);
+    const latest=sources.get(document.document);
+    const cited=[latest,...latest.versions??[]].find(version=>hash(version.text)===document.sourceHash);
+    assert.ok(cited,id+' document version must be retained');
+    citedSources.set(document.document,cited.text);
    }
-   for(const evidence of file.evidence)assert.ok(sources.get(evidence.document)?.text.includes(evidence.quote),id+' evidence must be verbatim');
+   for(const evidence of file.evidence)assert.ok(citedSources.get(evidence.document)?.includes(evidence.quote),id+' evidence must be verbatim');
   }else assert.equal(file.evidence.length,0);
   if(file.reviewedAt){assert.ok(Number.isFinite(Date.parse(file.reviewedAt)));assert.match(file.reviewMethod,/Editorial review/);}
   checked++;

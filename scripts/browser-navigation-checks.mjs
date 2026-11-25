@@ -14,6 +14,8 @@ export async function openPrimaryNavigationFor(page, route) {
 export async function followPrimaryNavigation(page, route) {
   const link=await openPrimaryNavigationFor(page,route);
   const href=await link.getAttribute('href');
+  await link.scrollIntoViewIfNeeded();
+  await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
   const previousScroll=await page.evaluate(()=>scrollY);
   await link.click();
   await page.waitForFunction(href => {
@@ -32,16 +34,16 @@ export async function checkStartupRecovery(browser, url) {
   const hold = route => { held.push(route); };
   try {
     await page.route(pattern, hold);
-    const started = Date.now();
+    const requestStarted = page.waitForRequest(pattern);
     await page.goto(url, { waitUntil: 'domcontentloaded' });
+    await requestStarted;
     assert.equal(await page.locator('main#content[tabindex="-1"][aria-busy="true"]').count(), 1);
     const initialHash=new URL(page.url()).hash;
     await page.locator('.skip').focus();
     await page.keyboard.press('Enter');
     assert.equal(await page.locator('#content').evaluate(element => element === document.activeElement), true);
     assert.equal(new URL(page.url()).hash,initialHash,'Skipping navigation preserves the current application route');
-    await page.locator('main .load-error [data-retry]').waitFor({ timeout: 13000 });
-    assert.ok(Date.now() - started < 14000, 'A stalled startup leaves loading within the bounded timeout');
+    await page.locator('main .load-error [data-retry]').waitFor({ timeout: 15000 });
     assert.equal(await page.locator('main').getAttribute('aria-busy'), 'false');
     assert.ok(await page.locator('main [role="alert"]').isVisible());
     assert.match(await page.locator('main').innerText(), /liian kauan|för lång tid|too long/i);

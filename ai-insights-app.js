@@ -1,5 +1,5 @@
 import { escapeHTML as e, fetchJSONWithTimeout } from './app-utils.js';
-import { emptyInsights, insightTags, currentInsight, matchesAITags, sameSource, validateRecordResult } from './ai-insights.js';
+import { emptyInsights, insightTags, currentInsight, matchesAITags, sameSource, validateRecordResult, voteSourcesPublishedByVote } from './ai-insights.js';
 
 let index = emptyInsights(), pending, loadFailed = false, followingStore;
 const detailRequests = new Map();
@@ -70,7 +70,7 @@ function notice(lang) {
 function briefPanel(kind, item, lang) {
   return '<details class="ai-brief" data-ai-brief><summary><strong>' + L(lang, 'AI-lyhennelmä', 'AI-sammanfattning', 'AI brief') +
     '</strong><span>' + L(lang, 'AI voi erehtyä – tarkista lähde', 'AI kan göra fel – kontrollera källan', 'AI can make mistakes — check the source') +
-    '</span></summary><div class="ai-brief-body"><div data-ai-brief-content role="status"></div><p class="ai-brief-scope" data-ai-scope>' +
+    '</span></summary><div class="ai-brief-body"><div data-ai-brief-content role="status"></div><p class="ai-brief-scope" data-ai-scope hidden>' +
     L(lang, 'Vain metatiedot: ehdotuksen varsinaiset muutokset eivät sisälly tähän lyhennelmään.', 'Endast metadata: förslagets konkreta ändringar ingår inte i denna sammanfattning.', 'Metadata only: this brief does not describe the proposal’s substantive changes.') +
     '</p><details class="ai-brief-method"><summary>' + L(lang,'Lähteet ja rajaukset','Källor och avgränsningar','Sources and limits') +
     '</summary><p class="ai-notice">' + notice(lang) + '</p><div data-ai-evidence></div><p class="ai-provenance"></p><a href="' + e(safeURL(item.resultUrl || item.url || item.documentUrl)) + '" target="_blank" rel="noreferrer">' +
@@ -94,8 +94,13 @@ function mountBrief(holder, kind, item, lang) {
         if (!detailRequests.has(entry.file)) detailRequests.set(entry.file, fetchJSONWithTimeout('./data/ai/' + entry.file).catch(error => { detailRequests.delete(entry.file); throw error; }));
         const result = await detailRequests.get(entry.file);
         if (result.kind !== kind || result.id !== item.id || !sameSource(kind, item, result.source)) throw new Error('Stale AI brief');
+        if (kind === 'votes' && !voteSourcesPublishedByVote(result)) {
+          content.textContent = L(lang, 'Äänestyksen AI-lyhennelmä odottaa lähteiden tarkistusta.', 'Omröstningens AI-sammanfattning väntar på källkontroll.', 'The vote brief is awaiting a source check.');
+          return;
+        }
         const validated = validateRecordResult(result, new Set(insightTags(index).map(tag => tag.id)));
         if (!holder.isConnected) return;
+        holder.querySelector('[data-ai-scope]').hidden = false;
         const uid = 'ai-' + kind + '-' + String(item.id).replace(/[^a-z0-9-]/gi, '-');
         content.removeAttribute('role');
         content.innerHTML = '<div class="ai-language-tabs" role="tablist" aria-label="' + L(lang, 'Lyhennelmän kieli', 'Sammanfattningens språk', 'Brief language') + '">' +

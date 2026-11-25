@@ -306,8 +306,12 @@ export function choiceLabel(choice, lang = 'fi') {
 
 export function formatDate(value, locale = 'fi-FI') {
   if (!value) return '—';
-  const date = new Date(String(value).replace(' ', 'T'));
-  return Number.isNaN(date.valueOf()) ? value : new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'long', year: 'numeric' }).format(date);
+  const input = String(value).replace(' ', 'T');
+  const calendarDate = /^\d{4}-\d{2}-\d{2}$/u.test(input);
+  const date = new Date(input);
+  return Number.isNaN(date.valueOf()) ? value : new Intl.DateTimeFormat(locale, {
+    day: 'numeric', month: 'long', year: 'numeric', timeZone: calendarDate ? 'UTC' : 'Europe/Helsinki'
+  }).format(date);
 }
 
 export async function fetchJSONWithTimeout(url, { timeout = 10000, fetchImpl = globalThis.fetch, cache = 'default' } = {}) {

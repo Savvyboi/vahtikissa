@@ -32,7 +32,7 @@ try {
     await page.route('**/data/ai/*.json', route => {
       requests.push(route.request().url());
       const kind = route.request().url().includes(files.votes) ? 'votes' : 'legislation', item = kind === 'votes' ? vote : law;
-      return route.fulfill({ json:{version:1,kind,id:item.id,source:recordSource(kind,item),brief,tags:[tag.id],briefBasis:'document-excerpt',evidence:[{document:'HE 1/2026 vp',url:'https://example.org/source',quote:'Verified mock source <img src=x onerror=alert(1)>'}],model:'Mock free model',generatedAt:'2026-10-18T08:00:00Z'} });
+      return route.fulfill({ json:{version:1,kind,id:item.id,source:recordSource(kind,item),brief,tags:[tag.id],briefBasis:'document-excerpt',documents:[{publishedAt:'2023-01-01T00:00:00Z'}],evidence:[{document:'HE 1/2026 vp',url:'https://example.org/source',quote:'Verified mock source <img src=x onerror=alert(1)>'}],model:'Mock free model',generatedAt:'2026-10-18T08:00:00Z'} });
     });
     await page.goto(url + '/?view=' + view + '#/votes/' + encodeURIComponent(vote.id));
     await page.locator('[data-ai-brief]').waitFor();

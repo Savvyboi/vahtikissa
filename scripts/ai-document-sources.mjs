@@ -1,6 +1,9 @@
 import {createHash,randomUUID} from 'node:crypto';
 import {readFile,writeFile,mkdir,rename} from 'node:fs/promises';
+import {retryDelayMs} from './http-retry.mjs';
 const API='https://api.eduskunta.fi/api/v1/asiakirjat/eduskuntatunnus/';
+const MATTER_API='https://api.eduskunta.fi/api/v1/valtiopaivaasiat/';
+const DOCUMENT_ID=/^[A-Za-zÅÄÖåäö]+\s+\d+\/\d{4}\s+vp$/;
 const hash=value=>createHash('sha256').update(value).digest('hex');
 export function selectDocumentExcerpt(text){
  const clean=String(text||'').replace(/\r/g,'').replace(/[\t ]+/g,' ').replace(/\n{3,}/g,'\n\n').trim();
@@ -11,32 +14,96 @@ export function selectDocumentExcerpt(text){
  const boundary=excerpt.lastIndexOf('\n');
  return body.length>10000 && boundary>5000?excerpt.slice(0,boundary):excerpt;
 }
-export function selectOriginalDocument(payload,identifier){
- const rows=Array.isArray(payload)?payload:payload?.asiakirjat||[];
+function originalDocuments(payload,identifier){
+ const rows=Array.isArray(payload)?payload:payload?.asiakirjat;
+ if(!Array.isArray(rows))throw new Error('Invalid Parliament document response');
  return rows.filter(d=>d.eduskuntatunnus===identifier && d.kielikoodi==='fi' && typeof d.fullText==='string')
-  .sort((a,b)=>String(b.viimeisinJulkaisuajankohta||'').localeCompare(String(a.viimeisinJulkaisuajankohta||'')))[0];
+  .sort((a,b)=>(Date.parse(b.viimeisinJulkaisuajankohta)||0)-(Date.parse(a.viimeisinJulkaisuajankohta)||0));
 }
-export function createDocumentLoader({base,fetchImpl=fetch}={}){
- const pending=new Map(); let lastRequest=0;
- return (identifier,asOf)=>{
-  if(!identifier || !/^[A-Za-zÅÄÖåäö]+\s+\d+\/\d{4}\s+vp$/.test(identifier))return Promise.resolve([]);
-  const key=identifier+'|'+(asOf||'');
-  if(!pending.has(key))pending.set(key,(async()=>{
-   const file=base&&new URL('ai-sources/'+hash(identifier)+'.json',base);
-   if(file){try{const cached=JSON.parse(await readFile(file,'utf8'));if(cached.document===identifier && cached.text && cached.sourceHash===hash(cached.text) && Date.parse(cached.fetchedAt)>=Date.parse(asOf||'1970-01-01') && Date.now()-Date.parse(cached.fetchedAt)<86400000)return [cached];}catch(error){if(error.code!=='ENOENT' && !(error instanceof SyntaxError))throw error;}}
+export function selectOriginalDocument(payload,identifier){
+ return originalDocuments(payload,identifier)[0];
+}
+
+function createSourceReader(fetchImpl,wait=ms=>new Promise(resolve=>setTimeout(resolve,ms))){
+ let nextRequest=0, rateLimitedUntil=0, turn=Promise.resolve();
+ return async url=>{
+  for(let attempt=1;attempt<=3;attempt++){
+   const start=turn.then(async()=>{
+    let remaining=Math.max(nextRequest,rateLimitedUntil)-Date.now();
+    while(remaining>0){
+     await wait(remaining);
+     remaining=Math.max(nextRequest,rateLimitedUntil)-Date.now();
+    }
+    nextRequest=Date.now()+400;
+   });
+   turn=start;
+   await start;
+   let response, problem;
    try{
-    const waitMs=Math.max(0,400-(Date.now()-lastRequest)); if(waitMs)await new Promise(resolve=>setTimeout(resolve,waitMs)); lastRequest=Date.now();
-    const response=await fetchImpl(API+encodeURIComponent(identifier),{signal:AbortSignal.timeout(60000)});
-    if(!response.ok)return [];
-    const original=selectOriginalDocument(await response.json(),identifier);
-    if(!original || !/^EDK-\d{4}-AK-\d+$/.test(original.edktunnus))return [];
-    const text=selectDocumentExcerpt(original.fullText);if(!text)return [];
-    const document={document:identifier,title:original.nimeketeksti,language:'fi',edkId:original.edktunnus,url:'https://www.eduskunta.fi/asiat-ja-aanestykset/valtiopaivaasiat/asiakirjat/edktunnus/'+original.edktunnus,text,sourceHash:hash(text),publishedAt:original.viimeisinJulkaisuajankohta||null,fetchedAt:new Date().toISOString(),scope:'document-excerpt'};
-    if(file){await mkdir(new URL('ai-sources/',base),{recursive:true});const temp=new URL(file.href+'.'+randomUUID()+'.tmp');await writeFile(temp,JSON.stringify(document)+'\n');await rename(temp,file);}
-    return [document];
-   }catch(error){if(error?.code==='ENOSPC'||error?.code==='EACCES')throw error;return [];}
+    response=await fetchImpl(url,{signal:AbortSignal.timeout(60000)});
+    if(response.status===404 || response.status===410)return null;
+    if(response.ok)return await response.json();
+    problem=new Error('HTTP '+response.status);
+    if(response.status===429)rateLimitedUntil=Math.max(rateLimitedUntil,Date.now()+retryDelayMs(response,attempt));
+   }catch(error){problem=error;}
+   const status=response?.status;
+   const retryable=!status || response.ok || status===408 || status===429 || status>=500;
+   if(!retryable || attempt===3)throw new Error('Parliament source lookup failed for '+decodeURIComponent(new URL(url).pathname)+': '+problem.message,{cause:problem});
+   if(status!==429)await wait(Math.min(retryDelayMs(response,attempt),60000));
+  }
+ };
+}
+
+function versionsOf(cached){
+ if(!cached)return [];
+ const {versions=[], ...latest}=cached;
+ return [latest,...versions].filter(document=>document.text && document.sourceHash===hash(document.text));
+}
+const validAt=(document,cutoff)=>!cutoff || Date.parse(document.publishedAt)<=Date.parse(cutoff);
+const newestFirst=(a,b)=>(Date.parse(b.publishedAt)||0)-(Date.parse(a.publishedAt)||0);
+
+export function createDocumentLoader({base,fetchImpl=fetch,readSource=createSourceReader(fetchImpl)}={}){
+ const cacheReads=new Map(), requests=new Map();
+ return async (identifier,{updatedAt,publishedBy}={})=>{
+  if(!DOCUMENT_ID.test(identifier||''))return [];
+  const file=base&&new URL('ai-sources/'+hash(identifier)+'.json',base);
+  if(file&&!cacheReads.has(identifier))cacheReads.set(identifier,readFile(file,'utf8').then(JSON.parse).catch(error=>{
+   if(error.code!=='ENOENT' && !(error instanceof SyntaxError))throw error;
+  }));
+  const cached=await cacheReads.get(identifier);
+  const archive=versionsOf(cached).filter(document=>document.document===identifier);
+  const fetchedAt=Date.parse(cached?.fetchedAt);
+  if(archive.length && Date.now()-fetchedAt<86400000 && (!updatedAt || fetchedAt>=Date.parse(updatedAt))){
+   const usable=(publishedBy?[...archive].sort(newestFirst):archive).find(document=>validAt(document,publishedBy));
+   if(usable)return [usable];
+   if(cached.versions)return [];
+  }
+  if(!requests.has(identifier))requests.set(identifier,(async()=>{
+   const payload=await readSource(API+encodeURIComponent(identifier));
+   const now=new Date().toISOString();
+   const received=payload===null?[]:originalDocuments(payload,identifier).flatMap(original=>{
+    const text=selectDocumentExcerpt(original.fullText);
+    if(!text || !/^EDK-\d{4}-AK-\d+$/.test(original.edktunnus))return [];
+    return [{document:identifier,title:original.nimeketeksti,language:'fi',edkId:original.edktunnus,url:'https://www.eduskunta.fi/asiat-ja-aanestykset/valtiopaivaasiat/asiakirjat/edktunnus/'+original.edktunnus,text,sourceHash:hash(text),publishedAt:original.viimeisinJulkaisuajankohta||null,fetchedAt:now,scope:'document-excerpt'}];
+   });
+   if(!received.length)return {received,archive};
+   const versions=new Map();
+   for(const document of [...received,...archive]){
+    const key=JSON.stringify([document.edkId,document.publishedAt,document.sourceHash]);
+    if(!versions.has(key))versions.set(key,document);
+   }
+   const all=[...versions.values()].sort(newestFirst);
+   if(file){
+    await mkdir(new URL('ai-sources/',base),{recursive:true});
+    const temp=new URL(file.href+'.'+randomUUID()+'.tmp');
+    await writeFile(temp,JSON.stringify({...received[0],versions:all.filter(document=>document!==received[0])})+'\n');
+    await rename(temp,file);
+   }
+   return {received,archive:all};
   })());
-  return pending.get(key);
+  const result=await requests.get(identifier);
+  const document=(publishedBy?result.archive:result.received).find(document=>validAt(document,publishedBy));
+  return document?[document]:[];
  };
 }
 export function documentPassages(documents){
@@ -66,16 +133,15 @@ export function selectVoteReport(matter,asOf){
   .sort((a,b)=>String(b.laadintapvm||'').localeCompare(String(a.laadintapvm||'')))[0];
 }
 export function createRecordDocumentLoader(options={}){
- const load=createDocumentLoader(options),matters=new Map();
- return async(identifier,{asOf,includeReport=false}={})=>{
-  const original=await load(identifier,asOf);
-  if(!includeReport || !original.length)return original;
-  if(!matters.has(identifier))matters.set(identifier,(async()=>{
-   try{const r=await (options.fetchImpl||fetch)('https://api.eduskunta.fi/api/v1/valtiopaivaasiat/'+encodeURIComponent(identifier),{signal:AbortSignal.timeout(60000)});return r.ok?await r.json():null;}catch{return null;}
-  })());
-  const report=selectVoteReport(await matters.get(identifier),asOf);
+ const readSource=createSourceReader(options.fetchImpl||fetch);
+ const load=createDocumentLoader({...options,readSource}),matters=new Map();
+ return async(identifier,{updatedAt,publishedBy,includeReport=false}={})=>{
+  const original=await load(identifier,{updatedAt,publishedBy});
+  if(!includeReport || !publishedBy || !DOCUMENT_ID.test(identifier||''))return original;
+  if(!matters.has(identifier))matters.set(identifier,readSource(MATTER_API+encodeURIComponent(identifier)));
+  const report=selectVoteReport(await matters.get(identifier),publishedBy);
   if(!report || report.eduskuntatunnus===identifier)return original;
-  const related=await load(report.eduskuntatunnus,asOf);
-  return [...original,...related.filter(document=>Date.parse(document.publishedAt)<=Date.parse(asOf))];
+  const related=await load(report.eduskuntatunnus,{updatedAt,publishedBy});
+  return [...original,...related];
  };
 }

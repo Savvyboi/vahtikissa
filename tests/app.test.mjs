@@ -2,10 +2,15 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { filterItems, percent, routeFromHash, hydrateBallots, pageSlice, choiceLabel, localized, localizedSearchFields, memberMatchesQuery, parliamentMatterUrl, isLongSpeech, filterBallots, voteOutcome, filterVotes, filterAndSortMembers, paginationItems, searchSpeeches, voteAlternatives, brandName, legislationStatusKey, legislationMatterType, legislationStatusTone, legislationPhase, filterAndSortLegislation, speechParagraphs, filterSpeechesBySpeaker, fetchJSONWithTimeout, policyTopicKeys, buildSpeechAnalytics } from '../app-utils.js';
 import { serializeCSV, serializeJSON } from '../data-tools.js';
+import { formatDate } from '../app-utils.js';
 import { readFile } from 'node:fs/promises';
 
 const source = async file => readFile(new URL(`../${file}`, import.meta.url), 'utf8');
 
+test('calendar dates keep their stated day and timestamps use Helsinki time', () => {
+  assert.equal(formatDate('2026-11-24', 'en-GB'), '24 November 2026');
+  assert.equal(formatDate('2026-11-24T22:30:00Z', 'en-GB'), '25 November 2026');
+});
 
 test('vote ballot filters expose one voting choice at a time', () => {
   const ballots = [{ choice: 'yes' }, { choice: 'no' }, { choice: 'yes' }, { choice: 'absent' }];
