@@ -535,7 +535,12 @@ function render(position){
   try {
   root.setAttribute('aria-busy','true');
   if(!parliamentLoader.routeReady(r,view))loadingView();
-  const [routeData,viewModule,,followingControls]=await Promise.all([parliamentLoader.loadRoute(r,view),loadViewModule(r,view),['votes','legislation','programmes','following'].includes(r.page)?loadAIInsights():Promise.resolve(),r.page==='members'&&r.id?import('./following-controls.js'):Promise.resolve(null)]);
+  const [routeData,viewModule,,followingControls,homeStories]=await Promise.all([
+    parliamentLoader.loadRoute(r,view),loadViewModule(r,view),
+    ['votes','legislation','programmes','following'].includes(r.page)?loadAIInsights():null,
+    r.page==='members'&&r.id?import('./following-controls.js'):null,
+    r.page==='overview'?import('./bill-stories/reader.js'):null
+  ]);
   if(!current())return;
   data=routeData;
   lastLoadError=null;
@@ -582,6 +587,7 @@ function render(position){
   };
   if(readingView==='simple'){
     const pending=viewModule.renderSimple(root,{data,lang,route:r,loadSpeechTexts,speechTexts,titleFor});
+    homeStories?.mountHomeStoryTray(root,lang);
     if(previousView!==undefined&&previousView!==routeKey)root.focus({preventScroll:true});
     const finish=()=>{if(current()){decorateAI(root,{route:r,data,lang,rerender:render});followingControls?.decorateMemberFollowing(root,{route:r,data,lang});decorateRelationshipsEntry(r);mountFinance();updateRouteContext(r)}};
     if(pending?.then)return await pending.finally(finish);
@@ -590,6 +596,7 @@ function render(position){
   let html,pending=null;
   if(r.page==='overview')html=overview();else if(r.page==='votes')html=r.id?voteDetail(r.id):null;else if(r.page==='members')html=members(r.id,viewModule);else if(r.page==='parties')html=parties(r.id);else if(r.page==='speeches')html=null;else if(r.page==='legislation')html=legislation(r.id);else if(r.page==='sessions')html=sessions(r.id);else if(r.page==='programmes')html=null;else if(r.page==='budget')html=null;else if(r.page==='elections')html=null;else if(r.page==='influence')html=null;else if(r.page==='about')html=about();else html=notFound();
   if(r.page==='votes'&&!r.id)voteList();else if(r.page==='speeches')speeches(r.id,{scrollToTarget:position===undefined&&previousView!==routeKey});else if(r.page==='programmes')pending=viewModule.renderProgrammes(root,lang,e);else if(r.page==='budget')pending=viewModule.renderBudget(root,lang,r.id,e);else if(r.page==='elections')pending=viewModule.renderElections(root,lang,e,data.members);else if(r.page==='influence')pending=viewModule.renderInfluence(root,lang,e,data.members,r.id);else if(typeof html==='string')root.innerHTML=html;
+  homeStories?.mountHomeStoryTray(root,lang);
   if(r.page==='votes'&&r.id&&data.votes.some(vote=>vote.id===r.id))bindVoteFilters(r.id);
   if(r.page==='legislation'&&r.id){const item=data.legislation.find(matter=>matter.id===r.id);if(item)decorateLegislationDetail(item)}
   if(r.page==='overview')decorateOverviewVotes(current);
@@ -606,7 +613,14 @@ function render(position){
   } catch(error) { if(current()){root.dataset.route=routeKey;loadError(error)} }
   },position);
 }
-document.addEventListener('click',event=>{if(event.defaultPrevented||event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;const link=event.target.closest('a[href^="#/"]');if(!link||link.hasAttribute('download')||(link.target&&link.target!=='_self'))return;event.preventDefault();if(pushRoute(link.getAttribute('href')))render();if(data||link.closest('#main-navigation'))root.focus({preventScroll:true})});
+document.addEventListener('click',event=>{
+  if(event.defaultPrevented||event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;
+  const link=event.target.closest('a[href^="#/"]');
+  if(!link||link.hasAttribute('download')||(link.target&&link.target!=='_self'))return;
+  event.preventDefault();
+  if(pushRoute(link.getAttribute('href')))render(link.closest('.home-story-tray')?{x:0,y:0}:undefined);
+  if(data||link.closest('#main-navigation'))root.focus({preventScroll:true});
+});
 function setupSearch(onOpen=()=>{}){
   const panel=$('.search-panel'),button=$('.search-button'),input=$('#global-search'),results=$('.search-results'),status=$('.search-status');
   let timer,searchVersion=0;

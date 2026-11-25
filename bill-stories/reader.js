@@ -44,6 +44,23 @@ function icon(name) {
     : `<svg class="icon" aria-hidden="true"><use href="./bill-stories/icons.svg#icon-${e(name)}"></use></svg>`;
 }
 
+function storyTray(lang, selectedStory) {
+  const language = ['fi', 'sv', 'en'].indexOf(lang);
+  return `<nav class="case-list" aria-label="${e(chrome[lang].choose)}">${stories.map(story => `
+    <a class="story-choice" data-topic="${e(story.id)}" href="${storyPath(story)}"${story === selectedStory ? ' aria-current="location"' : ''}>
+      <span class="story-ring" aria-hidden="true"><span class="story-cover">${icon(story.cover)}</span></span>
+      <span class="story-name">${e(story.names[language])}</span>
+    </a>`).join('')}</nav>`;
+}
+
+export function mountHomeStoryTray(root, lang) {
+  root.querySelector('.hero, .easy-hero')?.insertAdjacentHTML('afterend', `
+    <section class="bill-stories home-story-tray" aria-labelledby="home-stories-title">
+      <h2 id="home-stories-title">${e(chrome[lang].title)}</h2>
+      ${storyTray(lang)}
+    </section>`);
+}
+
 const caption = value => value ? `<figcaption class="chart-label">${e(value)}</figcaption>` : '';
 const time = (date, label) => `<time datetime="${e(date)}">${e(label)}</time>`;
 
@@ -146,11 +163,7 @@ export async function renderBillStories(root, { lang, route, current, navigate, 
       <div class="story-layout">
         <header class="story-picker">
           <h1 id="bill-stories-title">${e(ui.title)}</h1>
-          <nav class="case-list" aria-label="${e(ui.choose)}">${stories.map(item => `
-            <a class="story-choice" data-topic="${e(item.id)}" href="${storyPath(item)}"${item === story ? ' aria-current="location"' : ''}>
-              <span class="story-ring" aria-hidden="true"><span class="story-cover">${icon(item.cover)}</span></span>
-              <span class="story-name">${e(item.names[language])}</span>
-            </a>`).join('')}</nav>
+          ${storyTray(lang, story)}
           ${docketLink('docket-desktop')}
         </header>
         <div class="reader is-interactive">

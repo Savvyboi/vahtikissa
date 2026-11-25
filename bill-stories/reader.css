@@ -57,6 +57,21 @@
   gap: .7rem .45rem;
   padding: .4rem;
 }
+.bill-stories.home-story-tray {
+  padding-block: 1.25rem;
+  border-block-end: 1px solid var(--line);
+}
+.home-story-tray h2 { font-size: 1.4rem; margin-block-end: .35rem; }
+.home-story-tray .case-list {
+  display: flex;
+  align-items: start;
+  gap: clamp(.48rem, 1.3vw, 1rem);
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scroll-snap-type: x proximity;
+  scrollbar-width: thin;
+}
+.home-story-tray .story-choice { flex: 0 0 4.7rem; scroll-snap-align: start; }
 .bill-stories .story-choice {
   --cover-bg: #dce5c9;
   --cover-ink: #374b2e;
@@ -74,6 +89,10 @@
 .bill-stories .story-choice[data-topic="ihmiskauppa"] { --cover-bg: #e5dcee; --cover-ink: #543c72; }
 .bill-stories .story-choice[data-topic="sports"] { --cover-bg: #e0e6b4; --cover-ink: #404d19; }
 .bill-stories .story-choice[data-topic="gambling"] { --cover-bg: #f0d7c9; --cover-ink: #793e2b; }
+.bill-stories .story-choice[data-topic="vuokravakuus"] { --cover-bg: #e6d7c0; --cover-ink: #634631; }
+.bill-stories .story-choice[data-topic="saastovapaa"] { --cover-bg: #f0d7e3; --cover-ink: #74364f; }
+.bill-stories .story-choice[data-topic="yleistuki"] { --cover-bg: #cce8d9; --cover-ink: #275c45; }
+.bill-stories .story-choice[data-topic="digihenkkarit"] { --cover-bg: #d6e0f3; --cover-ink: #2c4d7c; }
 .bill-stories .story-ring {
   display: grid;
   inline-size: 3.7rem;

@@ -1,6 +1,237 @@
 const checked = ['Tilanne 16.11.2026', 'Läget den 16 november 2026', 'Status on 16 November 2026'];
+const novemberUpdate = ['Tilanne 25.11.2026', 'Läget den 25 november 2026', 'Status on 25 November 2026'];
 
 const entries = [
+  {
+    id: 'vuokravakuus', proposal: 'HE 33/2026 vp', cover: 'insurance',
+    frames: ['intro', 'withholding'],
+    names: ['Vuokra\u00advakuus', 'Hyres\u00adsäkerhet', 'Rental deposit'],
+    checked: novemberUpdate,
+    status: ['Voimassa 1.10.2026 alkaen.', 'I kraft sedan den 1 oktober 2026.', 'In force since 1 October 2026.'],
+    urls: [
+      'https://www.finlex.fi/fi/lainsaadanto/saadoskokoelma/2026/531',
+      'https://valtioneuvosto.fi/-/1410853/huoneenvuokralait-muuttuvat-lokakuussa',
+      'https://www.finlex.fi/fi/hallituksen-esitykset/2026/33'
+    ],
+    news: [
+      ['MTV Uutiset', '2026-08-18', 'https://www.mtvuutiset.fi/artikkeli/milloin-vuokravakuus-pitaa-palauttaa-vuokralaiselle-nain-laki-muuttuu/9379360',
+        ['Miten uusi laki vaikuttaa vuokravakuuden palautukseen?', 'Hur påverkar lagen återbetalningen av hyressäkerheten?', 'How does the law change rental deposit returns?']]
+    ],
+    copy: [
+      {
+        sources: ['Muutoslaki 531/2026, 8 § · Finlex', 'Oikeusministeriön tiedote 29.9.', 'HE 33/2026 vp · Finlex'],
+        frames: [
+          ['Palautus', 'Milloin vuokravakuus on palautettava?', 'Vakuus on palautettava tai vapautettava viipymättä. Jos vuokranantaja pidättää vakuutta, siitä on ilmoitettava kirjallisesti.',
+            [['Viimeistään 14 päivässä', 'Määräaika alkaa vuokrasopimuksen päättymisestä. Jos asunto luovutetaan vasta myöhemmin, aika alkaa luovutuksesta.'], ['Perusteltu este', 'Jos toimenpiteelle on perusteltu este, 14 päivän määräaika lasketaan esteen poistumisesta.']],
+            'Palautusta ja pidätysilmoitusta koskeva sääntö koskee myös ennen lokakuuta 2026 tehtyjä sopimuksia.',
+            ['Vuokravakuus', 'Raha tai muu vakuus, jolla turvataan vuokrasopimuksen velvoitteiden täyttäminen.']],
+          ['Pidättäminen', 'Mitä ilmoituksessa on kerrottava?', 'Kirjallisessa ilmoituksessa on kerrottava, mihin saatava perustuu ja paljonko sen arvioidaan olevan.',
+            [['Pidätettävä osuus', 'Pidätys saa yleensä vastata enintään saatavan määrää tai siitä annettua arviota.'], ['Vuokravakuustili', 'Tilille talletetun vakuuden saa pidättää kokonaan, kunnes saatavan määrä on selvinnyt.']],
+            'Jos vakuuden aiheeton pidätys aiheuttaa vahinkoa, vuokranantaja voi joutua korvaamaan vahingon.',
+            ['Saatava', 'Summa, jonka maksamista vuokranantaja voi vaatia esimerkiksi maksamattoman vuokran vuoksi.']]
+        ]
+      },
+      {
+        sources: ['Ändringslag 531/2026, 8 § · Finlex', 'Justitieministeriets meddelande den 29 september', 'RP 33/2026 rd · Finlex'],
+        frames: [
+          ['Återbetalning', 'När ska hyressäkerheten betalas tillbaka?', 'Säkerheten ska återbetalas eller frigöras utan dröjsmål. Om hyresvärden håller inne säkerheten ska hyresgästen få ett skriftligt meddelande.',
+            [['Senast inom 14 dagar', 'Fristen börjar när hyresavtalet upphör. Om bostaden lämnas tillbaka senare räknas tiden från den dagen.'], ['Sakligt hinder', 'Om det finns ett sakligt hinder för åtgärden räknas de 14 dagarna från det att hindret upphör.']],
+            'Regeln om återbetalning och meddelande gäller även avtal som ingicks före oktober 2026.',
+            ['Hyressäkerhet', 'Pengar eller annan säkerhet för att skyldigheterna i hyresavtalet ska uppfyllas.']],
+          ['Innehållande', 'Vad ska stå i meddelandet?', 'I det skriftliga meddelandet ska hyresvärden ange vad fordran gäller och uppskatta beloppet.',
+            [['Beloppet', 'Hyresvärden får i regel hålla inne högst fordrans belopp eller det uppskattade beloppet.'], ['Konto för hyressäkerhet', 'Hela säkerheten på ett sådant konto får hållas inne tills fordrans belopp har klarlagts.']],
+            'Om en obefogad innehållning orsakar skada kan hyresvärden bli ersättningsskyldig.',
+            ['Fordran', 'Ett belopp som hyresvärden kan kräva, till exempel på grund av obetald hyra.']]
+        ]
+      },
+      {
+        sources: ['Act 531/2026, section 8 · Finlex', 'Ministry of Justice announcement, 29 September', 'Government bill HE 33/2026 · Finlex'],
+        frames: [
+          ['Returning the deposit', 'When is a rental deposit due back?', 'The deposit must be returned or released without delay. A landlord who withholds it must give written notice.',
+            [['Within 14 days', 'The clock starts when the lease ends or when the property is handed back, if that happens later.'], ['Justified delay', 'If there is a valid obstacle, the 14 days run from when it is resolved.']],
+            'The return and notice rules also apply to leases signed before October 2026.',
+            ['Rental deposit', 'Money or another form of security for meeting obligations under the lease.']],
+          ['Withholding', 'What must a withholding notice say?', 'The written notice must explain what the landlord is claiming and give a reasonable estimate of the amount.',
+            [['How much', 'The amount withheld normally cannot exceed the claim or the estimate given in the notice.'], ['Deposit account', 'The full deposit in a dedicated account may be held until the amount of the claim is clear.']],
+            'A landlord may have to compensate a tenant for loss caused by unjustifiably withholding a deposit.',
+            ['Claim', 'An amount the landlord is entitled to demand, for example for unpaid rent.']]
+        ]
+      }
+    ]
+  },
+  {
+    id: 'saastovapaa', proposal: 'HE 118/2026 vp', cover: 'calendar',
+    frames: ['intro', 'transition'],
+    names: ['Säästövapaa', 'Sparad ledighet', 'Carried-over leave'],
+    checked: novemberUpdate,
+    status: ['Vahvistettu · voimaan 1.1.2027.', 'Stadfäst · träder i kraft den 1 januari 2027.', 'Enacted · takes effect on 1 January 2027.'],
+    urls: [
+      'https://www.finlex.fi/fi/lainsaadanto/2005/162',
+      'https://www.finlex.fi/fi/hallituksen-esitykset/2026/118',
+      'https://valtioneuvosto.fi/paatokset/paatos?decisionId=7335'
+    ],
+    news: [
+      ['Uusi Suomi', '2026-10-08', 'https://www.uusisuomi.fi/uutiset/a/d49e84a6-20c9-439a-8f9d-39f09097186f',
+        ['Eduskunta hyväksyi säästövapaan muutoksen', 'Riksdagen godkände ändringen om sparad ledighet', 'Parliament passes the change to carried-over leave']],
+      ['SAK', '2026-10-22', 'https://www.sak.fi/ajankohtaista/uutiset/miten-saastovapaan-ajankohdasta-kannattaa-sopia-ja-mika-muuttuu-ensi-vuoden-alussa-lue-juristin-vastaukset/',
+        ['Ammattiliiton juristi vastaa kysymyksiin säästövapaasta', 'En facklig jurist svarar på frågor om sparad ledighet', 'A union lawyer answers questions about carried-over leave']]
+    ],
+    copy: [
+      {
+        sources: ['Vuosilomalaki, 27 ja 27 a § sekä muutos 943/2026 · Finlex', 'HE 118/2026 vp · Finlex', 'Lain vahvistaminen · Valtioneuvosto'],
+        frames: [
+          ['Ajankohta', 'Kuka päättää säästövapaan ajankohdan?', 'Työntekijän ja työnantajan on pyrittävä sopimaan ajankohdasta. Vuoden 2027 alusta työnantaja voi tietyin perustein kieltäytyä ehdotetusta ajankohdasta.',
+            [['Neljä kuukautta ennen', 'Jos päivistä ei ole sovittu, työntekijä pyytää vapaata viimeistään neljä kuukautta ennen toivottua aloitusta.'], ['Vastaus kuukaudessa', 'Työnantajan on vastattava kuukauden kuluessa pyynnöstä ja perusteltava vastauksensa.']],
+            'Työnantaja voi kieltäytyä, jos vapaa haittaisi tuotantoa tai palveluja tavalla, jota ei voi välttää tavanomaisin työjärjestelyin. Myös lomien ja säästövapaiden tasapuolinen sijoittaminen voi estää ehdotetun ajankohdan hyväksymisen.',
+            ['Säästövapaa', 'Vuosilomapäiviä, jotka säästetään pidettäviksi myöhemmin.']],
+          ['Siirtymäaika', 'Mitä jo säästetyille lomapäiville tapahtuu?', 'Ennen vuodenvaihdetta säästetyille lomapäiville on oma siirtymäsääntö.',
+            [['Päivistä on sovittu', 'Ennen lain voimaantuloa sovitussa ajankohdassa pysytään.'], ['Päivistä ei ole sovittu', 'Vapaan voi pitää vanhalla neljän kuukauden ilmoitusajalla, jos se päättyy viimeistään 31.10.2027.']],
+            'Siirtymäsääntö koskee ennen 1.1.2027 säästettyä vuosilomaa. Työ- tai virkaehtosopimuksessa voi olla omia määräyksiä säästövapaasta.',
+            ['Siirtymäsäännös', 'Sääntö, joka määrää, milloin vanhaa lakia sovelletaan vielä muutoksen jälkeen.']]
+        ]
+      },
+      {
+        sources: ['Semesterlagen, 27 och 27 a § samt ändring 943/2026 · Finlex', 'RP 118/2026 rd · Finlex', 'Stadfästelse av lagen · Statsrådet'],
+        frames: [
+          ['Ledighetens tidpunkt', 'Vem bestämmer när sparad ledighet tas ut?', 'Arbetstagaren och arbetsgivaren ska försöka komma överens. Från början av 2027 får arbetsgivaren under vissa förutsättningar tacka nej till den önskade tidpunkten.',
+            [['Fyra månader i förväg', 'Om parterna saknar en överenskommelse ska arbetstagaren lämna in sin begäran senast fyra månader före önskad start.'], ['Svar inom en månad', 'Arbetsgivaren ska ge ett motiverat svar inom en månad från begäran.']],
+            'Arbetsgivaren får neka om tidpunkten skulle störa produktionen eller servicen på ett sätt som vanliga arbetsarrangemang inte kan avhjälpa, eller hindra en jämlik förläggning av semestrar och sparad ledighet.',
+            ['Sparad ledighet', 'Semesterdagar som sparas för att tas ut senare.']],
+          ['Övergångstid', 'Vad händer med semesterdagar som redan sparats?', 'En särskild övergångsregel gäller för semesterdagar som sparats före årsskiftet.',
+            [['Tidpunkten är avtalad', 'En tidpunkt som parterna avtalat om före ikraftträdandet gäller fortfarande.'], ['Tidpunkten är öppen', 'De gamla reglerna med fyra månaders anmälningstid gäller om ledigheten slutar senast den 31 oktober 2027.']],
+            'Övergångsregeln gäller semester som sparats före den 1 januari 2027. Kollektivavtal kan ha egna bestämmelser om sparad ledighet.',
+            ['Övergångsbestämmelse', 'En regel som anger när den tidigare lagen fortfarande gäller efter en ändring.']]
+        ]
+      },
+      {
+        sources: ['Annual Holidays Act, sections 27 and 27a and amendment 943/2026 · Finlex', 'Government bill HE 118/2026 · Finlex', 'Enactment · Finnish Government'],
+        frames: [
+          ['Choosing dates', 'Who decides when carried-over leave can be taken?', 'The worker and employer must try to agree on dates. From 2027 the employer can refuse a requested date on specified grounds.',
+            [['Four months ahead', 'If no dates have been agreed, the worker must ask at least four months before the leave is due to start.'], ['Reply within a month', 'The employer must give a reasoned reply within one month of the request.']],
+            'Employers can refuse if ordinary work arrangements cannot avoid disruption to production or services, or if the date would prevent fair scheduling of holidays and carried-over leave.',
+            ['Carried-over leave', 'Annual leave days saved for use later.']],
+          ['Transition', 'What happens to leave already saved?', 'A transition rule applies to annual leave saved before the end of 2026.',
+            [['Dates already agreed', 'Dates agreed before the law takes effect still stand.'], ['Dates still open', 'A worker can use the old four-month notice rule if the leave ends by 31 October 2027.']],
+            'The transition rule covers leave saved before 1 January 2027. Collective agreements can set their own rules for carried-over leave.',
+            ['Transition rule', 'A rule that says when the previous law still applies after a change.']]
+        ]
+      }
+    ]
+  },
+  {
+    id: 'yleistuki', proposal: 'HE 112/2025 vp', cover: 'investment',
+    frames: ['intro', 'income'],
+    names: ['Yleistuki', 'Allmänt stöd', 'Kela benefit'],
+    checked: novemberUpdate,
+    status: ['Voimassa 1.5.2026 alkaen.', 'I kraft sedan den 1 maj 2026.', 'In force since 1 May 2026.'],
+    urls: [
+      'https://www.finlex.fi/fi/lainsaadanto/2026/48',
+      'https://www.kela.fi/tyottomyys-yleistuki',
+      'https://valtioneuvosto.fi/-/1271139/osittainen-varhennettu-vanhuuselake-ei-vaikuta-yleistuen-maaraan-jos-varhennetusta-elakkeesta-on-paatetty-ennen-1.5.2026'
+    ],
+    news: [
+      ['Yle', '2026-10-30', 'https://yle.fi/aihe/a/20-10009825',
+        ['Milloin osittainen varhennettu vanhuuseläke vaikuttaa yleistukeen?', 'När påverkar partiell förtida ålderspension det allmänna stödet?', 'When does a partial early old-age pension affect the benefit?']]
+    ],
+    copy: [
+      {
+        sources: ['Yleistukilaki 48/2026, erityisesti 2, 15–17 ja 55 § · Finlex', 'Yleistuki ja tulojen vaikutus · Kela', 'Eläkettä koskeva muutos · Sosiaali- ja terveysministeriö'],
+        frames: [
+          ['Työttömyystuki', 'Mitä yleistuki korvasi?', 'Yleistuki tuli Kelan työmarkkinatuen ja peruspäivärahan tilalle toukokuussa 2026.',
+            [['Kenelle', 'Työttömälle työnhakijalle, jolla ei ole oikeutta ansiopäivärahaan tai jonka ansiopäivärahan enimmäisaika on täyttynyt.'], ['Siirtyminen', 'Työmarkkinatuen ja peruspäivärahan saajat siirtyivät yleistuelle ilman uutta hakemusta.']],
+            'Vuonna 2026 täysi yleistuki on 37,21 euroa päivässä viideltä päivältä viikossa. Tulot voivat pienentää maksettavaa määrää.',
+            ['Ansiopäiväraha', 'Työttömyyskassan maksama etuus, jonka määrään vaikuttaa aiempi palkka.']],
+          ['Tulot', 'Miten palkka ja pääomatulot vaikuttavat yleistukeen?', 'Kela laskee palkan vaikutuksen eri tavalla kuin pääomatulojen ja muiden tarveharkinnassa huomioitavien tulojen vaikutuksen.',
+            [['Palkka', 'Sovitellussa yleistuessa 200 euron bruttopalkka pienentää tukea 100 eurolla.'], ['Pääomatulo', 'Esimerkiksi 411 euron kuukausittaisesta vuokratulosta 100 euroa ylittää 311 euron rajan. Tuki pienenee 50 euroa.']],
+            'Lokakuun lainmuutoksen mukaan ennen 1.5.2026 myönnettyä osittaista varhennettua vanhuuseläkettä ei lasketa tarveharkinnan tuloksi. Muutosta sovelletaan takautuvasti toukokuun alusta.',
+            ['Tarveharkinta', 'Kela arvioi muiden kuin palkkatulojen vaikutuksen tuen määrään.']]
+        ]
+      },
+      {
+        sources: ['Lagen om allmänt stöd 48/2026, särskilt 2, 15–17 och 55 § · Finlex', 'Allmänt stöd och inkomsternas inverkan · FPA', 'Ändringen om pension · Social- och hälsovårdsministeriet'],
+        frames: [
+          ['Arbetslöshetsstöd', 'Vad ersatte det allmänna stödet?', 'Det allmänna stödet ersatte FPA:s arbetsmarknadsstöd och grunddagpenning i maj 2026.',
+            [['Vem kan få stöd?', 'Arbetslösa arbetssökande som saknar rätt till inkomstrelaterad dagpenning eller har fått den under maximitiden.'], ['Övergången', 'De som fick arbetsmarknadsstöd eller grunddagpenning övergick till det allmänna stödet utan ny ansökan.']],
+            'År 2026 är fullt allmänt stöd 37,21 euro per dag fem dagar i veckan. Inkomster kan minska beloppet.',
+            ['Inkomstrelaterad dagpenning', 'En förmån som arbetslöshetskassan betalar ut och vars belopp påverkas av tidigare lön.']],
+          ['Inkomster', 'Hur påverkar lön och kapitalinkomster stödet?', 'FPA räknar lön på ett annat sätt än kapitalinkomster och andra inkomster som ingår i behovsprövningen.',
+            [['Lön', 'Vid jämkning minskar en bruttolön på 200 euro det allmänna stödet med 100 euro.'], ['Kapitalinkomst', 'Av en hyresinkomst på 411 euro i månaden överstiger 100 euro gränsen på 311 euro. Stödet minskar med 50 euro.']],
+            'En lagändring i oktober undantar partiell förtida ålderspension som beviljats före den 1 maj 2026 från behovsprövningen. Ändringen tillämpas retroaktivt från början av maj.',
+            ['Behovsprövning', 'FPA bedömer hur andra inkomster än lön påverkar stödbeloppet.']]
+        ]
+      },
+      {
+        sources: ['General Social Security Benefit Act 48/2026, especially sections 2, 15–17 and 55 · Finlex', 'General social security benefit and income · Kela', 'Pension amendment · Ministry of Social Affairs and Health'],
+        frames: [
+          ['Unemployment support', 'What did Kela’s new benefit replace?', 'The general social security benefit replaced Kela’s labour market subsidy and basic unemployment allowance in May 2026.',
+            [['Who can qualify', 'Unemployed jobseekers without a right to earnings-related allowance, including those who have used up their maximum payment period.'], ['Switching over', 'People receiving either of the old Kela benefits transferred without a new application.']],
+            'In 2026 the full benefit is €37.21 a day for five days a week. Income can reduce the amount paid.',
+            ['Earnings-related allowance', 'An unemployment fund benefit whose amount depends on previous pay.']],
+          ['Income', 'How do wages and capital income affect the benefit?', 'Kela uses different calculations for wages and for capital and other income subject to means testing.',
+            [['Wages', 'Under the wage adjustment, €200 in gross wages reduces the benefit by €100.'], ['Capital income', 'Monthly rental income of €411 is €100 above the €311 threshold. The benefit goes down by €50.']],
+            'An October amendment excludes partial early old-age pensions granted before 1 May 2026 from the means test. It applies retroactively from the start of May.',
+            ['Means testing', 'Kela assesses how income other than wages affects the benefit amount.']]
+        ]
+      }
+    ]
+  },
+  {
+    id: 'digihenkkarit', proposal: 'HE 17/2026 vp', cover: 'laptop',
+    frames: ['intro', 'rollout'],
+    names: ['Digi\u00adhenkkarit', 'Digitalt id', 'Digital ID'],
+    checked: novemberUpdate,
+    status: ['Laki voimassa 1.10.2026 alkaen.', 'Lagen i kraft sedan den 1 oktober 2026.', 'Law in force since 1 October 2026.'],
+    urls: [
+      'https://www.finlex.fi/fi/lainsaadanto/saadoskokoelma/2026/812',
+      'https://poliisi.fi/-/police-to-introduce-a-digital-identity-document-as-part-of-public-services-in-2027',
+      'https://kehittajille.suomi.fi/palvelut/lompakko/mika-on-lompakko'
+    ],
+    news: [
+      ['Uusi Suomi', '2026-05-28', 'https://www.uusisuomi.fi/uutiset/a/9bdac9fd-e718-4405-a2af-f12795cc07a5',
+        ['Digilompakon käyttötavat ja käyttöönoton viivästyminen', 'Så kan den digitala plånboken användas och därför dröjer lanseringen', 'What the digital wallet can do and why its rollout is delayed']]
+    ],
+    copy: [
+      {
+        sources: ['Laki digitaalisesta henkilöllisyystodistuksesta 812/2026 · Finlex', 'Poliisin tiedote digitaalisesta henkilöllisyystodistuksesta', 'Suomi.fi-lompakon kuvaus ja julkaisuaikataulu'],
+        frames: [
+          ['Tietojen osoittaminen', 'Mitä digitaalisella henkilöllisyystodistuksella voi osoittaa?', 'Lain mukaan puhelimessa oleva digitaalinen henkilöllisyystodistus voi osoittaa henkilöllisyyden tai viranomaisen vahvistamia tietoja.',
+            [['Henkilöllisyys', 'Todistus perustuu voimassa olevaan passiin tai henkilökorttiin.'], ['Ikätodiste', 'Käyttäjä voi osoittaa kuuluvansa tiettyyn ikäryhmään, esimerkiksi olevansa täysi-ikäinen.']],
+            'Kun matkalla vaaditaan matkustusasiakirjaa, tarvitaan edelleen siihen kelpaava passi tai henkilökortti.',
+            ['Ikätodiste', 'Vahvistetuista tiedoista johdettu todistus käyttäjän kuulumisesta tiettyyn ikäryhmään.']],
+          ['Käyttöönotto', 'Milloin Suomi.fi-lompakon saa käyttöön?', 'Suomi.fi:n mukaan lompakkosovellus on tarkoitus julkaista loppuvuonna 2027.',
+            [['Sovellus', 'Digi- ja väestötietovirasto tarjoaa puhelimeen ladattavan lompakon. Sen käyttö on vapaaehtoista.'], ['Todistuksen lisääminen', 'Sovellukseen lisättävä todistus perustuu asiakirjan sirulta luettuihin tietoihin. Tietojen on vastattava lompakon henkilötietoja.']],
+            'Lompakolla on tarkoitus voida tunnistautua verkossa ja osoittaa tietoja myös paikan päällä palveluissa, jotka hyväksyvät lompakon.',
+            ['Identiteettilompakko', 'Sovellus, jossa voi säilyttää ja esittää virallisia digitaalisia todistuksia.']]
+        ]
+      },
+      {
+        sources: ['Lag om digitalt identitetsbevis 812/2026 · Finlex', 'Polisens meddelande om digitalt identitetsbevis', 'Beskrivning och tidsplan för Suomi.fi-plånboken'],
+        frames: [
+          ['Styrkta uppgifter', 'Vad kan man visa med ett digitalt identitetsbevis?', 'Enligt lagen kan ett digitalt identitetsbevis i telefonen styrka identiteten eller uppgifter som en myndighet har bekräftat.',
+            [['Identitet', 'Beviset grundar sig på ett giltigt pass eller identitetskort.'], ['Åldersbevis', 'Användaren kan styrka att hen hör till en viss åldersgrupp, till exempel att hen är myndig.']],
+            'När en resehandling krävs används fortfarande ett pass eller identitetskort som godtas för resan.',
+            ['Åldersbevis', 'Ett bevis som härleds från bekräftade uppgifter för att visa att användaren hör till en viss åldersgrupp.']],
+          ['Lansering', 'När kan man börja använda Suomi.fi-plånboken?', 'Enligt Suomi.fi planeras plånboksappen lanseras i slutet av 2027.',
+            [['Appen', 'Myndigheten för digitalisering och befolkningsdata erbjuder en plånbok som kan laddas ner till telefonen. Den är frivillig att använda.'], ['Lägga till beviset', 'Beviset som läggs till i appen grundar sig på uppgifter från handlingens chip. De ska stämma överens med personuppgifterna i plånboken.']],
+            'Tanken är att plånboken ska fungera för identifiering på nätet och för att styrka uppgifter på plats hos tjänster som godtar den.',
+            ['Identitetsplånbok', 'En app där man kan spara och visa officiella digitala bevis.']]
+        ]
+      },
+      {
+        sources: ['Digital Identity Document Act 812/2026 · Finlex', 'Police announcement on the digital ID', 'Suomi.fi wallet details and release schedule'],
+        frames: [
+          ['Proving information', 'What can you prove with a digital ID?', 'The law allows the digital ID on a phone to prove identity or information verified by a public authority.',
+            [['Identity', 'The digital ID is based on a valid passport or identity card.'], ['Proof of age', 'Users can prove they are in an age group, for example that they are 18 or over.']],
+            'When a travel document is required, travellers still use an accepted passport or identity card.',
+            ['Proof of age', 'A credential based on verified information that shows the user belongs to a specified age group.']],
+          ['Rollout', 'When will the Suomi.fi wallet be available?', 'Suomi.fi lists a planned release in late 2027.',
+            [['The app', 'The Digital and Population Data Services Agency will provide the voluntary mobile wallet.'], ['Adding the ID', 'The app uses data read from the physical document’s chip. The information must match the personal data in the wallet.']],
+            'The wallet is designed for online identification and for proving information in person at services that accept it.',
+            ['Identity wallet', 'An app for storing and presenting official digital credentials.']]
+        ]
+      }
+    ]
+  },
   {
     id: 'valmiuslaki', proposal: 'HE 294/2026 vp', cover: 'waves',
     frames: ['intro', 'powers'],
@@ -235,13 +466,13 @@ export const currentStructure = Object.fromEntries(entries.flatMap(({ id, frames
 ));
 
 export function currentFrames(language) {
-  return Object.fromEntries(entries.flatMap(({ id, frames, status, copy }) => {
+  return Object.fromEntries(entries.flatMap(({ id, frames, status, checked: checkedOn = checked, copy }) => {
     const { sources, frames: text } = copy[language];
     return frames.map((frame, index) => {
       const [step, title, lead, rows, more, term] = text[index];
       return [`${id}-${frame}`, {
         step, tag: step, title, lead, chart: { rows }, more: [more],
-        notes: [`${checked[language]} · ${status[language]}`], sources, terms: [term]
+        notes: [`${checkedOn[language]} · ${status[language]}`], sources, terms: [term]
       }];
     });
   }));
