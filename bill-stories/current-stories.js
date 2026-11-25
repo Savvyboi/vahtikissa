@@ -4,7 +4,7 @@ const novemberUpdate = ['Tilanne 25.11.2026', 'Läget den 25 november 2026', 'St
 const entries = [
   {
     id: 'vuokravakuus', proposal: 'HE 33/2026 vp', cover: 'insurance',
-    frames: ['intro', 'withholding'],
+    frames: ['intro', 'withholding', 'versions', 'submissions', 'deadline', 'notice-period'],
     names: ['Vuokra\u00advakuus', 'Hyres\u00adsäkerhet', 'Rental deposit'],
     checked: novemberUpdate,
     status: ['Voimassa 1.10.2026 alkaen.', 'I kraft sedan den 1 oktober 2026.', 'In force since 1 October 2026.'],
@@ -61,7 +61,7 @@ const entries = [
   },
   {
     id: 'saastovapaa', proposal: 'HE 118/2026 vp', cover: 'calendar',
-    frames: ['intro', 'transition'],
+    frames: ['intro', 'transition', 'before-and-after', 'submissions', 'decision', 'worked-example'],
     names: ['Säästövapaa', 'Sparad ledighet', 'Carried-over leave'],
     checked: novemberUpdate,
     status: ['Vahvistettu · voimaan 1.1.2027.', 'Stadfäst · träder i kraft den 1 januari 2027.', 'Enacted · takes effect on 1 January 2027.'],
@@ -120,7 +120,7 @@ const entries = [
   },
   {
     id: 'yleistuki', proposal: 'HE 112/2025 vp', cover: 'investment',
-    frames: ['intro', 'income'],
+    frames: ['intro', 'income', 'old-benefits', 'pension-cutoff', 'pension-votes', 'pension-example'],
     names: ['Yleistuki', 'Allmänt stöd', 'Kela benefit'],
     checked: novemberUpdate,
     status: ['Voimassa 1.5.2026 alkaen.', 'I kraft sedan den 1 maj 2026.', 'In force since 1 May 2026.'],
@@ -177,7 +177,7 @@ const entries = [
   },
   {
     id: 'digihenkkarit', proposal: 'HE 17/2026 vp', cover: 'laptop',
-    frames: ['intro', 'rollout'],
+    frames: ['intro', 'rollout', 'age-proof', 'age-limit', 'accessibility', 'versions'],
     names: ['Digi\u00adhenkkarit', 'Digitalt id', 'Digital ID'],
     checked: novemberUpdate,
     status: ['Laki voimassa 1.10.2026 alkaen.', 'Lagen i kraft sedan den 1 oktober 2026.', 'Law in force since 1 October 2026.'],
@@ -456,21 +456,157 @@ const entries = [
   }
 ];
 
+const detailedStructure = {
+  "vuokravakuus-versions": {
+    type: "timeline", dates: ["2024-12","2026-03","2026-05-20","2026-06-16"], accent: 1,
+    urls: [
+      "https://www.finlex.fi/fi/hallituksen-esitykset/2026/33",
+      "https://api.eduskunta.fi/api/v1/asiakirjat/edktunnus/EDK-2026-AK-29160",
+      "https://www.finlex.fi/fi/lainsaadanto/saadoskokoelma/2026/531"
+    ]
+  },
+  "vuokravakuus-submissions": {
+    type: "findings", icons: ["discussion","certificate"],
+    urls: [
+      "https://www.finlex.fi/fi/hallituksen-esitykset/2026/33",
+      "https://api.eduskunta.fi/api/v1/asiakirjat/edktunnus/EDK-2026-AK-29160"
+    ]
+  },
+  "vuokravakuus-deadline": {
+    type: "timeline", dates: ["2026-10-05","2026-10-06","2026-10-19"], accent: 2,
+    urls: [
+      "https://api.eduskunta.fi/api/v1/asiakirjat/edktunnus/EDK-2026-AK-29160",
+      "https://www.finlex.fi/fi/lainsaadanto/1930/150",
+      "https://www.finlex.fi/fi/lainsaadanto/saadoskokoelma/2026/531"
+    ]
+  },
+  "vuokravakuus-notice-period": {
+    type: "options", icons: ["calendar","certificate"],
+    urls: [
+      "https://www.finlex.fi/fi/lainsaadanto/saadoskokoelma/2026/531",
+      "https://valtioneuvosto.fi/-/1410853/huoneenvuokralait-muuttuvat-lokakuussa"
+    ]
+  },
+  "saastovapaa-before-and-after": {
+    type: "options", icons: ["calendar","certificate"], accent: 1,
+    urls: [
+      "https://www.finlex.fi/fi/lainsaadanto/2005/162",
+      "https://www.finlex.fi/fi/hallituksen-esitykset/2026/118"
+    ]
+  },
+  "saastovapaa-submissions": {
+    type: "findings", icons: ["discussion","certificate"],
+    urls: [
+      "https://www.finlex.fi/fi/hallituksen-esitykset/2026/118",
+      "https://www.yrittajat.fi/ajankohtaista/lausunnot/lausunto-hallituksen-esityksesta-vuosilomalain-muuttamiseksi-ja-eraiksi-muiksi-laeiksi/",
+      "https://api.eduskunta.fi/api/v1/asiakirjat/edktunnus/EDK-2026-AK-42070",
+      "https://www.finlex.fi/fi/lainsaadanto/2005/162"
+    ]
+  },
+  "saastovapaa-decision": {
+    type: "timeline", dates: ["2026-06-16","2026-09-25","2026-10-07","2027-01-01"], accent: 2,
+    urls: [
+      "https://api.eduskunta.fi/api/v1/asiakirjat/edktunnus/EDK-2026-AK-47771",
+      "https://api.eduskunta.fi/api/v1/taysistunnot/aanestykset/2026-94-4",
+      "https://www.finlex.fi/fi/lainsaadanto/2005/162"
+    ]
+  },
+  "saastovapaa-worked-example": {
+    type: "calendar", dates: ["2027-06-04","2027-10-04"], accent: 0,
+    urls: [
+      "https://www.finlex.fi/fi/lainsaadanto/2005/162",
+      "https://www.finlex.fi/fi/hallituksen-esitykset/2026/118"
+    ]
+  },
+  "yleistuki-old-benefits": {
+    type: "findings", icons: ["investment","certificate"],
+    urls: [
+      "https://api.eduskunta.fi/api/v1/asiakirjat/edktunnus/EDK-2026-AK-55456",
+      "https://www.finlex.fi/fi/lainsaadanto/2026/48",
+      "https://www.kela.fi/ajankohtaista/eduskunta-hyvaksyi-muutoksen-ennen-1.5.2026-myonnetty-osittainen-varhennettu-vanhuuselake-ei-vaikuta-yleistukeen-1"
+    ]
+  },
+  "yleistuki-pension-cutoff": {
+    type: "calendar", dates: ["2026-01-16","2026-05-01"], accent: 1,
+    urls: [
+      "https://data.finlex.fi/fi/hallituksen-esitykset/2026/124",
+      "https://api.eduskunta.fi/api/v1/asiakirjat/edktunnus/EDK-2026-AK-55456",
+      "https://www.finlex.fi/fi/lainsaadanto/2026/48"
+    ]
+  },
+  "yleistuki-pension-votes": {
+    type: "timeline", dates: ["2026-10-16","2026-10-21","2026-11-02"], accent: 1,
+    urls: [
+      "https://api.eduskunta.fi/api/v1/taysistunnot/aanestykset/2026-100-4",
+      "https://api.eduskunta.fi/api/v1/taysistunnot/aanestykset/2026-102-5",
+      "https://api.eduskunta.fi/api/v1/asiakirjat/edktunnus/EDK-2026-AK-55456",
+      "https://valtioneuvosto.fi/-/1271139/osittainen-varhennettu-vanhuuselake-ei-vaikuta-yleistuen-maaraan-jos-varhennetusta-elakkeesta-on-paatetty-ennen-1.5.2026"
+    ]
+  },
+  "yleistuki-pension-example": {
+    type: "options", icons: ["calendar","certificate"], accent: 0,
+    urls: [
+      "https://www.kela.fi/ajankohtaista/kela-oikaisi-yleistuen-paatoksia",
+      "https://www.finlex.fi/fi/lainsaadanto/2026/48"
+    ]
+  },
+  "digihenkkarit-age-proof": {
+    type: "options", icons: ["certificate","register"],
+    urls: [
+      "https://www.finlex.fi/fi/lainsaadanto/saadoskokoelma/2026/812",
+      "https://eur-lex.europa.eu/eli/reg/2024/1183/oj",
+      "https://api.eduskunta.fi/api/v1/asiakirjat/edktunnus/EDK-2026-AK-35852"
+    ]
+  },
+  "digihenkkarit-age-limit": {
+    type: "findings", icons: ["calendar","discussion"],
+    urls: [
+      "https://www.finlex.fi/fi/lainsaadanto/saadoskokoelma/2026/810",
+      "https://www.finlex.fi/fi/hallituksen-esitykset/2026/17",
+      "https://api.eduskunta.fi/api/v1/asiakirjat/edktunnus/EDK-2026-AK-35852"
+    ]
+  },
+  "digihenkkarit-accessibility": {
+    type: "findings", icons: ["discussion","certificate"],
+    urls: [
+      "https://www.finlex.fi/fi/hallituksen-esitykset/2026/17",
+      "https://api.eduskunta.fi/api/v1/asiakirjat/edktunnus/EDK-2026-AK-27268",
+      "https://api.eduskunta.fi/api/v1/asiakirjat/edktunnus/EDK-2026-AK-35852",
+      "https://eur-lex.europa.eu/eli/reg/2024/1183/oj"
+    ]
+  },
+  "digihenkkarit-versions": {
+    type: "timeline", dates: ["2024-04","2026-06-22","2026-10-01","2027"], accent: 2,
+    urls: [
+      "https://eur-lex.europa.eu/eli/reg/2024/1183/oj",
+      "https://api.eduskunta.fi/api/v1/asiakirjat/edktunnus/EDK-2026-AK-37782",
+      "https://www.finlex.fi/fi/lainsaadanto/saadoskokoelma/2026/812",
+      "https://www.finlex.fi/fi/lainsaadanto/saadoskokoelma/2026/810",
+      "https://kehittajille.suomi.fi/palvelut/lompakko/mika-on-lompakko"
+    ]
+  }
+};
+
 export const currentStories = entries.map(({ id, proposal, cover, frames, names, news }) => ({
   id, proposal, cover, frames, names, news,
   docket: 'https://www.eduskunta.fi/fi/asiat-ja-aanestykset/valtiopaivaasiat/' + encodeURIComponent(proposal)
 }));
 
 export const currentStructure = Object.fromEntries(entries.flatMap(({ id, frames, urls, cover }) =>
-  frames.map(frame => [`${id}-${frame}`, { type: 'findings', icons: [cover, 'certificate'], urls }])
+  frames.map(frame => {
+    const key = `${id}-${frame}`;
+    return [key, detailedStructure[key] ?? { type: 'findings', icons: [cover, 'certificate'], urls }];
+  })
 ));
 
-export function currentFrames(language) {
+export function currentFrames(language, details) {
   return Object.fromEntries(entries.flatMap(({ id, frames, status, checked: checkedOn = checked, copy }) => {
     const { sources, frames: text } = copy[language];
     return frames.map((frame, index) => {
+      const key = `${id}-${frame}`;
+      if (details[key]) return [key, details[key]];
       const [step, title, lead, rows, more, term] = text[index];
-      return [`${id}-${frame}`, {
+      return [key, {
         step, tag: step, title, lead, chart: { rows }, more: [more],
         notes: [`${checkedOn[language]} · ${status[language]}`], sources, terms: [term]
       }];

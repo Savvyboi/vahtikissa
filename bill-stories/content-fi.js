@@ -22,7 +22,307 @@ const lotteries = ['Arpajaislaki', 'Laki, jonka rikkomisesta annettuja kieltopä
 import { currentFrames } from './current-stories.js';
 
 export const frames = {
-  ...currentFrames(0),
+  ...currentFrames(0, {
+    "vuokravakuus-versions": {
+      step: "Mistä 14 päivää tuli",
+      tag: "Lain sanamuoto",
+      title: "Luonnoksen 30 päivää lyheni 14 päivään",
+      lead: "Oikeusministeriön työryhmä yhdisti pidemmän määräajan ja vakiokorvauksen. Hallitus valitsi lausuntokierroksen jälkeen lyhyemmän määräajan.",
+      chart: { rows: [
+        ["Joulukuu 2024","Työryhmän mietintö","30 päivää ja vakiokorvaus"],
+        ["Maaliskuu 2026","Esitys eduskuntaan","14 päivää"],
+        ["20.5.2026","Ympäristövaliokunta","14 päivää säilyy"],
+        ["16.6.2026","Laki vahvistetaan","14 päivää säilyy"]
+      ] },
+      notes: ["Vakiokorvaus olisi tullut maksettavaksi määräajan jälkeen ilman näyttöä todellisesta vahingosta."],
+      more: ["Hallitus perusteli lyhyempää määräaikaa sillä, että vakuus voi olla vuokralaiselle suuri summa. Lopullinen laki mahdollistaa korvauksen aiheettomasta pidätyksestä syntyneestä vahingosta."],
+      sources: [
+        "HE 33/2026 vp, 6 kohta ja 8 §:n perustelut",
+        "Ympäristövaliokunnan mietintö YmVM 8/2026 vp, vakuus",
+        "Laki 531/2026, 8 §"
+      ],
+      terms: [["Vakiokorvaus","Ennalta määrätty korvaus, joka ei riipu vahingon tarkasta määrästä."]]
+    },
+    "vuokravakuus-submissions": {
+      step: "Ketkä halusivat lyhyemmän ajan",
+      tag: "Lausuntokierros",
+      title: "Vuokralaisten ja vuokranantajien edustajat kannattivat eri määräaikoja",
+      lead: "Hallituksen esityksen lausuntoyhteenvedossa erimielisyys koski sekä palautusaikaa että viiveen seurauksia.",
+      chart: { rows: [
+        ["Vuokralaisten edustajat","Kannattivat lyhyempää aikaa. He pelkäsivät, että 30 päivästä tulisi käytännössä tavallinen odotusaika."],
+        ["Vuokranantajien edustajat","Kannattivat työryhmän 30 päivän määräaikaa."]
+      ] },
+      notes: ["Vakiokorvausta pidettiin yhtäältä vuokralaisen suojana ja toisaalta vaikeasti tulkittavana ja uusia riitoja aiheuttavana."],
+      more: ["Hallitus kertoo tarkistaneensa ehdotusta lausuntopalautteen perusteella. Esityksen yhteenveto kertoo ryhmien kannoista, ja yksittäisen lausunnon osuus ratkaisuun jää avoimeksi."],
+      sources: [
+        "HE 33/2026 vp, 6 kohta: lausuntopalaute",
+        "YmVM 8/2026 vp, vakuuden käsittely"
+      ],
+      terms: [["Lausuntokierros","Vaihe, jossa ministeriö pyytää palautetta lakiluonnoksesta ennen esityksen antamista."]]
+    },
+    "vuokravakuus-deadline": {
+      step: "Miten päivät lasketaan",
+      tag: "Esimerkki",
+      title: "Asunto luovutetaan maanantaina, laskenta alkaa tiistaina",
+      lead: "Kuvitellaan, että vuokrasopimus päättyy 4.10.2026 ja vuokralainen luovuttaa asunnon takaisin seuraavana päivänä.",
+      chart: { rows: [
+        ["5.10.2026","Hallinta palautuu","Luovutuspäivä jää laskennan ulkopuolelle"],
+        ["6.10.2026","Ensimmäinen päivä","14 päivän laskenta alkaa"],
+        ["19.10.2026","Neljästoista päivä","Esimerkin viimeinen päivä"]
+      ] },
+      notes: ["Ympäristövaliokunta täsmensi perusteluissaan, että laskenta alkaa sopimuksen päättymistä tai myöhempää luovutusta seuraavana päivänä."],
+      more: ["Vakuus palautetaan viipymättä. Esimerkin päivämäärä on viimeinen sallittu päivä, kun palautukselle tai ilmoitukselle ei ole perusteltua estettä."],
+      sources: [
+        "YmVM 8/2026 vp, määräajan laskeminen",
+        "Määräaikalaki 150/1930, 2 ja 5 §",
+        "Laki 531/2026, 8 §"
+      ],
+      terms: [["Hallinnan luovutus","Asunto palautetaan vuokranantajan hallintaan, käytännössä esimerkiksi luovuttamalla avaimet."]]
+    },
+    "vuokravakuus-notice-period": {
+      step: "Mikä muu muuttui",
+      tag: "Irtisanomisaika",
+      title: "Sopimuksen allekirjoituspäivä voi muuttaa irtisanomisaikaa",
+      lead: "Sama uudistus muutti toistaiseksi voimassa olevien sopimusten irtisanomisaikoja, kun vuokranantaja irtisanoo sopimuksen.",
+      chart: { rows: [
+        ["Ennen 1.10.2026 tehty sopimus","6 kuukautta, kun vuokrasuhde on kestänyt vähintään vuoden"],
+        ["Uusi sopimus 1.10.2026 alkaen","4 kuukautta, kun vuokrasuhde on kestänyt vähintään kaksi vuotta"]
+      ] },
+      notes: ["Molemmissa tapauksissa vuokranantajan irtisanomisaika on muulloin kolme kuukautta. Vuokralaisen irtisanomisaika pysyi yhdessä kuukaudessa."],
+      more: ["Vanhan sopimuksen osapuolet voivat lain voimaantulon jälkeen sopia uuden lain soveltamisesta irtisanomisaikaan. Vuokravakuuden palautusajan siirtymäsääntö toimii eri tavalla: se ulottuu myös vanhoihin sopimuksiin."],
+      sources: [
+        "Laki 531/2026, 52 § ja voimaantulosäännös",
+        "Oikeusministeriön tiedote 29.9.2026"
+      ],
+      terms: [["Toistaiseksi voimassa oleva sopimus","Vuokrasopimus, joka jatkuu, kunnes se päättyy esimerkiksi irtisanomiseen."]]
+    },
+    "saastovapaa-before-and-after": {
+      step: "Ilmoituksesta pyyntöön",
+      tag: "Vanha ja uusi sääntö",
+      title: "Sama neljä kuukautta, eri päätösvalta",
+      lead: "Lain lähtökohtana on ollut, että työntekijä ja työnantaja sopivat ajankohdasta. Muutos koskee sitä, mitä tapahtuu, kun sopua ei synny.",
+      chart: { rows: [
+        ["Aiempi 27 §","Työntekijä ilmoitti ajankohdan neljä kuukautta aiemmin"],
+        ["Uusi 27 a §","Työntekijä pyytää ajankohtaa neljä kuukautta aiemmin"]
+      ] },
+      notes: ["Uuden lain mukaan työnantajan on perusteltava vastauksensa kuukauden kuluessa. Pyyntöä voi vastustaa vain laissa luetelluilla perusteilla."],
+      more: ["Ajankohdasta päättäminen on eri asia kuin päivien säästäminen. Esimerkiksi 24 arkipäivää ylittävän osan saa 27 §:n nojalla yleensä säästää, ja 18 päivää ylittävän osan säästämisestä voi sopia."],
+      sources: [
+        "Vuosilomalaki, aiempi 27 § ja uusi 27 a §",
+        "HE 118/2026 vp, 2 ja 7 kohta"
+      ],
+      terms: [["27 a §","Uusi pykälä, joka koskee säästövapaan ajankohdasta sopimista, pyytämistä ja siihen vastaamista."]]
+    },
+    "saastovapaa-submissions": {
+      step: "Mitä lausunnoissa pyydettiin",
+      tag: "Lausunnot",
+      title: "Kieltäytymisoikeuden raja jakoi lausujat",
+      lead: "Hallituksen esityksen lausuntoyhteenveto kuvaa, kuinka eri tavoin työnantaja- ja palkansaajapuoli arvioivat luonnosta.",
+      chart: { rows: [
+        ["Työnantajapuoli","Halusi laajemman oikeuden päättää ajankohdasta. Suomen Yrittäjät toisti kantansa valiokunnalle syyskuussa."],
+        ["SAK","Vastusti muutosta. Jos laki hyväksyttäisiin, SAK pyysi vakavan haitan kynnystä ja rajaa toistuville hylkäyksille."]
+      ] },
+      notes: ["Oikeuskansleri huomautti, että vaatimus haitan välttämisestä tavanomaisin työjärjestelyin oli luonnoksessa vain perusteluissa. Esityksessä se oli jo pykälässä."],
+      more: ["Lopullisen lain kieltäytymisperusteisiin kuuluvat tuotannolle tai palveluille aiheutuva haitta, jota ei voi välttää tavanomaisin työjärjestelyin, sekä lomien tasapuolinen sijoittaminen."],
+      sources: [
+        "HE 118/2026 vp, 6.2 kohta: lausuntopalaute",
+        "Suomen Yrittäjien lausunto 10.9.2026",
+        "SAK:n lausunto eduskunnalle, s. 1–2",
+        "Vuosilomalaki, 27 a §"
+      ],
+      terms: [["Pykälän perustelut","Hallituksen selitys sille, miksi tiettyä lain sanamuotoa ehdotetaan ja miten sitä on tarkoitus soveltaa."]]
+    },
+    "saastovapaa-decision": {
+      step: "Miten eduskunta päätti",
+      tag: "Eduskuntakäsittely",
+      title: "Lakipaketti hyväksyttiin 109–53",
+      lead: "Mietinnön enemmistö puolsi muutosta. Neljän edustajan vastalause vaati säästövapaata koskevan lakiehdotuksen hylkäämistä.",
+      chart: { rows: [
+        ["16.6.2026","Hallituksen esitys","Uusi 27 a §"],
+        ["25.9.2026","Valiokunnan mietintö","Kieltäytymisperusteet säilyvät"],
+        ["7.10.2026","Toinen käsittely","109 hyväksymisen puolesta, 53 vastaan"],
+        ["1.1.2027","Voimaantulo","Uusi ajankohtasääntö alkaa"]
+      ] },
+      notes: ["Vastalauseen mukaan esityksessä ei osoitettu, että vanha sääntö olisi aiheuttanut merkittäviä ongelmia."],
+      more: ["Äänestys koski lakiehdotusten hyväksymistä tai hylkäämistä. Pakettiin kuului vuosilomalain lisäksi neljä muuta lakimuutosta."],
+      sources: [
+        "Työelämä- ja tasa-arvovaliokunnan mietintö TyVM 6/2026 vp ja vastalause",
+        "Eduskunnan äänestys 7.10.2026",
+        "Vuosilomalain muutos 943/2026, voimaantulo"
+      ],
+      terms: [["Vastalause","Valiokunnan jäsenten vaihtoehtoinen kanta, joka julkaistaan mietinnön yhteydessä."]]
+    },
+    "saastovapaa-worked-example": {
+      step: "Miten siirtymä toimii",
+      tag: "Esimerkki",
+      title: "Lokakuussa pidettävä vapaa voi vielä noudattaa vanhaa sääntöä",
+      lead: "Työntekijä säästi päiviä vuonna 2026. Päivistä ei sovittu, ja hän haluaa pitää vapaan 4.–8.10.2027.",
+      chart: { rows: [
+        ["4.6.2027","Viimeinen ilmoituspäivä esimerkissä"],
+        ["4.10.2027","Vapaa alkaa ja päättyy ennen 31.10."]
+      ] },
+      notes: ["Vanhaa ilmoitusmenettelyä voi käyttää, koska vapaa päättyy siirtymäajan sisällä ja ilmoituksen voi tehdä neljä kuukautta etukäteen."],
+      more: ["Jos sama työntekijä haluaa pitää vapaan marraskuussa, sovelletaan uutta pyyntömenettelyä. Ennen vuodenvaihdetta jo sovitut päivät säilyvät sopimuksen mukaisina."],
+      sources: [
+        "Vuosilomalaki, muutos 943/2026 ja siirtymäsäännös",
+        "HE 118/2026 vp, 8 kohta: voimaantulo"
+      ],
+      terms: [["Siirtymäaika","Tässä lain voimaantulon jälkeinen aika, jolloin osaan aiemmin säästetystä vapaasta voi vielä soveltaa vanhaa ilmoitusmenettelyä."]]
+    },
+    "yleistuki-old-benefits": {
+      step: "Mitä vanhoissa tuissa erosi",
+      tag: "Ennen uudistusta",
+      title: "Sama eläke saattoi vaikuttaa kahteen tukeen eri tavoin",
+      lead: "Osittainen varhennettu vanhuuseläke on hyvä esimerkki siitä, mitä tapahtui, kun kaksi Kelan etuutta yhdistettiin.",
+      chart: { rows: [
+        ["Peruspäiväraha","Etuudessa ei ollut tarveharkintaa. Tämä eläke ei pienentänyt päivärahaa."],
+        ["Työmarkkinatuki","Eläke kuului tavallisesti tarveharkinnan tuloihin. Tietyillä 55 vuotta täyttäneillä oli poikkeus."]
+      ] },
+      notes: ["Yleistuessa on oma tarveharkintansa. Siksi osittainen eläke saattoi pienentää tukea ihmisillä, joilla se ei aiemmin pienentänyt työttömyysetuutta."],
+      more: ["Sosiaali- ja terveysvaliokunta nosti eron esiin käsitellessään syksyn korjausesitystä. Eläkepäätöksen peruuttamiselle on kolme kuukautta aikaa päätöksen antamisesta."],
+      sources: [
+        "StVM 15/2026 vp, valiokunnan perustelut",
+        "Yleistukilaki 48/2026, 15–17 §",
+        "Kelan tiedote 22.10.2026, vanhojen etuuksien säännöt"
+      ],
+      terms: [["Osittainen varhennettu vanhuuseläke","Osa kertyneestä työeläkkeestä, jonka voi ottaa maksuun ennen varsinaista vanhuuseläkettä."]]
+    },
+    "yleistuki-pension-cutoff": {
+      step: "Miksi rajapäivä siirtyi",
+      tag: "Lakiesityksestä lakiin",
+      title: "Valiokunta siirsi eläkepäätösten rajaa kevääseen",
+      lead: "Hallitus ehdotti poikkeusta niille, joiden eläkepäätös oli annettu ennen yleistukilain vahvistamista. Valiokunta käytti rajana voimaantuloa.",
+      chart: { rows: [
+        ["16.1.2026","Hallituksen ehdottama rajapäivä"],
+        ["1.5.2026","Valiokunnan ehdotus ja lopullinen laki"]
+      ] },
+      notes: ["Kuulemisessa kerrottiin, että tieto yleistuen vaikutuksesta tavoitti eläkealan toimijat myöhään. Keskelle tammikuuta asetettu raja saattoi myös jakaa saman kuukauden hakijat eri asemaan."],
+      more: ["Valiokunta perusteli rajan siirtämistä asiantuntijakuulemisessa esiin tulleilla tiedoilla. Lopullisen lain mukaan ennen toukokuuta annettu eläkepäätös kuuluu poikkeukseen."],
+      sources: [
+        "HE 124/2026 vp, ehdotettu rajapäivä ja perustelut",
+        "StVM 15/2026 vp, asiantuntijakuuleminen ja muutosehdotus",
+        "Yleistukilaki, 55 § ja muutos 934/2026"
+      ],
+      terms: [["Rajapäivä","Päivä, johon eläkepäätöksen antopäivää verrataan. Toukokuun ensimmäisenä annettu päätös on jo rajan toisella puolella."]]
+    },
+    "yleistuki-pension-votes": {
+      step: "Mistä eduskunta äänesti",
+      tag: "Kaksi eri päätöstä",
+      title: "Ensin valittiin teksti, sitten hyväksyttiin muutos",
+      lead: "Eläkkeitä koskevasta muutoksesta äänestettiin ensimmäisessä ja toisessa käsittelyssä. Jaa ja ei tarkoittivat eri asioita eri päivinä.",
+      chart: { rows: [
+        ["16.10.2026","Käsittelyn pohja","93 mietinnön puolesta, 81 vastalauseen ehdotuksen puolesta"],
+        ["21.10.2026","Lain hyväksyminen","127 puolesta, 48 vastaan"],
+        ["2.11.2026","Voimaantulo","Sovelletaan takautuvasti 1.5.2026 alkaen"]
+      ] },
+      notes: ["Lokakuun 16. päivän jaa-ääni tarkoitti valiokunnan mietintöä. Lokakuun 21. päivän jaa-ääni tarkoitti lakiehdotuksen hyväksymistä."],
+      more: [
+        "Vastalauseessa ehdotettiin, että osittainen varhennettu vanhuuseläke jätettäisiin aina tarveharkinnan ulkopuolelle. Vastalauseen tekijät perustelivat ehdotusta vuoden 2017 eläkeuudistuksen tavoitteilla.",
+        "Eduskunnan hyväksymä poikkeus riippuu eläkepäätöksen päivämäärästä. Kela soveltaa poikkeusta takautuvasti yleistuen alusta."
+      ],
+      sources: [
+        "Ensimmäisen käsittelyn äänestys 16.10.2026",
+        "Toisen käsittelyn äänestys 21.10.2026",
+        "StVM 15/2026 vp, vastalauseen vaihtoehto",
+        "Sosiaali- ja terveysministeriön tiedote 29.10.2026"
+      ],
+      terms: [["Takautuva soveltaminen","Muutosta sovelletaan myös aikaan ennen sen voimaantuloa."]]
+    },
+    "yleistuki-pension-example": {
+      step: "Kumpi päivämäärä ratkaisee",
+      tag: "Esimerkki",
+      title: "Kaksi kesäkuun eläkettä voi saada eri kohtelun",
+      lead: "Kuvitellaan kaksi henkilöä, joiden osittainen eläke alkaa kesäkuussa. Päätökset on annettu eri päivinä.",
+      chart: { rows: [
+        ["Päätös 30.4.2026","Eläke jää tarveharkinnan ulkopuolelle"],
+        ["Päätös 5.5.2026","Eläke lasketaan tarveharkinnan tuloksi"]
+      ] },
+      notes: ["Ratkaiseva päivämäärä on eläkepäätöksen antopäivä. Maksun alkamiskuukausi voi olla molemmilla sama."],
+      more: ["Kela ilmoitti 11.11.2026 oikaisseensa noin 3 000 yleistukipäätöstä. Oikaisu tehtiin automaattisesti niille, joiden poikkeuksen piiriin kuuluva eläke oli laskettu tuloksi."],
+      sources: [
+        "Kelan tiedote oikaistuista päätöksistä 11.11.2026",
+        "Yleistukilaki, 55 §"
+      ],
+      terms: [["Oikaisu","Kela muuttaa aiemmin tekemäänsä päätöstä ja maksaa mahdollisen erotuksen."]]
+    },
+    "digihenkkarit-age-proof": {
+      step: "Mitä tietoa palvelu saa",
+      tag: "Tietosuoja",
+      title: "Palvelu voi saada tiedon ikärajasta ilman syntymäaikaa",
+      lead: "Kuvitellaan palvelu, jonka tarvitsee tarkistaa vain, onko käyttäjä täysi-ikäinen. Lain ikätodiste voi vastata juuri siihen kysymykseen.",
+      chart: { rows: [
+        ["Palvelu tarkistaa henkilöllisyyden","Voi tarvita nimen ja muita tunnistetietoja"],
+        ["Palvelu tarkistaa ikärajan","Ikätodiste voi osoittaa, että käyttäjä on täyttänyt 18 vuotta"]
+      ] },
+      notes: ["Ikätodiste johdetaan viranomaisen vahvistamista tiedoista. EU-asetus edellyttää, että lompakosta voi jakaa tietoja valikoidusti."],
+      more: ["Verkkopalvelu, joka haluaa vastaanottaa tietoja lompakosta, rekisteröi käyttötarkoituksensa ja ilmoittaa, mitä tietoja se aikoo pyytää."],
+      sources: [
+        "Laki 812/2026, 2 ja 4 §",
+        "EU:n eIDAS-muutos, 5 a artiklan 4 kohta ja 5 b artikla",
+        "Hallintovaliokunnan mietintö HaVM 15/2026 vp, alaikäiset"
+      ],
+      terms: [["Tietojen valikoitu jakaminen","Palvelulle voi esittää vain osan todistuksen tiedoista."]]
+    },
+    "digihenkkarit-age-limit": {
+      step: "Mistä 13 vuoden raja tuli",
+      tag: "Alaikäiset",
+      title: "Lompakon voi ottaa itsenäisesti käyttöön 13-vuotiaana",
+      lead: "EU:n lompakkoasetukseen ei asetettu käyttöönoton ikärajaa. Suomen hallitus ehdotti 13 vuotta, ja hallintovaliokunta tuki sääntöä.",
+      chart: { rows: [
+        ["Vähintään 13 vuotta","Nuori voi ottaa lompakon käyttöön itsenäisesti."],
+        ["Alle 13 vuotta","Käyttöönottoon tarvitaan huoltajan suostumus."]
+      ] },
+      notes: ["Hallitus haki vertailukohdan tietosuojalain 13 vuoden rajasta, joka koskee lapsen suostumusta tietoyhteiskunnan palveluissa."],
+      more: ["Valiokunta katsoi, että ikätodisteesta voisi olla hyötyä turvallisessa asioinnissa. Esimerkiksi palvelulle voi riittää tieto, että käyttäjä kuuluu tiettyyn ikäryhmään."],
+      sources: [
+        "Laki 810/2026, 10 §",
+        "HE 17/2026 vp, 10 §:n perustelut ja lausuntopalaute",
+        "HaVM 15/2026 vp, alaikäiset"
+      ],
+      terms: [["Käyttöönotto","Tässä lompakon avaaminen käyttöön. Palveluissa asioimiseen voi lisäksi liittyä omia ikärajoja."]]
+    },
+    "digihenkkarit-accessibility": {
+      step: "Entä jos tarvitsee apua",
+      tag: "Saavutettavuus",
+      title: "Valiokunnat käsittelivät avustajan käyttöä ja muita asiointitapoja",
+      lead: "Yhdenvertaisuusvaltuutettu kiinnitti lausuntokierroksella huomiota ihmisiin, jotka tarvitsevat avustajaa lompakon käyttöön.",
+      chart: { rows: [
+        ["Perustuslakivaliokunta","Halusi turvata vaihtoehtoisen digitaalisen asiointitavan ainakin viranomaisten palveluissa."],
+        ["Hallintovaliokunta","Viittasi EU-asetuksen vaatimuksiin saavutettavuudesta, vapaaehtoisuudesta ja muiden tunnistustapojen säilymisestä."]
+      ] },
+      notes: ["Kysymys syntyi säännöstä, jonka mukaan lompakkoa pitää käyttää huolellisesti ja se on henkilökohtainen."],
+      more: ["EU-asetuksen mukaan lompakkoa käyttämättömien on voitava käyttää julkisia ja yksityisiä palveluja muilla olemassa olevilla tunnistustavoilla."],
+      sources: [
+        "HE 17/2026 vp, 6 ja 12.1 kohta",
+        "Perustuslakivaliokunnan lausunto PeVL 32/2026 vp, kohdat 21–23",
+        "HaVM 15/2026 vp, saavutettavuus ja vapaaehtoisuus",
+        "eIDAS-muutos, 5 a artiklan 15 ja 21 kohta"
+      ],
+      terms: [["Vapaaehtoisuus","Lompakon käyttämättä jättäminen ei saa heikentää palvelujen saatavuutta."]]
+    },
+    "digihenkkarit-versions": {
+      step: "Miten hanke eteni",
+      tag: "EU:sta Suomeen",
+      title: "Laki tuli voimaan ennen lompakon julkaisua",
+      lead: "EU loi lompakolle yhteiset säännöt. Suomen lait jakoivat viranomaisten tehtävät ja määrittelivät, millä ehdoilla digitaalisen henkilöllisyystodistuksen voi saada.",
+      chart: { rows: [
+        ["Huhtikuu 2024","EU-asetus","Yhteinen kehys digilompakoille"],
+        ["22.6.2026","Eduskunnan toinen käsittely","Lakipaketti hyväksytään"],
+        ["1.10.2026","Lait voimaan","Digitaalisen todistuksen ehdot astuvat voimaan"],
+        ["Loppuvuosi 2027","Suomi.fi:n aikataulu","Lompakon suunniteltu julkaisu"]
+      ] },
+      notes: ["Poliisi tai muu toimivaltainen viranomainen myöntää oikeuden digitaaliseen todistukseen. Digi- ja väestötietovirasto tarjoaa todistuksen lompakkoon ja vastaa Suomi.fi-lompakosta."],
+      more: ["Traficom valvoo lompakon tarjoajia ja pitää rekisteriä lompakkoon luottavista palveluista. Lainsäädännön voimaantulopäivä ja sovelluksen julkaisuaikataulu ovat eri päivämääriä."],
+      sources: [
+        "EU:n eIDAS-muutos 2024/1183",
+        "Eduskunnan pöytäkirja PTK 70/2026 vp, toinen käsittely",
+        "Laki 812/2026, 7 ja 15 §",
+        "Laki 810/2026, 7 ja 16 §",
+        "Digi- ja väestötietovirasto, Suomi.fi-lompakon aikataulu"
+      ],
+      terms: [["eIDAS","EU:n yhteiset säännöt sähköisestä tunnistamisesta, digitaalisista lompakoista ja sähköisistä luottamuspalveluista."]]
+    }
+  }),
   'sports-intro': {
     step: 'Mitä laki muuttaa',
     tag: 'Voimassa 1.7.2026 alkaen',

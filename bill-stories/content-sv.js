@@ -23,7 +23,307 @@ const lotteries = ['Lotterilagen', 'Den lag som de förbud och påföljdsavgifte
 import { currentFrames } from './current-stories.js';
 
 export const frames = {
-  ...currentFrames(1),
+  ...currentFrames(1, {
+    "vuokravakuus-versions": {
+      step: "Varifrån kom 14 dagar?",
+      tag: "Lagtexten",
+      title: "Utkastets 30 dagar blev 14",
+      lead: "Justitieministeriets arbetsgrupp kopplade en längre frist till standardersättning. Efter remissbehandlingen valde regeringen en kortare frist.",
+      chart: { rows: [
+        ["December 2024","Arbetsgruppens betänkande","30 dagar och standardersättning"],
+        ["Mars 2026","Proposition till riksdagen","14 dagar"],
+        ["20.5.2026","Miljöutskottet","14 dagar kvarstår"],
+        ["16.6.2026","Lagen stadfästs","14 dagar kvarstår"]
+      ] },
+      notes: ["Standardersättningen skulle ha betalats efter fristens utgång utan att hyresgästen behövde visa en faktisk skada."],
+      more: ["Regeringen motiverade den kortare fristen med att säkerheten kan vara en stor summa för hyresgästen. Den antagna lagen ger möjlighet till ersättning för skada vid obefogat innehållande."],
+      sources: [
+        "RP 33/2026 rd, avsnitt 6 och motiveringen till 8 §",
+        "Miljöutskottets betänkande YmVM 8/2026 vp, säkerheten",
+        "Lag 531/2026, 8 §"
+      ],
+      terms: [["Standardersättning","Ett på förhand bestämt ersättningsbelopp som inte beror på den exakta skadan."]]
+    },
+    "vuokravakuus-submissions": {
+      step: "Vem ville ha en kortare frist?",
+      tag: "Remissbehandling",
+      title: "Hyresgästernas och hyresvärdarnas företrädare ville olika",
+      lead: "Regeringens sammanfattning av remissvaren visar att både tidsfristen och följderna av ett dröjsmål delade åsikterna.",
+      chart: { rows: [
+        ["Hyresgästernas företrädare","Ville ha en kortare frist. De befarade att 30 dagar i praktiken skulle bli den vanliga väntetiden."],
+        ["Hyresvärdarnas företrädare","Stödde arbetsgruppens frist på 30 dagar."]
+      ] },
+      notes: ["Vissa såg standardersättningen som ett skydd för hyresgästen. Andra ansåg att den kunde bli svår att tolka och leda till fler tvister."],
+      more: ["Regeringen säger att remissvaren låg bakom justeringen. Sammanfattningen visar gruppernas ståndpunkter, medan enskilda yttrandens betydelse för valet är öppen."],
+      sources: [
+        "RP 33/2026 rd, avsnitt 6: remissvaren",
+        "YmVM 8/2026 vp, behandlingen av säkerheten"
+      ],
+      terms: [["Remissbehandling","En fas då ministeriet ber om synpunkter på ett utkast innan regeringen lämnar propositionen."]]
+    },
+    "vuokravakuus-deadline": {
+      step: "Hur räknas dagarna?",
+      tag: "Exempel",
+      title: "Bostaden lämnas tillbaka på måndag, räkningen börjar på tisdag",
+      lead: "Tänk dig att hyresavtalet upphör den 4 oktober 2026 och hyresgästen lämnar tillbaka bostaden nästa dag.",
+      chart: { rows: [
+        ["5.10.2026","Bostaden lämnas tillbaka","Den dagen räknas inte med"],
+        ["6.10.2026","Första dagen","14-dagarsfristen börjar"],
+        ["19.10.2026","Fjortonde dagen","Sista dagen i exemplet"]
+      ] },
+      notes: ["Miljöutskottet förtydligade att räkningen börjar dagen efter att avtalet upphört eller bostaden lämnats tillbaka, om det sker senare."],
+      more: ["Säkerheten ska återbetalas utan dröjsmål. Exemplet visar sista möjliga dag när det saknas ett sakligt hinder för återbetalning eller meddelande."],
+      sources: [
+        "YmVM 8/2026 vp, beräkning av fristen",
+        "Lagen om beräknande av laga tid 150/1930, 2 och 5 §",
+        "Lag 531/2026, 8 §"
+      ],
+      terms: [["Överlåtelse av besittningen","Bostaden lämnas tillbaka till hyresvärden, i praktiken exempelvis genom att lämna över nycklarna."]]
+    },
+    "vuokravakuus-notice-period": {
+      step: "Vad ändrades också?",
+      tag: "Uppsägningstid",
+      title: "Avtalsdagen kan avgöra uppsägningstiden",
+      lead: "Samma reform ändrade uppsägningstiden för tillsvidareavtal när hyresvärden säger upp avtalet.",
+      chart: { rows: [
+        ["Avtal före den 1 oktober 2026","6 månader när hyresförhållandet varat i minst ett år"],
+        ["Nytt avtal från den 1 oktober 2026","4 månader när hyresförhållandet varat i minst två år"]
+      ] },
+      notes: ["I övriga fall är hyresvärdens uppsägningstid tre månader. Hyresgästens uppsägningstid är fortsatt en månad."],
+      more: ["Parterna i ett äldre avtal kan efter ikraftträdandet avtala om att den nya regeln ska gälla. Regeln om återbetalning av säkerheten omfattar också äldre avtal."],
+      sources: [
+        "Lag 531/2026, 52 § och ikraftträdandet",
+        "Justitieministeriets meddelande den 29 september 2026"
+      ],
+      terms: [["Tillsvidareavtal","Ett hyresavtal som löper vidare tills det upphör, till exempel genom uppsägning."]]
+    },
+    "saastovapaa-before-and-after": {
+      step: "Från besked till begäran",
+      tag: "Tidigare och ny regel",
+      title: "Samma fyra månader, annan beslutanderätt",
+      lead: "Utgångspunkten är att arbetstagaren och arbetsgivaren kommer överens. Ändringen gäller vad som händer när de inte kan enas.",
+      chart: { rows: [
+        ["Tidigare 27 §","Arbetstagaren meddelade tidpunkten fyra månader i förväg"],
+        ["Nya 27 a §","Arbetstagaren begär en tidpunkt fyra månader i förväg"]
+      ] },
+      notes: ["Enligt den nya lagen ska arbetsgivaren ge ett motiverat svar inom en månad. En begäran får avslås på de grunder som lagen anger."],
+      more: ["Tidpunkten och rätten att spara dagar regleras var för sig. Enligt 27 § får man i regel spara delen över 24 vardagar. Parterna kan avtala om att spara delen över 18 dagar."],
+      sources: [
+        "Semesterlagen, tidigare 27 § och nya 27 a §",
+        "RP 118/2026 rd, avsnitt 2 och 7"
+      ],
+      terms: [["27 a §","Den nya paragrafen om att avtala om, begära och svara på en tidpunkt för sparad ledighet."]]
+    },
+    "saastovapaa-submissions": {
+      step: "Vad bad remissinstanserna om?",
+      tag: "Yttranden",
+      title: "Rätten att neka delade remissinstanserna",
+      lead: "Regeringens sammanfattning visar hur olika arbetsgivar- och löntagarsidan bedömde utkastet.",
+      chart: { rows: [
+        ["Arbetsgivarsidan","Ville få större rätt att bestämma om tidpunkten. Företagarna i Finland upprepade önskemålet till utskottet i september."],
+        ["FFC","Motsatte sig ändringen. Om den gick igenom ville FFC kräva allvarlig olägenhet och begränsa upprepade avslag."]
+      ] },
+      notes: ["Justitiekanslern påpekade att kravet på att olägenheten inte kunde undvikas med vanliga arbetsarrangemang bara stod i utkastets motivering. I propositionen stod det också i paragrafen."],
+      more: ["Den antagna lagen medger ett avslag vid olägenheter för produktion eller service som vanliga arbetsarrangemang inte kan avvärja, eller när det behövs för en jämlik semesterförläggning."],
+      sources: [
+        "RP 118/2026 rd, avsnitt 6.2: remissvar",
+        "Företagarna i Finlands yttrande den 10 september 2026",
+        "FFC:s yttrande till riksdagen, s. 1–2",
+        "Semesterlagen, 27 a §"
+      ],
+      terms: [["Paragrafmotivering","Regeringens förklaring till varför en viss lagtext föreslås och hur den ska tillämpas."]]
+    },
+    "saastovapaa-decision": {
+      step: "Hur beslutade riksdagen?",
+      tag: "Riksdagsbehandling",
+      title: "Lagpaketet godkändes med rösterna 109–53",
+      lead: "Utskottets majoritet stödde ändringen. Fyra ledamöter föreslog i en reservation att lagförslaget om sparad ledighet skulle förkastas.",
+      chart: { rows: [
+        ["16.6.2026","Regeringens proposition","Ny 27 a §"],
+        ["25.9.2026","Utskottets betänkande","Grunderna för avslag kvarstår"],
+        ["7.10.2026","Andra behandlingen","109 för godkännande, 53 emot"],
+        ["1.1.2027","Ikraftträdande","Den nya regeln om tidpunkten börjar gälla"]
+      ] },
+      notes: ["Enligt reservationen visade propositionen inga belägg för att den tidigare regeln skulle ha orsakat betydande problem."],
+      more: ["Omröstningen gällde om lagförslagen skulle godkännas eller förkastas. Paketet innehöll också fyra andra lagändringar."],
+      sources: [
+        "Arbetslivs- och jämställdhetsutskottets betänkande TyVM 6/2026 vp och reservation",
+        "Riksdagens omröstning den 7 oktober 2026",
+        "Ändringen av semesterlagen 943/2026, ikraftträdande"
+      ],
+      terms: [["Reservation","En avvikande ståndpunkt från utskottsledamöter som publiceras med betänkandet."]]
+    },
+    "saastovapaa-worked-example": {
+      step: "Hur fungerar övergången?",
+      tag: "Exempel",
+      title: "Ledighet i oktober kan följa de gamla reglerna",
+      lead: "En arbetstagare sparade dagar 2026 utan att avtala om datum och vill vara ledig den 4–8 oktober 2027.",
+      chart: { rows: [
+        ["4.6.2027","Sista dagen att meddela tidpunkten i exemplet"],
+        ["4.10.2027","Ledigheten börjar och slutar före den 31 oktober"]
+      ] },
+      notes: ["Det gamla förfarandet kan användas eftersom ledigheten slutar under övergångstiden och kan meddelas fyra månader i förväg."],
+      more: ["Om arbetstagaren vill vara ledig i november gäller det nya förfarandet med en begäran. Datum som parterna redan kom överens om före årsskiftet gäller fortfarande."],
+      sources: [
+        "Semesterlagen, ändring 943/2026 och övergångsbestämmelsen",
+        "RP 118/2026 rd, avsnitt 8: ikraftträdande"
+      ],
+      terms: [["Övergångstid","Här den tid efter ikraftträdandet då det gamla anmälningsförfarandet fortfarande kan användas för viss tidigare sparad ledighet."]]
+    },
+    "yleistuki-old-benefits": {
+      step: "Hur skilde sig de tidigare stöden?",
+      tag: "Före reformen",
+      title: "Samma pension kunde påverka två förmåner på olika sätt",
+      lead: "Partiell förtida ålderspension visar vad som hände när två FPA-förmåner slogs ihop.",
+      chart: { rows: [
+        ["Grunddagpenning","Förmånen var inte behovsprövad. Den här pensionen minskade inte dagpenningen."],
+        ["Arbetsmarknadsstöd","Pensionen räknades vanligen som inkomst. Ett undantag gällde vissa personer som fyllt 55 år."]
+      ] },
+      notes: ["Det allmänna stödet har en egen behovsprövning. Pensionen kunde därför sänka stödet för personer vars tidigare arbetslöshetsförmån var opåverkad."],
+      more: ["Social- och hälsovårdsutskottet tog upp skillnaden när höstens ändring behandlades. Pensionsbeslutet kan återtas inom tre månader från beslutsdagen."],
+      sources: [
+        "StVM 15/2026 vp, utskottets motivering",
+        "Lagen om allmänt stöd 48/2026, 15–17 §",
+        "FPA:s meddelande den 22 oktober 2026, tidigare regler"
+      ],
+      terms: [["Partiell förtida ålderspension","En del av den intjänade arbetspensionen som kan betalas ut före den egentliga ålderspensionen."]]
+    },
+    "yleistuki-pension-cutoff": {
+      step: "Varför flyttades gränsen?",
+      tag: "Från proposition till lag",
+      title: "Utskottet flyttade gränsen för pensionsbeslut till våren",
+      lead: "Regeringen ville undanta pensioner som beviljats innan lagen om allmänt stöd stadfästes. Utskottet valde lagens ikraftträdande som gräns.",
+      chart: { rows: [
+        ["16.1.2026","Regeringens föreslagna gränsdatum"],
+        ["1.5.2026","Utskottets förslag och den antagna lagen"]
+      ] },
+      notes: ["Vid hörandet framkom att informationen nådde pensionssektorn sent. Ett gränsdatum mitt i januari kunde också behandla personer som sökt under samma månad olika."],
+      more: ["Utskottet hänvisade till uppgifterna från de sakkunniga. Den antagna lagen undantar pensionsbeslut som meddelats före maj."],
+      sources: [
+        "RP 124/2026 rd, föreslaget gränsdatum och motivering",
+        "StVM 15/2026 vp, hörande av sakkunniga och ändringsförslag",
+        "Lagen om allmänt stöd, 55 § och ändring 934/2026"
+      ],
+      terms: [["Gränsdatum","Datumet som pensionsbeslutets beslutsdag jämförs med. Ett beslut från den 1 maj omfattas redan av den andra regeln."]]
+    },
+    "yleistuki-pension-votes": {
+      step: "Vad röstade riksdagen om?",
+      tag: "Två olika beslut",
+      title: "Först valdes lagtexten, sedan godkändes ändringen",
+      lead: "Pensionsändringen gick till omröstning både vid första och andra behandlingen. Ja och nej hade olika innebörd de två dagarna.",
+      chart: { rows: [
+        ["16.10.2026","Grund för behandlingen","93 för betänkandet, 81 för reservationens förslag"],
+        ["21.10.2026","Godkännande","127 för, 48 emot"],
+        ["2.11.2026","Ikraftträdande","Tillämpas retroaktivt från den 1 maj 2026"]
+      ] },
+      notes: ["Ett ja den 16 oktober betydde stöd för utskottets betänkande. Vid omröstningen den 21 oktober betydde ja att godkänna lagförslaget."],
+      more: [
+        "I reservationen föreslogs att partiell förtida ålderspension alltid skulle undantas från behovsprövningen. Reservanterna hänvisade till målen för pensionsreformen 2017.",
+        "Undantaget som riksdagen godkände beror på pensionsbeslutets datum. FPA tillämpar det retroaktivt från det att det allmänna stödet infördes."
+      ],
+      sources: [
+        "Omröstning vid första behandlingen den 16 oktober 2026",
+        "Omröstning vid andra behandlingen den 21 oktober 2026",
+        "StVM 15/2026 vp, reservationens förslag",
+        "Social- och hälsovårdsministeriets meddelande den 29 oktober 2026"
+      ],
+      terms: [["Retroaktiv tillämpning","Ändringen tillämpas även för en period före den dag då den träder i kraft."]]
+    },
+    "yleistuki-pension-example": {
+      step: "Vilket datum avgör?",
+      tag: "Exempel",
+      title: "Två pensioner från juni kan behandlas olika",
+      lead: "Tänk dig två personer vars partiella pension börjar i juni. Deras beslut har meddelats olika dagar.",
+      chart: { rows: [
+        ["Beslut den 30 april 2026","Pensionen undantas från behovsprövningen"],
+        ["Beslut den 5 maj 2026","Pensionen räknas som inkomst vid behovsprövningen"]
+      ] },
+      notes: ["Pensionsbeslutets datum avgör. Utbetalningarna kan börja samma månad i båda fallen."],
+      more: ["Den 11 november 2026 meddelade FPA att myndigheten hade rättat omkring 3 000 stödbeslut. Rättelsen gjordes automatiskt för dem vars pension omfattades av undantaget men hade räknats som inkomst."],
+      sources: [
+        "FPA:s meddelande om rättade beslut den 11 november 2026",
+        "Lagen om allmänt stöd, 55 §"
+      ],
+      terms: [["Rättelse","FPA ändrar ett tidigare beslut och betalar ut en eventuell mellanskillnad."]]
+    },
+    "digihenkkarit-age-proof": {
+      step: "Vad får tjänsten veta?",
+      tag: "Dataskydd",
+      title: "En tjänst kan kontrollera åldersgränsen utan födelsedatum",
+      lead: "Tänk dig att en tjänst bara behöver veta om användaren är myndig. Ett åldersbevis kan svara på just den frågan.",
+      chart: { rows: [
+        ["Tjänsten kontrollerar identiteten","Kan behöva namn och andra identifieringsuppgifter"],
+        ["Tjänsten kontrollerar åldersgränsen","Åldersbeviset kan visa att användaren har fyllt 18 år"]
+      ] },
+      notes: ["Åldersbeviset härleds från uppgifter som en myndighet har bekräftat. EU-förordningen kräver att uppgifter kan delas selektivt ur plånboken."],
+      more: ["En nättjänst som vill ta emot uppgifter från plånboken registrerar sitt syfte och uppger vilka uppgifter den tänker begära."],
+      sources: [
+        "Lag 812/2026, 2 och 4 §",
+        "EU:s eIDAS-ändring, artikel 5a.4 och 5b",
+        "Förvaltningsutskottets betänkande HaVM 15/2026 vp, minderåriga"
+      ],
+      terms: [["Selektiv delning","Att bara visa den del av uppgifterna i ett bevis som tjänsten behöver."]]
+    },
+    "digihenkkarit-age-limit": {
+      step: "Varifrån kom 13-årsgränsen?",
+      tag: "Minderåriga",
+      title: "Från 13 år kan man aktivera plånboken på egen hand",
+      lead: "EU:s plånboksregler anger ingen åldersgräns för aktivering. Finlands regering föreslog 13 år och förvaltningsutskottet stödde regeln.",
+      chart: { rows: [
+        ["Från 13 år","Den unga kan ta plånboken i bruk självständigt."],
+        ["Under 13 år","En vårdnadshavares samtycke krävs."]
+      ] },
+      notes: ["Regeringen jämförde med dataskyddslagens 13-årsgräns för barns samtycke i informationssamhällets tjänster."],
+      more: ["Enligt utskottet kan åldersbevis göra användningen tryggare. För en tjänst kan det räcka att veta att användaren hör till en viss åldersgrupp."],
+      sources: [
+        "Lag 810/2026, 10 §",
+        "RP 17/2026 rd, motiveringen till 10 § och remissvar",
+        "HaVM 15/2026 vp, minderåriga"
+      ],
+      terms: [["Aktivering","Här att ta plånboken i bruk. Enskilda tjänster kan ha egna åldersgränser."]]
+    },
+    "digihenkkarit-accessibility": {
+      step: "Vad händer om man behöver hjälp?",
+      tag: "Tillgänglighet",
+      title: "Utskotten tog upp assistans och andra sätt att få tillgång till tjänster",
+      lead: "Diskrimineringsombudsmannen uppmärksammade under remissen personer som behöver hjälp av en assistent för att använda plånboken.",
+      chart: { rows: [
+        ["Grundlagsutskottet","Ville trygga ett annat digitalt sätt att sköta ärenden åtminstone hos myndigheter."],
+        ["Förvaltningsutskottet","Hänvisade till EU:s krav på tillgänglighet, frivillighet och att andra identifieringssätt ska finnas kvar."]
+      ] },
+      notes: ["Frågan väcktes eftersom plånboken enligt reglerna är personlig och ska användas omsorgsfullt."],
+      more: ["Enligt EU-förordningen ska den som avstår från plånboken kunna använda offentliga och privata tjänster med andra befintliga identifieringssätt."],
+      sources: [
+        "RP 17/2026 rd, avsnitt 6 och 12.1",
+        "Grundlagsutskottets utlåtande PeVL 32/2026 vp, punkterna 21–23",
+        "HaVM 15/2026 vp, tillgänglighet och frivillighet",
+        "eIDAS-ändringen, artikel 5a.15 och 5a.21"
+      ],
+      terms: [["Frivillighet","Den som väljer att avstå från plånboken ska ha samma tillgång till tjänster."]]
+    },
+    "digihenkkarit-versions": {
+      step: "Hur gick projektet vidare?",
+      tag: "Från EU till Finland",
+      title: "Lagen trädde i kraft före lanseringen av plånboken",
+      lead: "EU slog fast gemensamma regler för plånboken. Finlands lagar fördelade myndigheternas uppgifter och angav villkoren för det digitala identitetsbeviset.",
+      chart: { rows: [
+        ["April 2024","EU-förordningen","Gemensamma regler för plånböcker"],
+        ["22.6.2026","Riksdagens andra behandling","Lagpaketet godkänns"],
+        ["1.10.2026","Lagarna träder i kraft","Villkoren för det digitala beviset börjar gälla"],
+        ["Slutet av 2027","Suomi.fi:s tidsplan","Planerad lansering av plånboken"]
+      ] },
+      notes: ["Polisen eller en annan behörig myndighet beviljar rätten till det digitala beviset. Myndigheten för digitalisering och befolkningsdata erbjuder beviset i plånboken och ansvarar för Suomi.fi-plånboken."],
+      more: ["Traficom övervakar leverantörer av plånböcker och för register över tjänster som använder dem. Lagens ikraftträdande och appens lansering har skilda tidtabeller."],
+      sources: [
+        "EU:s eIDAS-ändring 2024/1183",
+        "Riksdagens protokoll PTK 70/2026 vp, andra behandlingen",
+        "Lag 812/2026, 7 och 15 §",
+        "Lag 810/2026, 7 och 16 §",
+        "Myndigheten för digitalisering och befolkningsdata, tidsplanen för Suomi.fi-plånboken"
+      ],
+      terms: [["eIDAS","EU:s gemensamma regler för elektronisk identifiering, digitala plånböcker och betrodda tjänster."]]
+    }
+  }),
   'sports-intro': {
     step: 'Vad ändras i lagen',
     tag: 'Gäller sedan 1 juli 2026',

@@ -1,7 +1,307 @@
 import { currentFrames } from './current-stories.js';
 
 export const frames = {
-  ...currentFrames(2),
+  ...currentFrames(2, {
+    "vuokravakuus-versions": {
+      step: "Where 14 days came from",
+      tag: "Draft to law",
+      title: "The draft’s 30 days became 14",
+      lead: "A Ministry of Justice working group paired a longer deadline with standard compensation. After consultation, the government chose a shorter deadline.",
+      chart: { rows: [
+        ["December 2024","Working group report","30 days and standard compensation"],
+        ["March 2026","Bill introduced","14 days"],
+        ["20 May 2026","Environment Committee","14 days retained"],
+        ["16 June 2026","Act signed","14 days retained"]
+      ] },
+      notes: ["The proposed standard compensation would have become payable after the deadline without proof of actual loss."],
+      more: ["The government argued that the deposit can be a substantial sum for a tenant. The enacted law allows compensation for loss caused by unjustified withholding."],
+      sources: [
+        "Government bill, section 6 and reasons for section 8",
+        "Environment Committee report YmVM 8/2026, deposit section",
+        "Act 531/2026, section 8"
+      ],
+      terms: [["Standard compensation","A set payment that does not depend on the exact loss suffered."]]
+    },
+    "vuokravakuus-submissions": {
+      step: "Who wanted a shorter deadline",
+      tag: "Consultation",
+      title: "Tenant and landlord representatives backed different deadlines",
+      lead: "The government’s summary records disagreement about how long landlords should have and what should happen when repayment is late.",
+      chart: { rows: [
+        ["Tenant representatives","Favoured a shorter period. They feared that 30 days would become the usual wait."],
+        ["Landlord representatives","Supported the working group’s 30-day deadline."]
+      ] },
+      notes: ["Some respondents saw standard compensation as protection for tenants. Others argued that it would be difficult to interpret and could generate disputes."],
+      more: ["The government says it revised the bill following the consultation. Its summary records the positions of groups. The part played by any one submission remains open."],
+      sources: [
+        "Government bill, section 6: consultation feedback",
+        "Environment Committee report, deposit section"
+      ],
+      terms: [["Consultation","A stage when a ministry asks for feedback on a draft before the government introduces a bill."]]
+    },
+    "vuokravakuus-deadline": {
+      step: "How the days are counted",
+      tag: "Worked example",
+      title: "A Monday handover makes Tuesday day one",
+      lead: "Imagine the lease ends on 4 October 2026 and the tenant hands the property back the next day.",
+      chart: { rows: [
+        ["5 October 2026","Property handed back","The handover day is excluded"],
+        ["6 October 2026","Day one","The 14-day count starts"],
+        ["19 October 2026","Day fourteen","Last day in this example"]
+      ] },
+      notes: ["The Environment Committee clarified that the count begins the day after the lease ends or the property is handed back, if later."],
+      more: ["The deposit is due without delay. The date in the example is the outer limit where there is no valid obstacle to repayment or notice."],
+      sources: [
+        "Environment Committee report, how to count the days",
+        "Time Limits Act 150/1930, sections 2 and 5",
+        "Act 531/2026, section 8"
+      ],
+      terms: [["Handing back possession","Returning the property to the landlord’s control, for example by handing back the keys."]]
+    },
+    "vuokravakuus-notice-period": {
+      step: "What else changed",
+      tag: "Notice periods",
+      title: "The date a lease was signed can change the notice period",
+      lead: "The same reform changed notice periods when landlords end open-ended leases.",
+      chart: { rows: [
+        ["Lease signed before 1 October 2026","6 months if the tenancy has lasted at least one year"],
+        ["New lease from 1 October 2026","4 months if the tenancy has lasted at least two years"]
+      ] },
+      notes: ["In other cases, the landlord gives three months’ notice. The tenant’s notice period remains one month."],
+      more: ["Parties to an older lease can agree to apply the new notice rule after the law comes into force. The deposit repayment rule already covers older leases."],
+      sources: [
+        "Act 531/2026, section 52 and commencement provision",
+        "Ministry of Justice announcement, 29 September 2026"
+      ],
+      terms: [["Open-ended lease","A lease that continues until it ends, for example when one party gives notice."]]
+    },
+    "saastovapaa-before-and-after": {
+      step: "Notice becomes a request",
+      tag: "Previous and new rules",
+      title: "The four-month deadline stays and employers gain a say",
+      lead: "The starting point has been for the worker and employer to agree on dates. The amendment changes what happens when they cannot agree.",
+      chart: { rows: [
+        ["Former section 27","The worker gave four months’ notice of the dates"],
+        ["New section 27a","The worker requests the dates four months ahead"]
+      ] },
+      notes: ["The employer must now give a reasoned reply within a month. The law specifies the grounds on which the employer can refuse."],
+      more: ["Saving days and choosing dates are governed separately. Section 27 generally lets workers save leave above 24 weekdays. The parties can agree to save the part above 18 days."],
+      sources: [
+        "Annual Holidays Act, former section 27 and new section 27a",
+        "Government bill, sections 2 and 7"
+      ],
+      terms: [["Section 27a","The new section on agreeing, requesting and responding to dates for carried-over leave."]]
+    },
+    "saastovapaa-submissions": {
+      step: "What respondents asked for",
+      tag: "Consultation",
+      title: "The right to refuse divided respondents",
+      lead: "The government’s consultation summary records different views from employer and employee representatives.",
+      chart: { rows: [
+        ["Employer representatives","Wanted greater control over dates. The Federation of Finnish Enterprises repeated that position to the committee in September."],
+        ["SAK","Opposed the change. If it passed, SAK wanted a serious disruption threshold and a limit on repeated refusals."]
+      ] },
+      notes: ["The Chancellor of Justice noted that the draft put the ordinary work arrangements requirement in the explanatory text. The bill put it in the section itself."],
+      more: ["The final law permits refusal where ordinary work arrangements cannot avoid disruption to production or services, or where fair scheduling of holidays and carried-over leave would be prevented."],
+      sources: [
+        "Government bill, section 6.2: consultation feedback",
+        "Federation of Finnish Enterprises submission, 10 September 2026",
+        "SAK submission to Parliament, pp. 1–2",
+        "Annual Holidays Act, section 27a"
+      ],
+      terms: [["Reasons for a section","The government’s explanation of why it chose particular wording and how it intends the section to work."]]
+    },
+    "saastovapaa-decision": {
+      step: "How Parliament decided",
+      tag: "Parliament",
+      title: "The package passed 109–53",
+      lead: "The committee majority backed the change. Four MPs filed a dissent asking Parliament to reject the bill on carried-over leave.",
+      chart: { rows: [
+        ["16 June 2026","Government bill","New section 27a"],
+        ["25 September 2026","Committee report","Grounds for refusal retained"],
+        ["7 October 2026","Second reading","109 for approval, 53 against"],
+        ["1 January 2027","Commencement","New rule on dates takes effect"]
+      ] },
+      notes: ["The dissent argued that the bill did not establish that the earlier system had caused significant problems."],
+      more: ["The vote was on passing or rejecting the bills. The package included four amendments to other laws alongside the Annual Holidays Act."],
+      sources: [
+        "Employment and Equality Committee report TyVM 6/2026 and dissent",
+        "Parliamentary vote, 7 October 2026",
+        "Annual Holidays Act amendment 943/2026, commencement"
+      ],
+      terms: [["Dissent","An alternative position by committee members, published with the committee’s report."]]
+    },
+    "saastovapaa-worked-example": {
+      step: "How the transition works",
+      tag: "Worked example",
+      title: "October leave can still follow the old rule",
+      lead: "A worker saved days in 2026 without agreeing dates and wants to take them on 4–8 October 2027.",
+      chart: { rows: [
+        ["4 June 2027","Last notification day in this example"],
+        ["4 October 2027","Leave starts and ends before 31 October"]
+      ] },
+      notes: ["The worker can use the old notice procedure because the leave ends within the transition period and they can give four months’ notice."],
+      more: ["For leave in November, the new request procedure applies. Dates already agreed before the year ends remain as agreed."],
+      sources: [
+        "Annual Holidays Act amendment 943/2026, transition provision",
+        "Government bill, section 8: commencement"
+      ],
+      terms: [["Transition period","Here, the time after the change takes effect during which some previously saved leave can still follow the old notice rule."]]
+    },
+    "yleistuki-old-benefits": {
+      step: "How the old benefits differed",
+      tag: "Before the reform",
+      title: "The same pension could affect two benefits differently",
+      lead: "A partial early old-age pension illustrates what changed when two Kela benefits became one.",
+      chart: { rows: [
+        ["Basic unemployment allowance","There was no means test. This pension did not reduce the allowance."],
+        ["Labour market subsidy","The pension generally counted as income. An exception applied to some people aged 55 or over."]
+      ] },
+      notes: ["The new benefit has a means test. This pension could reduce it for people whose previous unemployment benefit was unaffected."],
+      more: ["The Social Affairs and Health Committee pointed to this difference when it considered the autumn amendment. Pension recipients have three months from the date of the decision to cancel it."],
+      sources: [
+        "Social Affairs and Health Committee report StVM 15/2026, reasons",
+        "General Social Security Benefit Act, sections 15–17",
+        "Kela announcement, 22 October 2026, previous benefit rules"
+      ],
+      terms: [["Partial early old-age pension","Part of an accrued earnings-related pension that can be paid before the person takes their full old-age pension."]]
+    },
+    "yleistuki-pension-cutoff": {
+      step: "Why the cutoff moved",
+      tag: "Bill to law",
+      title: "The committee moved the pension cutoff to May",
+      lead: "The government proposed protecting pension decisions issued before the benefit law was signed. The committee used the date the law took effect.",
+      chart: { rows: [
+        ["16 January 2026","Cutoff in the government bill"],
+        ["1 May 2026","Cutoff in the committee report and enacted law"]
+      ] },
+      notes: ["Experts told the committee that pension providers learned of the impact late. A mid-January cutoff could also treat people who applied in the same month differently."],
+      more: ["The committee cited evidence from its hearings when it moved the cutoff. The enacted exception covers pension decisions issued before May."],
+      sources: [
+        "Government bill HE 124/2026, proposed cutoff and reasons",
+        "Committee report StVM 15/2026, expert evidence and proposed amendment",
+        "General Social Security Benefit Act, section 55 and amendment 934/2026"
+      ],
+      terms: [["Cutoff date","The date used to compare pension decisions. A decision issued on 1 May falls on the later side of the cutoff."]]
+    },
+    "yleistuki-pension-votes": {
+      step: "What Parliament voted on",
+      tag: "Two votes",
+      title: "Parliament chose the wording, then passed the change",
+      lead: "MPs voted on the pension amendment at both readings. A yes vote meant something different each day.",
+      chart: { rows: [
+        ["16 October 2026","Basis for consideration","93 for the committee report, 81 for the dissenting proposal"],
+        ["21 October 2026","Pass the bill","127 in favour, 48 against"],
+        ["2 November 2026","Commencement","Applies retroactively from 1 May 2026"]
+      ] },
+      notes: ["On 16 October a yes vote backed the committee report. On 21 October it meant passing the bill."],
+      more: [
+        "The dissent proposed excluding partial early old-age pensions from the means test altogether. Its authors pointed to the aims of the 2017 pension reform.",
+        "The exception Parliament passed depends on the date of the pension decision. Kela applies it retroactively from the day the new benefit started."
+      ],
+      sources: [
+        "First-reading vote, 16 October 2026",
+        "Second-reading vote, 21 October 2026",
+        "Committee report StVM 15/2026, dissenting proposal",
+        "Ministry of Social Affairs and Health announcement, 29 October 2026"
+      ],
+      terms: [["Retroactive application","Applying an amendment to a period before it came into force."]]
+    },
+    "yleistuki-pension-example": {
+      step: "Which date matters",
+      tag: "Worked example",
+      title: "Two pensions starting in June can be treated differently",
+      lead: "Imagine two people start drawing partial pensions in June. Their pension decisions were issued on different dates.",
+      chart: { rows: [
+        ["Decision on 30 April 2026","The pension is excluded from the means test"],
+        ["Decision on 5 May 2026","The pension counts as income under the means test"]
+      ] },
+      notes: ["The date the pension decision was issued determines the outcome. Payments can start in the same month in both cases."],
+      more: ["On 11 November 2026 Kela reported correcting about 3,000 benefit decisions. It made the corrections automatically where a pension covered by the exception had counted as income."],
+      sources: [
+        "Kela announcement on corrected decisions, 11 November 2026",
+        "General Social Security Benefit Act, section 55"
+      ],
+      terms: [["Correction","Kela revises an earlier decision and pays any amount owed."]]
+    },
+    "digihenkkarit-age-proof": {
+      step: "What a service receives",
+      tag: "Privacy",
+      title: "A service can check the age limit without a date of birth",
+      lead: "Imagine a service only needs to know whether its user is an adult. The proof of age can answer that specific question.",
+      chart: { rows: [
+        ["Service checks identity","It may need a name and other identifying details"],
+        ["Service checks the age limit","Proof of age can show the user is 18 or over"]
+      ] },
+      notes: ["The age proof is derived from information the authorities have verified. EU rules require wallets to support selective disclosure."],
+      more: ["An online service that wants to receive wallet data registers its intended use and specifies the information it plans to request."],
+      sources: [
+        "Digital Identity Document Act, sections 2 and 4",
+        "EU eIDAS amendment, articles 5a(4) and 5b",
+        "Administration Committee report HaVM 15/2026, minors"
+      ],
+      terms: [["Selective disclosure","Sharing only part of the information in a credential with a service."]]
+    },
+    "digihenkkarit-age-limit": {
+      step: "Where the age of 13 came from",
+      tag: "Minors",
+      title: "Children can set up the wallet themselves from age 13",
+      lead: "The EU wallet rules leave the setup age to national rules. Finland’s government proposed 13 and the Administration Committee supported it.",
+      chart: { rows: [
+        ["Aged 13 and over","A young person can set up the wallet independently."],
+        ["Under 13","A guardian’s consent is required for setup."]
+      ] },
+      notes: ["The government drew on the Data Protection Act’s age of 13 for a child’s consent to online services."],
+      more: ["The committee saw age credentials as a way to support safer use. For some services all that matters is whether the user is in a particular age group."],
+      sources: [
+        "Act 810/2026, section 10",
+        "Government bill, reasons for section 10 and consultation feedback",
+        "Administration Committee report, minors"
+      ],
+      terms: [["Setup","Activating the wallet. Individual services can have their own age limits."]]
+    },
+    "digihenkkarit-accessibility": {
+      step: "What if someone needs help",
+      tag: "Accessibility",
+      title: "Committees examined personal assistance and other ways to access services",
+      lead: "In consultation, the Non-Discrimination Ombudsman drew attention to people who need a personal assistant to use the wallet.",
+      chart: { rows: [
+        ["Constitutional Law Committee","Wanted an alternative digital route to be available at least for public authorities’ services."],
+        ["Administration Committee","Pointed to EU rules on accessibility, voluntary use and keeping other identification methods available."]
+      ] },
+      notes: ["The issue came up because the wallet rules require careful use and make it personal to the holder."],
+      more: ["Under EU rules, people who choose to go without a wallet must still be able to access public and private services through existing identification methods."],
+      sources: [
+        "Government bill, sections 6 and 12.1",
+        "Constitutional Law Committee opinion PeVL 32/2026, paragraphs 21–23",
+        "Administration Committee report, accessibility and voluntary use",
+        "eIDAS amendment, articles 5a(15) and 5a(21)"
+      ],
+      terms: [["Voluntary use","Going without the wallet must leave people with the same access to services."]]
+    },
+    "digihenkkarit-versions": {
+      step: "How the project progressed",
+      tag: "EU to Finland",
+      title: "The law took effect ahead of the wallet launch",
+      lead: "The EU set common rules for wallets. Finland’s laws assigned responsibilities and laid down the conditions for getting a digital ID.",
+      chart: { rows: [
+        ["April 2024","EU regulation","Common framework for wallets"],
+        ["22 June 2026","Parliament’s second reading","Legislative package passed"],
+        ["1 October 2026","Laws take effect","Rules for the digital ID come into force"],
+        ["Late 2027","Suomi.fi schedule","Planned wallet launch"]
+      ] },
+      notes: ["The police or another competent authority grants the right to a digital ID. The Digital and Population Data Services Agency provides the credential for the wallet and runs the Suomi.fi wallet."],
+      more: ["Traficom supervises wallet providers and keeps a register of services that rely on them. The law’s commencement and the app’s scheduled release are separate milestones."],
+      sources: [
+        "EU eIDAS amendment 2024/1183",
+        "Parliament minutes PTK 70/2026, second reading",
+        "Digital Identity Document Act, sections 7 and 15",
+        "Act 810/2026, sections 7 and 16",
+        "Digital and Population Data Services Agency, Suomi.fi wallet schedule"
+      ],
+      terms: [["eIDAS","The EU’s shared rules for electronic identification, digital wallets and electronic trust services."]]
+    }
+  }),
   "sports-intro": {
     "step": "What the law does",
     "tag": "In force since 1 July 2026",
