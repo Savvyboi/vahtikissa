@@ -3,6 +3,7 @@ import { foldFilterToolbars } from './filter-panels.js';
 const english={'Ohjelmia ei voitu ladata':'The platforms could not be loaded','Tarkista verkkoyhteys ja yritä uudelleen.':'Check your connection and try again.','Yritä uudelleen':'Try again','Puolueohjelmat':'Party platforms','Puolueiden tavoitteet':'Party priorities','Mitä eduskuntapuolueet lupaavat? Tutustu vaali- ja periaateohjelmiin alkuperäisessä lähteessä.':'What do parliamentary parties promise? Read their election platforms and principles in the original source.','Tarkistettu':'Checked','Haku':'Search','Puolue tai ohjelma…':'Party or platform…','Ohjelmatyyppi':'Platform type','Kaikki ohjelmat':'All platforms','Ohjelman kieli':'Document language','Kaikki kielet':'All languages','Vaaliohjelma':'Election platform','Periaate- ja yleisohjelma':'Principles and general platform','Tavoiteohjelma':'Policy platform','edustajaa':'MPs','puoluetta':'parties','ohjelmaa':'platforms','Puolueen toiminta eduskunnassa':'Party activity in Parliament','Ei ohjelmia valituilla rajauksilla.':'No platforms match these filters.','Yhteiskuntatieteellinen tietoarkisto':'Finnish Social Science Data Archive'};
 import { fetchJSONWithTimeout } from './app-utils.js';
 import { preserveFocus } from './collection-tools.js';
+import { programmePartyFromHash } from './civic-utils.js';
 let data;
 const state = { query:'', type:'all', language:'all', party:'all' };
 export async function renderProgrammes(root,lang,escapeHTML) {
@@ -10,7 +11,7 @@ export async function renderProgrammes(root,lang,escapeHTML) {
   try {
     if(!data)data=await fetchJSONWithTimeout('./data/programmes.json');
     if(requested!==location.hash||document.documentElement.lang!==lang||root.dataset.view==='simple')return;
-    state.party=new URLSearchParams(requested.split('?')[1]||'').get('party')||'all';
+    state.party=programmePartyFromHash(requested,data.parties);
     draw();root.setAttribute('aria-busy','false');
   } catch(error) {
     if(requested!==location.hash||document.documentElement.lang!==lang||root.dataset.view==='simple')return;

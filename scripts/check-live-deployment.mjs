@@ -74,6 +74,7 @@ export const DEPLOYMENT_FILES = Object.freeze([
   'programmes-app.js',
   'assets/cat-logo.svg',
   'data/parliament/core.json',
+  'data/parliament/overview.json',
   'data/budget.json',
   'data/elections-2023.json',
   'data/campaign-finance.json',

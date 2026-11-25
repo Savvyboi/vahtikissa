@@ -4,6 +4,7 @@ import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
+import { policyTopicKeys } from '../app-utils.js';
 const require = createRequire(import.meta.url);
 const port = process.env.PERFORMANCE_TEST_PORT || '4202';
 const url = process.env.BROWSER_TEST_URL || `http://localhost:${port}`;
@@ -42,11 +43,15 @@ try {
         blockingMs: Math.round(longTasks.reduce((total, duration) => total + Math.max(0, duration - 50), 0))
       }));
       assert.ok(metrics.dataBytes < sourceBytes * .15, `Home payload must stay below 15% of the complete snapshot: ${metrics.dataBytes}`);
+      assert.ok(metrics.dataBytes < 70_000, `Both home views have a 70 KB data budget: ${metrics.dataBytes}`);
+      assert.ok(requests.includes('/data/parliament/overview.json'));
+      assert.ok(!requests.includes('/data/parliament/core.json'), 'Home must keep the full vote index lazy');
       assert.ok(!requests.some(path => /parliament\.json|speech-search|speech-texts|\/parliament\/(speeches|member-|vote-)/.test(path)), 'The home page must not request complete or scoped detail collections');
       if (view === 'full') {
         assert.ok(metrics.scriptBytes < 230000, `Detailed home JavaScript budget: ${metrics.scriptBytes}`);
         assert.ok(!requests.some(path => /\/(simple-mode|simple-civic|civic-apps|programmes-app|member-insights)\.js$/.test(path)), 'Page-specific modules must remain lazy');
       }
+      assert.ok(!requests.some(path => /\/(simple-civic|member-insights|campaign-finance-app)\.js$/.test(path)), 'Both home views defer modules for civic and member pages');
       console.log(JSON.stringify({ viewport: viewport.width, view, ...metrics }));
       const arrow = page.locator('.back-to-top');
       assert.equal(await arrow.isVisible(), false, 'Arrow stays hidden at the top');
@@ -83,6 +88,15 @@ try {
       await page.emulateMedia({ reducedMotion: 'reduce' });
       await page.locator('.theme-select').selectOption('light');
       await page.locator('.language-select').selectOption('fi');
+      if (view === 'simple') {
+        const topic = 'agriculture';
+        const expected = [...source.votes].sort((a, b) => b.date.localeCompare(a.date))
+          .filter(vote => policyTopicKeys(vote).includes(topic)).slice(0, 3)
+          .map(vote => '#/votes/' + encodeURIComponent(vote.id));
+        await page.locator('[data-easy-home-topic]').selectOption(topic);
+        assert.deepEqual(await page.locator('[data-easy-latest] h3 a').evaluateAll(links => links.map(link => link.getAttribute('href'))), expected);
+        assert.ok(!requests.includes('/data/parliament/core.json'), 'Changing the home topic must stay local');
+      }
     }
     // Details must request their own small shard, without pulling all ballots/speech metadata.
     for (const route of [`votes/${encodeURIComponent(source.votes[0].id)}`, `members/${encodeURIComponent(source.members[0].id)}`]) {
@@ -100,6 +114,13 @@ try {
   const recovery = await recoveryContext.newPage();
   await recovery.goto(url + '/?view=full#/overview');
   await recovery.locator('main[aria-busy="false"] h1').waitFor();
+  const filters = recovery.locator('[data-filter-panel="collection-overview-votes"]');
+  const archive = recovery.waitForResponse(response => new URL(response.url()).pathname === '/data/parliament/core.json');
+  await filters.locator('summary').first().click();
+  assert.ok((await archive).ok());
+  const query = filters.locator('[data-tool="query"]');
+  await query.fill(source.votes.at(-1).document);
+  await recovery.locator(`main .table-wrap a[href="#/votes/${encodeURIComponent(source.votes.at(-1).id)}"]`).first().waitFor();
   const failurePattern = '**/data/parliament/vote-0.json?*';
   await recovery.route(failurePattern, route => route.abort('failed'));
   const voteHash = '#/votes/' + encodeURIComponent(source.votes[0].id);

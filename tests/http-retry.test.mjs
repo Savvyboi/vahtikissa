@@ -41,3 +41,24 @@ test('Parliament retries stay bounded and non-retryable errors stop immediately'
     assert.deepEqual(waits, expectedWaits);
   }
 });
+
+test('Parliament dataset downloads retry transient HTTP failures and interrupted bodies', async () => {
+  const waits = [], calls = [];
+  const downloadUrl = 'https://example.test/downloads/result.jsonl?token=fixture';
+  const interruptedBody = new ReadableStream({
+    start(controller) { controller.error(new Error('Connection closed')); }
+  });
+  const responses = [
+    new Response('', { status: 503 }),
+    new Response(interruptedBody),
+    new Response('{"record":1}\n')
+  ];
+  const request = createParliamentRequest({
+    fetcher: async url => { calls.push(url); return responses.shift(); },
+    wait: async ms => { waits.push(ms); }
+  });
+  const text = await request('dataset download for votes', { downloadUrl }, 3);
+  assert.equal(text, '{"record":1}\n');
+  assert.deepEqual(calls, [downloadUrl, downloadUrl, downloadUrl]);
+  assert.deepEqual(waits, [700, 1400]);
+});

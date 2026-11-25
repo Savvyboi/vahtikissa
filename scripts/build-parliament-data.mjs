@@ -1,9 +1,29 @@
 import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
+import { policyTopicKeys } from '../app-utils.js';
 
 const source = new URL('../data/parliament.json', import.meta.url);
 const committees = new URL('../data/committee-index.json', import.meta.url);
 const output = new URL('../data/parliament/', import.meta.url);
+
+function overviewVotes(votes) {
+  const byDate = new Intl.Collator('fi', { numeric: true, sensitivity: 'base' });
+  const latest = [...votes].sort((a, b) => byDate.compare(b.date || '', a.date || ''));
+  const selected = new Set(latest.slice(0, 8));
+  const byTopicDate = [...votes].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  byTopicDate.slice(0, 3).forEach(vote => selected.add(vote));
+  const topicCounts = new Map();
+  // Keep the three newest votes per topic even if they fall outside the main list.
+  for (const vote of byTopicDate) {
+    for (const topic of policyTopicKeys(vote)) {
+      const count = topicCounts.get(topic) || 0;
+      if (count === 3) continue;
+      topicCounts.set(topic, count + 1);
+      selected.add(vote);
+    }
+  }
+  return [...selected];
+}
 
 // Keep the original snapshot for validation/exports; derive smaller browser payloads.
 export function parliamentChunks(data, committeeIndex = {}) {
@@ -33,6 +53,7 @@ export function parliamentChunks(data, committeeIndex = {}) {
   }
   const mattersById = new Map(legislation.map(matter => [matter.id, matter]));
   const chunks = new Map([
+    ['overview.json', { metadata: data.metadata, votes: overviewVotes(votes) }],
     ['core.json', { metadata: data.metadata, votes: data.votes, members: data.members, parties: data.parties, sessions: data.sessions,
       voteCommittees: Object.fromEntries([...new Set(votes.map(vote => vote.document))].filter(id => committeeIndex.matters?.[id]).map(id => [id, committeeIndex.matters[id]])) }],
     ['speeches.json', { snapshot, speeches: data.speeches }],
@@ -51,18 +72,22 @@ export function parliamentChunks(data, committeeIndex = {}) {
 export async function buildParliamentData({ force = false } = {}) {
   if (!force) {
     try {
-      const [core, raw, committee, builder] = await Promise.all([stat(new URL('core.json', output)), stat(source), stat(committees), stat(new URL(import.meta.url))]);
-      if (core.mtimeMs >= Math.max(raw.mtimeMs, committee.mtimeMs, builder.mtimeMs)) return;
+      const [core, overview, raw, committee, builder, topics] = await Promise.all([
+        stat(new URL('core.json', output)), stat(new URL('overview.json', output)), stat(source), stat(committees),
+        stat(new URL(import.meta.url)), stat(new URL('../app-utils.js', import.meta.url))
+      ]);
+      if (Math.min(core.mtimeMs, overview.mtimeMs) >= Math.max(raw.mtimeMs, committee.mtimeMs, builder.mtimeMs, topics.mtimeMs)) return;
     } catch (error) { if (error.code !== 'ENOENT') throw error; }
   }
   const [data, index] = await Promise.all([readFile(source, 'utf8').then(JSON.parse), readFile(committees, 'utf8').then(JSON.parse)]);
   const chunks = parliamentChunks(data, index);
   await mkdir(output, { recursive: true });
-  const entries = [...chunks].filter(([name]) => name !== 'core.json');
+  const entries = [...chunks].filter(([name]) => name !== 'core.json' && name !== 'overview.json');
   for (let start = 0; start < entries.length; start += 32) {
     await Promise.all(entries.slice(start, start + 32).map(([name, payload]) => writeFile(new URL(name, output), JSON.stringify(payload))));
   }
-  // Write the entry point last so an interrupted build is regenerated next time.
+  // Write the entry points last so an interrupted build is regenerated next time.
+  await writeFile(new URL('overview.json', output), JSON.stringify(chunks.get('overview.json')));
   await writeFile(new URL('core.json', output), JSON.stringify(chunks.get('core.json')));
   console.log(`Prepared ${chunks.size} Parliament payloads; core ${(Buffer.byteLength(JSON.stringify(chunks.get('core.json'))) / 1e6).toFixed(2)} MB.`);
 }

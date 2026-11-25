@@ -161,12 +161,16 @@ function candidateView(host, snapshot, ui, params, members, view) {
   const donorIndex = candidateDonors(snapshot);
   const selected = rows.find(row => row.key === params.get('candidate'));
   const party = params.get('party')?.toUpperCase();
+  const sourceStatus = snapshot.sources?.candidates;
+  const retrievedAt = sourceStatus ? sourceStatus.updatedAt : snapshot.generatedAt;
+  const retainedNote = sourceStatus?.state === 'retained'
+    ? L('Näytetään viimeksi saatavilla ollut aineisto.', 'Det senast tillgängliga materialet visas.', 'Showing the last available data.') : '';
   host.innerHTML = `
     <p>${L('Mukana ovat eduskuntavaaleissa 2023 valitut ja varaedustajat. Luvut perustuvat heidän VTV:lle antamiinsa ilmoituksiin.', 'Uppgifterna avser valda kandidater och ersättare i riksdagsvalet 2023 och bygger på deras anmälningar till revisionsverket.', 'The figures come from disclosures filed by elected candidates and alternates in the 2023 parliamentary election.')}</p>
     <dl class="finance-metrics finance-overview" data-finance-overview></dl>
     <div data-candidate-list></div>
     <p class="finance-meta">${external(candidateDatasets, L('VTV:n tietoaineistot', 'Revisionsverkets data', 'VTV datasets'))}
-      ${snapshot.generatedAt ? ` · ${L('Aineisto haettu', 'Data hämtade', 'Data retrieved')} ${ui.date(snapshot.generatedAt)}` : ''}</p>`;
+      ${retrievedAt ? ` · ${L('Aineisto haettu', 'Data hämtade', 'Data retrieved')} ${ui.date(retrievedAt)}` : ''}${retainedNote ? ` · ${retainedNote}` : ''}</p>`;
   const overview = host.querySelector('[data-finance-overview]');
   const mpByCandidate = new Map();
   for (const member of members) {
@@ -475,15 +479,30 @@ export async function renderCampaignFinance(root, { lang, view, route, current, 
   const params = new URLSearchParams(location.hash.split('?')[1]);
   root.innerHTML = `<div class="${view === 'simple' ? 'easy-page' : 'page'} finance-page">
     <header class="page-head"><div><a href="#/elections">${L('Eduskuntavaalien 2023 tulokset', 'Resultat i riksdagsvalet 2023', '2023 election results')}</a>
-    <h1>${selected[0] ? selected[1] : financeTitle(lang)}</h1></div></header>
+    <h1 tabindex="-1">${selected[0] ? selected[1] : financeTitle(lang)}</h1></div></header>
     <nav class="finance-tabs" aria-label="${financeTitle(lang)}">${paths.map(([path, label]) => `<a href="${base + path}"${path === selected[0] ? ' aria-current="page"' : ''}>${label}</a>`).join('')}</nav>
     <div data-finance-content aria-busy="true"><p role="status">${L('Ladataan…', 'Laddar…', 'Loading…')}</p></div>
   </div>`;
   const host = root.querySelector('[data-finance-content]');
   async function paint() {
     host.setAttribute('aria-busy', 'true');
+    const retry = host.querySelector('[data-finance-retry]');
+    if (retry) retry.disabled = true;
     let snapshot;
-    try { snapshot = await loadSnapshot(); } catch { /* Official sources remain available from the empty state. */ }
+    try {
+      snapshot = await loadSnapshot();
+    } catch {
+      if (!current()) return;
+      const source = selected[0] === '/2027' ? trackerGuidance : selected[0] === '/parties' ? partyDatasets : candidateDatasets;
+      host.innerHTML = `<p role="alert">${L('Vaalirahoitusaineistoa ei voitu ladata.', 'Valfinansieringsmaterialet kunde inte laddas.', 'The campaign finance data could not be loaded.')}</p>
+        <button type="button" class="finance-more" data-finance-retry>${L('Yritä uudelleen', 'Försök igen', 'Try again')}</button>
+        <p>${external(source, 'VTV')}</p>`;
+      const nextRetry = host.querySelector('[data-finance-retry]');
+      nextRetry.onclick = paint;
+      host.setAttribute('aria-busy', 'false');
+      if (retry) nextRetry.focus({ preventScroll: true });
+      return;
+    }
     if (!current()) return;
     if (selected[0] === '/2027') trackerView(host, snapshot, ui, view);
     else if (selected[0] === '/organisations') await organisationView(host, snapshot, ui, params, view, current);
@@ -493,12 +512,8 @@ export async function renderCampaignFinance(root, { lang, view, route, current, 
       partyStatementsView(host.querySelector('[data-party-statements]'), snapshot?.statements || [], ui, view, code => partyLabel(code, titleFor));
     } else candidateView(host, snapshot, ui, params, members, view);
     if (!current()) return;
-    if (!snapshot) {
-      const label = L('Yritä uudelleen', 'Försök igen', 'Try again');
-      host.insertAdjacentHTML('beforeend', `<button type="button" class="finance-more" data-finance-retry>${label}</button>`);
-      host.querySelector('[data-finance-retry]').onclick = paint;
-    }
     host.setAttribute('aria-busy', 'false');
+    if (retry) host.closest('.finance-page').querySelector('h1').focus({ preventScroll: true });
   }
   await paint();
 }

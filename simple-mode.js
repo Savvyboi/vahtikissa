@@ -1,8 +1,6 @@
 import { aiTagBadges, filterAIItems } from './ai-insights-app.js';
 import { foldFilterToolbars } from './filter-panels.js';
 import { escapeHTML as e, formatDate, policyTopicKeys, policyTopicOptions, voteOutcome, voteAlternatives, choiceLabel, legislationStatusTone, speechParagraphs, parliamentMatterUrl } from './app-utils.js';
-import { mountMemberInsights, memberSectionNavigation, bindMemberSections } from './member-insights.js';
-import { renderSimpleCivic } from './simple-civic.js';
 
 const states = new Map();
 const indexes = new WeakMap();
@@ -155,7 +153,7 @@ function mountCollection(parent, view, { key, items, card, filter, controls = []
 function overview(root, view) {
   const { data, ui, number, date, topicOptions, voteCard, header } = view;
   const state = stateFor('overview');
-  root.innerHTML = `<div class="easy-page">${header('overview', ui('Miten eduskunta vaikuttaa arkeesi?', 'Vad gör riksdagen för din vardag?', 'What does Parliament do for your everyday life?'), ui('Eduskunnassa päätetään yhteisistä asioista. Katso, mistä äänestetään, mitä edustajasi sanoo ja mihin rahaa käytetään.', 'Riksdagen beslutar om våra gemensamma frågor. Se vad ledamöterna röstar om, vad de säger och hur pengar används.', 'Parliament makes decisions that affect us all. See what MPs vote on, what they say and how public money is used.'))}<div class="easy-callout easy-topic-picker"><label class="easy-field"><span>${ui('Mikä aihe kiinnostaa sinua?', 'Vilket ämne intresserar dig?', 'What matters to you?')}</span><select data-easy-home-topic>${topicOptions().map(([key, text]) => `<option value="${e(key)}"${state.topic === key ? ' selected' : ''}>${e(text)}</option>`).join('')}</select></label><div class="easy-choices"><a class="easy-link" data-easy-topic-target="votes" href="${href('votes')}">${ui('Katso äänestykset', 'Se omröstningarna', 'Explore votes')} →</a><a class="easy-link" data-easy-topic-target="legislation" href="${href('legislation')}">${ui('Seuraa lakiasioita', 'Följ riksdagsärenden', 'Follow proposals')} →</a></div></div><section class="easy-section"><div class="easy-stats"><div><strong>${number(data.votes?.length)}</strong><span>${ui('äänestystä', 'omröstningar', 'votes')}</span></div><div><strong>${number(data.metadata?.counts?.speeches ?? data.speeches?.length)}</strong><span>${ui('puheenvuoroa', 'anföranden', 'speeches')}</span></div><div><strong>${number(data.members?.length)}</strong><span>${ui('edustajaa aineistossa', 'ledamöter i materialet', 'MPs in the data')}</span></div></div><p class="easy-note">${ui('Seuranta', 'Uppföljning sedan', 'Coverage from')} ${e(date(data.metadata?.startDate || '2023-04-02'))}. ${ui('Mukana on myös entisiä edustajia. Aineisto päivitetty', 'Även tidigare ledamöter ingår. Materialet uppdaterat', 'Includes former MPs. Data updated')} ${e(date(data.metadata?.generatedAt))}.</p></section><section class="easy-section"><div class="easy-section-head"><div><p class="easy-eyebrow">${ui('Päätösten äärellä', 'Nära besluten', 'Decisions in focus')}</p><h2>${ui('Mistä äänestettiin viimeksi?', 'Vad röstade riksdagen om senast?', 'What were the latest votes about?')}</h2></div><a class="easy-link" data-easy-topic-target="votes" href="${href('votes')}">${ui('Kaikki äänestykset', 'Alla omröstningar', 'All votes')} →</a></div><div class="easy-grid" data-easy-latest></div><p class="easy-note">${ui('JAA tai EI tarkoittaa aina äänestyksen omaa vaihtoehtoa. Äänimäärä ei yksin kerro, hyväksyttiinkö laki.', 'JA och NEJ syftar alltid på omröstningens egna alternativ. Röstetalet visar inte ensamt om en lag godkändes.', 'YES and NO refer to the alternatives in each vote. Vote totals alone do not tell you whether a law passed.')}</p></section><section class="easy-section"><div class="easy-section-head"><h2>${ui('Mitä haluat tietää?', 'Vad vill du veta?', 'What would you like to find out?')}</h2></div><div class="easy-grid">${[
+  root.innerHTML = `<div class="easy-page">${header('overview', ui('Miten eduskunta vaikuttaa arkeesi?', 'Vad gör riksdagen för din vardag?', 'What does Parliament do for your everyday life?'), ui('Eduskunnassa päätetään yhteisistä asioista. Katso, mistä äänestetään, mitä edustajasi sanoo ja mihin rahaa käytetään.', 'Riksdagen beslutar om våra gemensamma frågor. Se vad ledamöterna röstar om, vad de säger och hur pengar används.', 'Parliament makes decisions that affect us all. See what MPs vote on, what they say and how public money is used.'))}<div class="easy-callout easy-topic-picker"><label class="easy-field"><span>${ui('Mikä aihe kiinnostaa sinua?', 'Vilket ämne intresserar dig?', 'What matters to you?')}</span><select data-easy-home-topic>${topicOptions().map(([key, text]) => `<option value="${e(key)}"${state.topic === key ? ' selected' : ''}>${e(text)}</option>`).join('')}</select></label><div class="easy-choices"><a class="easy-link" data-easy-topic-target="votes" href="${href('votes')}">${ui('Katso äänestykset', 'Se omröstningarna', 'Explore votes')} →</a><a class="easy-link" data-easy-topic-target="legislation" href="${href('legislation')}">${ui('Seuraa lakiasioita', 'Följ riksdagsärenden', 'Follow proposals')} →</a></div></div><section class="easy-section"><div class="easy-stats"><div><strong>${number(data.metadata?.counts?.votes ?? data.votes?.length)}</strong><span>${ui('äänestystä', 'omröstningar', 'votes')}</span></div><div><strong>${number(data.metadata?.counts?.speeches ?? data.speeches?.length)}</strong><span>${ui('puheenvuoroa', 'anföranden', 'speeches')}</span></div><div><strong>${number(data.metadata?.counts?.members ?? data.members?.length)}</strong><span>${ui('edustajaa aineistossa', 'ledamöter i materialet', 'MPs in the data')}</span></div></div><p class="easy-note">${ui('Seuranta', 'Uppföljning sedan', 'Coverage from')} ${e(date(data.metadata?.startDate || '2023-04-02'))}. ${ui('Mukana on myös entisiä edustajia. Aineisto päivitetty', 'Även tidigare ledamöter ingår. Materialet uppdaterat', 'Includes former MPs. Data updated')} ${e(date(data.metadata?.generatedAt))}.</p></section><section class="easy-section"><div class="easy-section-head"><div><p class="easy-eyebrow">${ui('Päätösten äärellä', 'Nära besluten', 'Decisions in focus')}</p><h2>${ui('Mistä äänestettiin viimeksi?', 'Vad röstade riksdagen om senast?', 'What were the latest votes about?')}</h2></div><a class="easy-link" data-easy-topic-target="votes" href="${href('votes')}">${ui('Kaikki äänestykset', 'Alla omröstningar', 'All votes')} →</a></div><div class="easy-grid" data-easy-latest></div><p class="easy-note">${ui('JAA tai EI tarkoittaa aina äänestyksen omaa vaihtoehtoa. Äänimäärä ei yksin kerro, hyväksyttiinkö laki.', 'JA och NEJ syftar alltid på omröstningens egna alternativ. Röstetalet visar inte ensamt om en lag godkändes.', 'YES and NO refer to the alternatives in each vote. Vote totals alone do not tell you whether a law passed.')}</p></section><section class="easy-section"><div class="easy-section-head"><h2>${ui('Mitä haluat tietää?', 'Vad vill du veta?', 'What would you like to find out?')}</h2></div><div class="easy-grid">${[
     ['members', ui('Mitä oma edustajani tekee?', 'Vad gör min ledamot?', 'What does my MP do?'), ui('Hae edustaja nimellä. Katso hänen äänensä ja puheensa.', 'Sök en ledamot med namn. Se röster och anföranden.', 'Find an MP by name and explore their votes and speeches.')],
     ['speeches', ui('Mistä edustajat puhuvat?', 'Vad talar ledamöterna om?', 'What are MPs talking about?'), ui('Etsi puheita aiheen tai puhujan mukaan.', 'Hitta anföranden enligt ämne eller talare.', 'Find speeches by topic or speaker.')],
     ['budget', ui('Mihin yhteiset rahat menevät?', 'Vart går våra gemensamma pengar?', 'Where does public money go?'), ui('Tutustu valtion rahankäyttöön yksi aihe kerrallaan.', 'Utforska statens utgifter ett område i taget.', 'Explore state spending one area at a time.')],
@@ -271,7 +269,7 @@ function voteDetail(root, view, id) {
   });
 }
 
-function memberDetail(root, view, id) {
+function memberDetail(root, view, id, { mountMemberInsights, memberSectionNavigation, bindMemberSections }) {
   const member = (view.data.members || []).find(item => String(item.id) === id);
   if (!member) return notFound(root, view);
   const { data, ui, number, header, index } = view;
@@ -368,8 +366,14 @@ function notFound(root, view) {
 export function renderSimple(root, context) {
   const { route, lang = 'fi' } = context;
   const version = ++renderVersion;
+  const hash = location.hash;
   root.dataset.easyRender = String(version);
-  if (['budget', 'elections', 'influence', 'programmes', 'about'].includes(route.page)) return renderSimpleCivic(root, context);
+  const current = () => root.dataset.easyRender === String(version) && root.dataset.view === 'simple' && location.hash === hash && document.documentElement.lang === lang;
+  if (['budget', 'elections', 'influence', 'programmes', 'about'].includes(route.page)) {
+    return import('./simple-civic.js').then(module => {
+      if (current()) return module.renderSimpleCivic(root, context);
+    });
+  }
   const view = createView(context);
   const params = new URLSearchParams(location.hash.split('?')[1] || '');
   if (params.has('topic')) {
@@ -379,13 +383,15 @@ export function renderSimple(root, context) {
       if (state.topic !== topic) { state.topic = topic; state.page = 1; }
     }
   }
-  const hash = location.hash;
-  const current = () => root.dataset.easyRender === String(version) && root.dataset.view === 'simple' && location.hash === hash && document.documentElement.lang === lang;
   if (route.page === 'overview') return overview(root, view);
   if (!['votes', 'members', 'speeches', 'legislation', 'sessions', 'parties'].includes(route.page)) return notFound(root, view);
   if (!route.id) return listPage(root, view, route.page);
   if (route.page === 'votes') return voteDetail(root, view, route.id);
-  if (route.page === 'members') return memberDetail(root, view, route.id);
+  if (route.page === 'members') {
+    return import('./member-insights.js').then(module => {
+      if (current()) memberDetail(root, view, route.id, module);
+    });
+  }
   if (route.page === 'speeches') return speechDetail(root, view, route.id, context, current);
   if (route.page === 'legislation') return legislationDetail(root, view, route.id);
   return groupDetail(root, view, route.page, route.id);

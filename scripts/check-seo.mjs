@@ -63,13 +63,13 @@ try {
       resolveHeld = resolve;
       requestTimeout = setTimeout(() => reject(new Error('The app did not request its initial Parliament data')), 15000);
     });
-    await page.route('**/data/parliament/core.json', route => { held = route; resolveHeld(); });
+    await page.route('**/data/parliament/overview.json', route => { held = route; resolveHeld(); });
     await page.goto(`${url}/#/overview`, { waitUntil: 'domcontentloaded' });
     await requestHeld.finally(() => clearTimeout(requestTimeout));
     assert.ok(held, 'The initial data request can be delayed');
     assert.equal(await page.locator('main.site-introduction, main .site-introduction').isVisible(), true, 'The crawlable introduction survives initial data loading');
     await held.continue();
-    await page.unroute('**/data/parliament/core.json');
+    await page.unroute('**/data/parliament/overview.json');
     const ready = async route => {
       await page.waitForFunction(route => {
         const main = document.querySelector('main');

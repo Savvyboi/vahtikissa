@@ -7,10 +7,11 @@ export function createParliamentLoader(fetchJSON = fetchJSONWithTimeout) {
   function load(name) {
     if (cache.has(name)) return Promise.resolve(cache.get(name));
     if (!pending.has(name)) {
-      const version = cache.get('core.json')?.metadata.generatedAt;
+      const entryPoint = name === 'core.json' || name === 'overview.json';
+      const version = entryPoint ? null : cache.get('core.json')?.metadata.generatedAt;
       const started = generation;
       const url = `./data/parliament/${name}${version ? `?v=${encodeURIComponent(version)}` : ''}`;
-      const request = Promise.resolve().then(() => fetchJSON(url, { cache: name === 'core.json' ? 'no-cache' : 'default' })).then(value => {
+      const request = Promise.resolve().then(() => fetchJSON(url, { cache: entryPoint ? 'no-cache' : 'default' })).then(value => {
         if (started !== generation) throw new Error('This Parliament request was superseded by a retry.');
         if (version && value.snapshot !== version) throw new Error('Parliament data was updated. Please retry to load the current snapshot.');
         if (name === 'core.json') for (const vote of value.votes) vote.committees = value.voteCommittees?.[vote.document] || [];
@@ -45,8 +46,9 @@ export function createParliamentLoader(fetchJSON = fetchJSONWithTimeout) {
   return {
     loadCore: () => load('core.json'),
     loadSpeeches: async () => { await load('core.json'); return (await load('speeches.json')).speeches; },
-    routeReady: (route, view) => cache.has('core.json') && resources(route, view).every(name => cache.has(name)),
+    routeReady: (route, view) => route.page === 'overview' ? cache.has('overview.json') : cache.has('core.json') && resources(route, view).every(name => cache.has(name)),
     async loadRoute(route, view) {
+      if (route.page === 'overview') return { ballots: [], speeches: [], legislation: [], ...await load('overview.json') };
       const core = await load('core.json');
       const chunks = await Promise.all(resources(route, view).map(load));
       // Each route gets its own collections: a member's votes must not leak into another page.

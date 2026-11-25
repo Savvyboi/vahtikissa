@@ -89,6 +89,11 @@ export function filterElectionCandidates(candidates, { query = '', party = 'all'
   );
 }
 
+export function programmePartyFromHash(hash, parties) {
+  const code = new URLSearchParams(hash.split('?')[1]).get('party');
+  return parties.some(party => party.code === code) ? code : 'all';
+}
+
 export function filterInfluence(items, {
   query = '', year = 'all', kind = 'all', mp = 'all', party = 'all', actor = 'all',
   method = 'all', category = 'all', excludedCategories = []

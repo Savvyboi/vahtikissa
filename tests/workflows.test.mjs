@@ -9,6 +9,10 @@ test('the Parliament dataset sync runs every day and remains manually runnable',
   assert.match(workflow, /run: npm run sync/);
   assert.match(workflow, /run: npm run validate-data/);
   assert.match(workflow, /git add data\//);
+  for (const step of ['portrait_browser', 'portrait_download']) {
+    assert.match(workflow, new RegExp(`id: ${step}\\r?\\n +if: [^\\r\\n]+\\r?\\n +continue-on-error: true\\r?\\n +timeout-minutes:`));
+  }
+  assert.ok(workflow.indexOf('name: Report portrait refresh failure') > workflow.indexOf('name: Commit changed data'));
 });
 
 test('scheduled writers serialize and deployments read the current main branch', async () => {

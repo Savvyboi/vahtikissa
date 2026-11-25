@@ -19,18 +19,19 @@ const iso = value => clean(value).replace(/^(\d{4}-\d\d-\d\d)\+.*$/, '$1');
 
 export function createParliamentRequest({ api = API, fetcher = fetch, wait = delay } = {}) {
   return async function request(path, options = {}, attempts = 4) {
+    const { downloadUrl, ...fetchOptions } = options;
     let lastError;
     for (let attempt = 1; attempt <= attempts; attempt++) {
       let response;
       try {
-        response = await fetcher(api + path, {
-          ...options,
-          signal: AbortSignal.timeout(60_000),
-          headers: { accept: 'application/json', 'user-agent': 'EduskuntaVahti/1.0 (+open civic data)', ...options.headers }
+        response = await fetcher(downloadUrl ?? api + path, {
+          ...fetchOptions,
+          signal: AbortSignal.timeout(downloadUrl ? 120_000 : 60_000),
+          headers: { accept: downloadUrl ? '*/*' : 'application/json', 'user-agent': 'EduskuntaVahti/1.0 (+open civic data)', ...fetchOptions.headers }
         });
-        if (response.ok) return await response.json();
-        const body = await response.text();
-        const error = new Error(response.status + ' ' + path + ': ' + body);
+        if (response.ok) return downloadUrl ? await response.text() : await response.json();
+        const detail = downloadUrl ? '' : ': ' + await response.text();
+        const error = new Error(response.status + ' ' + path + detail);
         if (response.status < 500 && response.status !== 429) throw error;
         lastError = error;
       } catch (error) {
@@ -62,9 +63,8 @@ async function search(category, year, sortProperty) {
     const status = await request(`/search/dataset/status/${job.jobId}`);
     if (status.status === 'FAILED') throw new Error(`Dataset search failed: ${category} ${year}`);
     if (status.status === 'COMPLETED') {
-      const response = await fetch(status.resultUrl, { signal: AbortSignal.timeout(120_000) });
-      if (!response.ok) throw new Error(`Dataset download failed: ${response.status}`);
-      const text = await response.text();
+      if (!status.resultUrl) throw new Error(`Dataset download URL missing: ${category} ${year}`);
+      const text = await request(`dataset download for ${category} ${year}`, { downloadUrl: status.resultUrl }, 3);
       const records = text.split(/\r?\n/).filter(Boolean).map(line => JSON.parse(line));
       console.log(category + ' ' + year + ': ' + records.length + ' source records.');
       return records;

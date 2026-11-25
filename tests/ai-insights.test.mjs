@@ -49,6 +49,32 @@ test('shared themes retain evidence from each party', () => {
   assert.deepEqual(tags[0].references.map(ref => ref.party), ['kok','sd']);
 });
 
+test('a daily programme refresh only marks the vocabulary ready after checking every source', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'vahtikissa-programme-refresh-'));
+  const base = pathToFileURL(dir + '/');
+  const documents = ['a', 'b'].map(id => ({ id, url: 'https://example.org/' + id }));
+  let revision = 'First version';
+  let ready = 0;
+  const fetchImpl = async () => ({ ok: true, text: async () => html.replace('Programme</h1>', revision + '</h1>') });
+  const makeClient = () => ({ requests: 0, async complete() {
+    this.requests++;
+    return { tags: [theme] };
+  } });
+  try {
+    await writeFile(new URL('parliament.json', base), JSON.stringify({ votes: [], legislation: [] }));
+    await writeFile(new URL('programmes.json', base), JSON.stringify({ parties: [{ code: 'kok', programmes: documents }] }));
+    await syncAI({ base, fetchImpl, client: makeClient(), maxRequests: 2 });
+    revision = 'Revised version';
+    const refresh = { base, fetchImpl, maxRequests: 1, refreshProgrammes: true, onProgrammesReady: async () => { ready++; } };
+    assert.deepEqual(await syncAI({ ...refresh, client: makeClient() }), { pending: true, requests: 1 });
+    assert.equal(ready, 0);
+    assert.deepEqual(await syncAI({ ...refresh, client: makeClient() }), { pending: false, requests: 1 });
+    assert.equal(ready, 1);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
 test('OpenRouter uses only free endpoints, bounds requests and does not expose provider error bodies', async () => {
   assert.throws(() => createOpenRouterClient({ apiKey: 'test', model: 'paid-model' }), /free/);
   const calls = [];

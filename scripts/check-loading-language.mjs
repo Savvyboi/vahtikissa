@@ -28,7 +28,8 @@ try {
       await page.locator('.search-button').click();
       await page.locator('#global-search').fill('Orpo');
       await page.waitForFunction(() => document.querySelector('.search-status')?.textContent.includes('Ladataan'));
-      assert.ok(held, 'The initial snapshot request must still be pending');
+      await page.waitForFunction(() => document.querySelector('main')?.getAttribute('aria-busy') === 'false');
+      assert.ok(held, 'The search snapshot request must still be pending');
       if (outcome === 'success') {
         await held.fulfill({ path: parliamentPath, contentType: 'application/json' });
         await page.locator('main[aria-busy="false"] h1').waitFor();
@@ -36,8 +37,8 @@ try {
         assert.match(await page.locator('.search-status').innerText(), /tulosta/);
       } else {
         await held.abort('failed');
-        await page.locator('main .load-error').waitFor();
-        await page.waitForFunction(() => document.querySelector('.search-status')?.textContent.includes('Haku on käytettävissä'));
+        await page.waitForFunction(() => document.querySelector('.search-status')?.textContent.includes('Hakutietoja ei voitu ladata'));
+        assert.equal(await page.locator('main .load-error').count(), 0);
         assert.equal(await page.locator('.search-results a').count(), 0);
       }
       assert.equal(await page.locator('#global-search').inputValue(), 'Orpo');

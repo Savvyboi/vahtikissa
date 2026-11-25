@@ -2,7 +2,7 @@ import { programmeAITags, decorateAI } from './ai-insights-app.js';
 import { foldFilterToolbars } from './filter-panels.js';
 import { escapeHTML as e, fetchJSONWithTimeout } from './app-utils.js';
 import { budgetLevel, budgetClosestPath, budgetTotals, budgetEntries, searchBudgetEntries } from './budget-utils.js';
-import { filterElectionCandidates } from './civic-utils.js';
+import { filterElectionCandidates, programmePartyFromHash } from './civic-utils.js';
 import { influenceSelection, readInfluenceURL, syncInfluenceURL, influenceControls, bindInfluenceControls, influenceConfig, selectInfluence, memberNameLink, influenceTargetLink } from './influence-controls.js';
 import { financeEntry } from './campaign-finance-app.js';
 import { collectionState } from './collection-tools.js';
@@ -208,7 +208,7 @@ function renderInfluence(root, rawSnapshot, context, isCurrent) {
 }
 function renderProgrammes(root, snapshot, { lang }, isCurrent) {
   const L = textFor(lang), state = programmeState;
-  state.party=new URLSearchParams(location.hash.split('?')[1]||'').get('party')||'all';
+  state.party=programmePartyFromHash(location.hash,snapshot.parties);
   const types = { vaaliohjelma: L('Vaaliohjelma', 'Valprogram', 'Election platform'), yleisohjelma: L('Periaateohjelma', 'Principprogram', 'Principles'), tavoiteohjelma: L('Tavoiteohjelma', 'Målprogram', 'Policy platform') };
   function draw() {
     if (!isCurrent()) return;

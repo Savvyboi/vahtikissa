@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { parliamentChunks } from '../scripts/build-parliament-data.mjs';
 import { createParliamentLoader } from '../parliament-data.js';
+import { policyTopicKeys } from '../app-utils.js';
 
 const fixture = () => ({
   metadata: { generatedAt: '2026-10-11T20:00:00Z', counts: { speeches: 2, ballots: 3 } },
@@ -39,23 +40,39 @@ test('browser payloads retain every record and only include the requested MP or 
 
 test('startup and full lists avoid large collections; repeated and concurrent loads are cached', async () => {
   const { loader, requests } = loaderFixture();
-  await Promise.all([loader.loadCore(), loader.loadCore()]);
-  const data = await loader.loadRoute({ page: 'overview' }, 'full');
+  const [data] = await Promise.all([loader.loadRoute({ page: 'overview' }, 'full'), loader.loadRoute({ page: 'overview' }, 'simple')]);
   assert.deepEqual(data.ballots, []);
   assert.deepEqual(data.speeches, []);
   assert.deepEqual(data.votes[0].committees, committeeIndex.matters['HE 1/2026 vp']);
+  assert.deepEqual(requests, ['./data/parliament/overview.json']);
+  assert.equal(loader.routeReady({ page: 'overview' }, 'simple'), true);
+  assert.equal(loader.routeReady({ page: 'votes' }, 'full'), false);
+  await Promise.all([loader.loadCore(), loader.loadCore()]);
   await loader.loadRoute({ page: 'votes' }, 'full');
   await loader.loadRoute({ page: 'members' }, 'full');
-  assert.deepEqual(requests, ['./data/parliament/core.json']);
+  assert.deepEqual(requests, ['./data/parliament/overview.json', './data/parliament/core.json']);
   const member = await loader.loadRoute({ page: 'members', id: '1' }, 'full');
   assert.equal(member.ballots.length, 2);
   assert.equal(member.ballots[0].firstName, 'A');
   assert.deepEqual(member.speeches, [fixture().speeches[0]]);
   assert.equal(loader.routeReady({ page: 'members', id: '1' }, 'full'), true);
   await loader.loadRoute({ page: 'members', id: '1' }, 'simple');
-  assert.equal(requests.length, 2);
+  assert.equal(requests.length, 3);
   const overview = await loader.loadRoute({ page: 'overview' }, 'simple');
   assert.deepEqual(overview.ballots, [], 'Scoped data must not leak to another route');
+});
+
+test('overview keeps older topic matches without copying the entire vote archive', () => {
+  const data = fixture();
+  data.votes = Array.from({ length: 18 }, (_, index) => ({
+    id: String(index), date: `2026-10-${String(index + 1).padStart(2, '0')}`,
+    title: index < 5 ? 'Koulutus' : 'Verotus'
+  }));
+  const overview = parliamentChunks(data).get('overview.json');
+  assert.deepEqual(overview.votes.slice(0, 8).map(vote => vote.id), ['17', '16', '15', '14', '13', '12', '11', '10']);
+  assert.deepEqual(overview.votes.filter(vote => policyTopicKeys(vote).includes('education')).map(vote => vote.id), ['4', '3', '2']);
+  assert.equal(overview.votes.length, 11);
+  assert.equal('members' in overview, false);
 });
 
 test('a debate-only session loads only its own speech metadata in either reading view', async () => {

@@ -323,7 +323,6 @@ export async function syncAI({ base = new URL('../data/', import.meta.url), apiK
   try {
     // Complete the programme vocabulary before classifying parliamentary records.
     for (const document of documents) {
-      if (router.requests >= maxRequests) break;
       const cached = index.programmes[document.id];
       if (!refreshProgrammes && !needsProgramme(document)) continue;
       const response = await fetchImpl(document.url, { signal: AbortSignal.timeout(60000) });
@@ -334,7 +333,10 @@ export async function syncAI({ base = new URL('../data/', import.meta.url), apiK
       // Do not publish a partly analysed document.
       const minimumRequests = chunks.length * (needsAgentHarness(model) && !client ? 2 : 1);
       if (minimumRequests > maxRequests) throw new Error('A programme needs more requests than AI_MAX_REQUESTS; increase the run budget to at least ' + minimumRequests);
-      if (router.requests + minimumRequests > maxRequests) break;
+      if (router.requests + minimumRequests > maxRequests) {
+        console.log('Programme analysis pending; rerun to continue the cached backfill.');
+        return { pending: true, requests: router.requests };
+      }
       for (const [chunkIndex, sourceText] of chunks.entries()) {
         console.log('Programme ' + document.id + ': chunk ' + (chunkIndex + 1) + '/' + chunks.length + '; ' + router.requests + '/' + maxRequests + ' requests used.');
         const evidencePassages = programmeEvidencePassages(sourceText);
@@ -349,8 +351,6 @@ export async function syncAI({ base = new URL('../data/', import.meta.url), apiK
       await checkpoint();
       console.log('Saved programme ' + document.id + ' with ' + tags.size + ' verified themes.');
     }
-    const ready = documents.every(document => !needsProgramme(document));
-    if (!ready) { console.log('Programme analysis pending; rerun to continue the cached backfill.'); return { pending: true, requests: router.requests }; }
     await onProgrammesReady();
     const vocabulary = insightTags(index).map(({ id, label }) => ({ id, label }));
     const allowed = new Set(vocabulary.map(tag => tag.id)), taxonomyHash = hash(vocabulary);

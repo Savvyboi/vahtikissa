@@ -30,7 +30,7 @@ export async function followPrimaryNavigation(page, route) {
 export async function checkStartupRecovery(browser, url) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
   const page = await context.newPage(), held = [];
-  const pattern = '**/data/parliament/core.json';
+  const pattern = '**/data/parliament/overview.json';
   const hold = route => { held.push(route); };
   try {
     await page.route(pattern, hold);

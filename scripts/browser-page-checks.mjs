@@ -103,3 +103,55 @@ export async function checkPageRegressions(browser, url) {
   }
   console.log('Search recovery, immediate local matches, stale-request handling and the shared responsive footer passed.');
 }
+
+export async function checkProgrammeAndFinanceRecovery(browser, url) {
+  const context = await browser.newContext();
+  await context.addInitScript(() => localStorage.setItem('vahtikissa-lang', 'en'));
+  const page = await context.newPage();
+  const ready = () => page.locator('main[aria-busy="false"] h1').waitFor();
+  try {
+    const snapshot = JSON.parse(await readFile(new URL('../data/programmes.json', import.meta.url), 'utf8'));
+    const code = snapshot.parties[0].code;
+    for (const view of ['full', 'simple']) {
+      const prefix = `${url}/?view=${view}#/programmes`;
+      const select = page.locator(view === 'full' ? '[data-programme-party]' : '[data-easy-filter="party"]');
+      const cards = page.locator(view === 'full' ? '.programme-card' : '.easy-card');
+      await page.goto(`${prefix}?party=unknown-group`);
+      await ready();
+      assert.equal(await select.inputValue(), 'all');
+      assert.equal(await cards.count(), snapshot.parties.length);
+      await page.goto(`${prefix}?party=${code}`);
+      await page.waitForFunction(code => document.querySelector('[data-programme-party], [data-easy-filter="party"]')?.value === code, code);
+      assert.equal(await cards.count(), 1);
+    }
+
+    await page.clock.setFixedTime(new Date('2026-11-25T12:00:00Z'));
+    let fail = true;
+    await page.route('**/data/campaign-finance.json', route => fail ? route.abort() : route.fulfill({ json: {
+      generatedAt: '2026-11-25T12:00:00Z',
+      sources: { candidates: { updatedAt: '2026-11-01T12:00:00Z', state: 'retained' } },
+      candidates: [{ key: '123456', name: 'Example Candidate', first: 'Example', last: 'Candidate',
+        party: 'KOK', district: 'Example district', expenses: 1000, funding: 1000, votes: 10, resultId: '123456',
+        expensesByType: {}, fundingSources: { own: 1000 }, source: 'https://www.vaalirahoitusvalvonta.fi/' }],
+      contributions: []
+    } }));
+    await page.goto(`${url}/?view=simple#/elections/funding/2027`);
+    await ready();
+    const host = page.locator('[data-finance-content]');
+    assert.match(await host.getByRole('alert').innerText(), /could not be loaded/);
+    assert.equal(await host.locator('[data-finance-count]').count(), 0);
+
+    await page.goto(`${url}/?view=simple#/elections/funding`);
+    await ready();
+    assert.match(await host.getByRole('alert').innerText(), /could not be loaded/);
+    fail = false;
+    await host.getByRole('button', { name: 'Try again' }).click();
+    await host.getByRole('heading', { name: 'Example Candidate' }).waitFor();
+    assert.equal(await host.getByRole('alert').count(), 0);
+    assert.match(await host.innerText(), /Data retrieved 1 Nov 2026 · Showing the last available data/);
+    assert.equal(await page.locator('.finance-page h1').evaluate(element => element === document.activeElement), true);
+  } finally {
+    await context.close();
+  }
+  console.log('Programme link recovery and campaign finance load errors, retry, and source dates passed.');
+}

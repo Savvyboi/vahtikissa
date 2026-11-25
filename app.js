@@ -9,6 +9,7 @@ let mountResearchControls;
 import { filterResearchSpeeches, matchRanges } from './speech-research.js';
 import { bindExportButtons, exportButtons, safeFilename } from './data-tools.js';
 import { collectionState, applyCollection, facetOptions, mountCollectionTools, preserveFocus, collapseQuickFilters } from './collection-tools.js';
+import { foldControls } from './filter-panels.js';
 import { currentScrollPosition, preservePageScroll, pushRoute, savedScrollPosition, setupPrimaryNavigation, trackScrollHistory } from './navigation.js';
 
 const $ = selector => document.querySelector(selector);
@@ -198,7 +199,7 @@ function setReadingView(mode){
   readingView=mode;preferences.set('vahtikissa-view',mode);
   history.replaceState(history.state,'',readingModeURL(location.href,mode));
   applyViewChrome();
-  if(data)render();else if(lastLoadError)loadError(lastLoadError);else loadingView();
+  if(lastLoadError)loadError(lastLoadError);else render();
 }
 function applyLocalizedExtras(){
   const select=$('.theme-select'),label=ui('Väriteema','Färgtema','Colour theme');
@@ -477,6 +478,45 @@ function decorateTableCollection(key,items,config,rows,exportRows,filename,limit
   let filtered=[];const redraw=()=>{filtered=applyCollection(items,extra,config,lang);const shown=limit?filtered.slice(0,limit):filtered;status.textContent=`${shown.length} / ${filtered.length} ${label('tulosta','resultat')}`;list.innerHTML=shown.length?rows(shown):`<div class="empty">${t('noData')}</div>`};
   mountCollectionTools(holder,key,extra,config,lang,redraw);bindExportButtons(root,key,()=>exportRows(limit?filtered.slice(0,limit):filtered),filename);redraw();
 }
+function decorateOverviewVotes(current){
+  const key='overview-votes',tableWrap=root.querySelector('.table-wrap');
+  const state=toolState(key,'date','desc'),holder=document.createElement('div'),status=document.createElement('p'),list=document.createElement('div');
+  let shown=data.votes.slice(0,8),loading=false;
+  status.className='filter-summary';status.setAttribute('role','status');
+  status.textContent=`${shown.length} / ${data.metadata.counts.votes} ${label('tulosta','resultat')}`;
+  tableWrap.before(holder,status,list);list.append(tableWrap);
+  const panel=foldControls(holder,lang,{key:`collection-${key}`,sort:true,state});
+  panel.insertAdjacentHTML('afterend',`<div class="data-actions">${exportButtons(key,lang)}</div>`);
+  bindExportButtons(root,key,()=>voteExportRows(shown),'vahtikissa-uusimmat-aanestykset');
+  const loadFilters=async()=>{
+    if(loading||holder.querySelector('[data-collection]'))return;
+    loading=true;holder.textContent=t('loading');holder.setAttribute('aria-busy','true');
+    try{
+      const {votes,metadata}=await parliamentLoader.loadCore();
+      if(!current())return;
+      if(metadata.generatedAt!==data.metadata.generatedAt){
+        parliamentLoader.clear();
+        throw new Error('Parliament data was updated');
+      }
+      const config=voteTools(votes);
+      const redraw=()=>{
+        const filtered=applyCollection(votes,state,config,lang);
+        shown=filtered.slice(0,8);
+        status.textContent=`${shown.length} / ${filtered.length} ${label('tulosta','resultat')}`;
+        list.innerHTML=shown.length?table([t('day'),t('matter'),t('result')],voteRows(shown)):`<div class="empty">${t('noData')}</div>`;
+      };
+      holder.replaceChildren();
+      mountCollectionTools(holder,key,state,config,lang,redraw);
+      redraw();
+    }catch{
+      if(!current())return;
+      holder.innerHTML=`<p role="status">${ui('Äänestysten rajauksia ei voitu ladata.','Avgränsningarna för omröstningar kunde inte laddas.','Vote filters could not be loaded.')}</p><button type="button">${ui('Yritä uudelleen','Försök igen','Try again')}</button>`;
+      holder.querySelector('button').onclick=()=>render(currentScrollPosition());
+    }finally{loading=false;holder.removeAttribute('aria-busy')}
+  };
+  panel.addEventListener('toggle',()=>{if(panel.open)loadFilters()});
+  if(panel.open||parliamentLoader.routeReady({page:'votes'},'full'))loadFilters();
+}
 function decorateCards(page){
   const target=root.querySelector('.cards');if(!target)return;
   const items=data[page],sessionsPage=page==='sessions';
@@ -488,7 +528,6 @@ function decorateCards(page){
 function render(position){
   const r=routeFromHash(location.hash);
   primaryNavigation.select(navigationPage(r));
-  if(!data)return;
   readingView=readingMode(location.search,readingView);
   const sequence=++routeRenderSequence,routeKey=location.hash,renderLanguage=lang,view=readingView;
   const current=()=>sequence===routeRenderSequence&&location.hash===routeKey&&lang===renderLanguage&&readingView===view;
@@ -499,6 +538,8 @@ function render(position){
   const [routeData,viewModule,,followingControls]=await Promise.all([parliamentLoader.loadRoute(r,view),loadViewModule(r,view),['votes','legislation','programmes','following'].includes(r.page)?loadAIInsights():Promise.resolve(),r.page==='members'&&r.id?import('./following-controls.js'):Promise.resolve(null)]);
   if(!current())return;
   data=routeData;
+  lastLoadError=null;
+  updateFooterTimestamp();
   applyViewChrome();
   const previousView=root.dataset.route;
   root.dataset.route=location.hash;
@@ -551,7 +592,7 @@ function render(position){
   if(r.page==='votes'&&!r.id)voteList();else if(r.page==='speeches')speeches(r.id,{scrollToTarget:position===undefined&&previousView!==routeKey});else if(r.page==='programmes')pending=viewModule.renderProgrammes(root,lang,e);else if(r.page==='budget')pending=viewModule.renderBudget(root,lang,r.id,e);else if(r.page==='elections')pending=viewModule.renderElections(root,lang,e,data.members);else if(r.page==='influence')pending=viewModule.renderInfluence(root,lang,e,data.members,r.id);else if(typeof html==='string')root.innerHTML=html;
   if(r.page==='votes'&&r.id&&data.votes.some(vote=>vote.id===r.id))bindVoteFilters(r.id);
   if(r.page==='legislation'&&r.id){const item=data.legislation.find(matter=>matter.id===r.id);if(item)decorateLegislationDetail(item)}
-  if(r.page==='overview')decorateTableCollection('overview-votes',data.votes,voteTools(data.votes),items=>table([t('day'),t('matter'),t('result')],voteRows(items)),voteExportRows,'vahtikissa-uusimmat-aanestykset',8);
+  if(r.page==='overview')decorateOverviewVotes(current);
   if(r.page==='sessions'&&r.id&&data.sessions.find(item=>item.id===r.id)?.voteIds.length){const session=data.sessions.find(item=>item.id===r.id),ids=new Set(session?.voteIds||[]);decorateTableCollection('session-votes',data.votes.filter(vote=>ids.has(vote.id)),voteTools(data.votes.filter(vote=>ids.has(vote.id))),items=>table([t('day'),t('matter'),t('result')],voteRows(items)),voteExportRows,`vahtikissa-istunto-${r.id}`)}
   if(r.page==='parties'&&r.id){const items=data.members.filter(member=>member.party===r.id);decorateTableCollection('party-members',items,memberTools(items),items=>table([t('members'),t('participation'),t('partyLine'),t('speeches')],memberRows(items)),items=>items.map(member=>({id:member.id,name:memberName(member),party:titleFor(member.party),...member.stats})),`vahtikissa-${r.id}-kansanedustajat`)}
   if(['sessions','parties'].includes(r.page)&&!r.id)decorateCards(r.page);
@@ -581,13 +622,15 @@ function setupSearch(onOpen=()=>{}){
     const request=++searchVersion,query=input.value.trim(),searchLanguage=lang;
     const current=()=>request===searchVersion&&!panel.hidden&&query===input.value.trim()&&lang===searchLanguage;
     if(!query){clearResults();return}
-    if(!data){
-      results.replaceChildren();
-      status.textContent=lastLoadError?ui('Haku on käytettävissä, kun tiedot on ladattu.','Sökningen blir tillgänglig när uppgifterna har laddats.','Search will be available once the data has loaded.'):t('loading');
+    let searchData;
+    status.textContent=t('loading');
+    try{searchData=await parliamentLoader.loadCore()}catch{
+      if(current())status.textContent=ui('Hakutietoja ei voitu ladata. Yritä uudelleen.','Sökdata kunde inte laddas. Försök igen.','Search data could not be loaded. Please try again.');
       return;
     }
-    const members=data.members.filter(member=>memberMatchesQuery(member,query,partyNames)).slice(0,5);
-    const votes=filterItems(data.votes,query,localizedSearchFields(['title','question','document'])).slice(0,5);
+    if(!current())return;
+    const members=searchData.members.filter(member=>memberMatchesQuery(member,query,partyNames)).slice(0,5);
+    const votes=filterItems(searchData.votes,query,localizedSearchFields(['title','question','document'])).slice(0,5);
     const rows=[...members.map(item=>({href:href('members',item.id),title:memberName(item),type:t('members')})),...votes.map(item=>({href:href('votes',item.id),title:voteText(item,'title')||voteText(item,'question'),type:t('votes')}))];
     const showRows=(items,note='')=>{
       status.textContent=ui('Näytetään '+items.length+' tulosta',items.length+' resultat visas',items.length+' results shown')+(note?' · '+note:'');
@@ -636,7 +679,7 @@ function setup(){
   applyChrome();applyViewChrome();applyLocalizedExtras();applyTheme();
   $('.view-toggle').onclick=()=>{closeSearch();closeMenu();setReadingView(readingView==='simple'?'full':'simple')};
   root.addEventListener('click',event=>{if(event.target.closest('[data-full-view]')){closeSearch();closeMenu();setReadingView('full');root.focus({preventScroll:true})}});
-  $('.language-select').onchange=event=>{lang=event.target.value;preferences.set('vahtikissa-lang',lang);applyChrome();applyViewChrome();applyLocalizedExtras();closeSearch();closeMenu();if(data)render();else if(lastLoadError)loadError(lastLoadError);else loadingView()};
+  $('.language-select').onchange=event=>{lang=event.target.value;preferences.set('vahtikissa-lang',lang);applyChrome();applyViewChrome();applyLocalizedExtras();closeSearch();closeMenu();if(lastLoadError)loadError(lastLoadError);else render()};
   $('.theme-select').onchange=event=>{theme=event.target.value;preferences.set('vahtikissa-theme',theme);applyTheme()};
   const restoreRoute=()=>{closeMenu();if(root.dataset.route!==location.hash||root.dataset.view!==readingMode(location.search,readingView))render(savedScrollPosition())};
   window.addEventListener('hashchange',restoreRoute);window.addEventListener('popstate',restoreRoute);
@@ -645,4 +688,4 @@ function setup(){
 let setupComplete=false,lastLoadError=null;
 function loadingView(){root.setAttribute('aria-busy','true');if(lang==='fi'&&routeFromHash(location.hash).page==='overview'&&root.querySelector('.site-introduction'))return;root.innerHTML=`<section class="loading" role="status"><span class="spinner" aria-hidden="true"></span><p>${t('loading')}</p></section>`}
 function loadError(error){lastLoadError=error;const timeout=error?.name==='TimeoutError';root.setAttribute('aria-busy','false');root.innerHTML=`<div class="page"><section class="load-error" role="alert"><span class="eyebrow">${ui('Latausvirhe','Laddningsfel','Loading error')}</span><h1>${ui('Tietoja ei voitu ladata','Uppgifterna kunde inte laddas','The data could not be loaded')}</h1><p>${lang==='en'?(timeout?'Loading took too long. Check your connection and try again.':'Check your connection and try again.'):lang==='sv'?(timeout?'Laddningen tog för lång tid. Kontrollera anslutningen och försök igen.':'Kontrollera anslutningen och försök igen.'):(timeout?'Lataus kesti liian kauan. Tarkista verkkoyhteys ja yritä uudelleen.':'Tarkista verkkoyhteys ja yritä uudelleen.')}</p><details><summary>${ui('Tekniset tiedot','Tekniska detaljer','Technical details')}</summary><code>${e(error?.message||'Unknown error')}</code></details><button type="button" data-retry>${ui('Yritä uudelleen','Försök igen','Try again')}</button></section></div>`;root.querySelector('[data-retry]').onclick=boot;if(!$('.search-panel').hidden)$('#global-search').dispatchEvent(new Event('input'));updateRouteContext({page:'overview'})}
-async function boot(){const retrying=!!lastLoadError;lastLoadError=null;if(retrying)parliamentLoader.clear();if(!setupComplete){setup();setupComplete=true}applyChrome();applyViewChrome();applyLocalizedExtras();applyTheme();loadingView();try{data=await parliamentLoader.loadCore();applyChrome();applyViewChrome();applyLocalizedExtras();updateFooterTimestamp();await render(savedScrollPosition());if(!$('.search-panel').hidden)$('#global-search').dispatchEvent(new Event('input'))}catch(error){loadError(error)}}boot();
+async function boot(){const retrying=!!lastLoadError;lastLoadError=null;if(retrying)parliamentLoader.clear();if(!setupComplete){setup();setupComplete=true}await render(savedScrollPosition());if(!$('.search-panel').hidden)$('#global-search').dispatchEvent(new Event('input'))}boot();

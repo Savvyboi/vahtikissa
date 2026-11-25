@@ -3,7 +3,7 @@ name: Daily Eduskunta data sync
 on:
   push:
     branches: [main]
-    paths: ['scripts/http-retry.mjs', 'scripts/sync-data.mjs', 'scripts/lib.mjs', 'scripts/parliament-members.mjs', 'scripts/member-profiles.mjs', 'scripts/sync-member-contacts.mjs', 'speech-research.js', 'speech-stopwords.js', 'app-utils.js', '.github/workflows/daily-sync.yml']
+    paths: ['scripts/http-retry.mjs', 'scripts/sync-data.mjs', 'scripts/lib.mjs', 'scripts/parliament-members.mjs', 'scripts/member-profiles.mjs', 'scripts/sync-member-contacts.mjs', 'scripts/sync-member-portraits.mjs', 'speech-research.js', 'speech-stopwords.js', 'app-utils.js', '.github/workflows/daily-sync.yml']
   schedule:
     - cron: '17 2 * * *'
   workflow_dispatch:
@@ -39,12 +39,16 @@ jobs:
         run: |
           node --input-type=module -e "import {readFileSync,existsSync,appendFileSync} from 'node:fs'; const data=JSON.parse(readFileSync('data/parliament.json')); const missing=data.members.some(member=>!existsSync('assets/members/'+member.id+'.webp')); appendFileSync(process.env.GITHUB_OUTPUT,'missing='+missing+'\n');"
       - name: Prepare portrait importer
+        id: portrait_browser
         if: steps.portraits.outputs.missing == 'true'
-        run: |
-          npm ci
-          npx playwright install --with-deps chromium
+        continue-on-error: true
+        timeout-minutes: 8
+        run: npx playwright install --with-deps chromium
       - name: Download portraits for new members
-        if: steps.portraits.outputs.missing == 'true'
+        id: portrait_download
+        if: steps.portrait_browser.outcome == 'success'
+        continue-on-error: true
+        timeout-minutes: 5
         run: npm run sync:portraits
       - name: Validate generated data
         run: npm run validate-data
@@ -62,7 +66,12 @@ jobs:
           done
           exit 1
       - name: Report directory contact refresh failure
-        if: steps.contacts.outcome == 'failure'
+        if: ${{ !cancelled() && steps.contacts.outcome == 'failure' }}
         run: |
-          echo "The MP directory could not be refreshed. The previous contact snapshot was retained."
+          echo "The MP directory could not be refreshed. The previous contact snapshot was retained." >> "$GITHUB_STEP_SUMMARY"
+          exit 1
+      - name: Report portrait refresh failure
+        if: ${{ !cancelled() && (steps.portrait_browser.outcome == 'failure' || steps.portrait_download.outcome == 'failure') }}
+        run: |
+          echo "Some official portraits could not be refreshed. Available portraits and validated data can still be published." >> "$GITHUB_STEP_SUMMARY"
           exit 1
