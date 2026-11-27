@@ -1,7 +1,7 @@
 import {readFile,writeFile,rename,appendFile} from 'node:fs/promises';
 import {randomUUID} from 'node:crypto';
 import {pathToFileURL} from 'node:url';
-export const DAILY_REQUEST_LIMIT=950;
+export const DAILY_REQUEST_LIMIT=475;
 export const BATCH_REQUEST_LIMIT=150;
 export const REQUEST_DELAY_MS=4100;
 const utcDay=now=>new Date(now).toISOString().slice(0,10);
@@ -27,7 +27,7 @@ export async function reserveDailyRequests({file,apiKey,requested=BATCH_REQUEST_
  if(!response.ok)throw Error('OpenRouter quota check HTTP '+response.status);
  const quota=(await response.json()).data?.free_model_daily_requests;
  if(!quota||!['used','limit','remaining'].every(k=>Number.isInteger(quota[k])&&quota[k]>=0))throw Error('OpenRouter free-request quota is unavailable; no requests reserved');
- if(quota.limit<DAILY_REQUEST_LIMIT)throw Error('OpenRouter daily allowance is '+quota.limit+'; the configured 950-request plan requires an eligible account');
+ if(quota.limit<DAILY_REQUEST_LIMIT)throw Error('OpenRouter daily allowance is '+quota.limit+'; the configured '+DAILY_REQUEST_LIMIT+'-request plan requires an eligible account');
  const time=now(),day=utcDay(time),previous=await readLedger(file);
  const previousJSON=JSON.stringify(previous);
  const state=previous?.day===day?previous:{version:1,day,used:0,reservations:[]};

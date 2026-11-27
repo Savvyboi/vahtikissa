@@ -12,13 +12,13 @@ const ledger=(used,actual=150)=>({version:1,day:'2026-10-20',used,reservations:[
 test('saved batches immediately dispatch the next batch, bounded by remaining daily quota',async()=>{
  const calls=[];
  const options={reservationId:'batch',repository:'Savvyboi/vahtikissa',token:'test-token',now,fetchImpl:async(url,request)=>{calls.push({url,request});return {status:204};}};
- const next=await continueBackfill({...options,ledger:ledger(598)});
+ const next=await continueBackfill({...options,ledger:ledger(300)});
  assert.equal(next.continue,true);assert.equal(calls.length,1);
  assert.equal(calls[0].url,'https://api.github.com/repos/Savvyboi/vahtikissa/actions/workflows/daily-ai-sync.yml/dispatches');
  assert.deepEqual(JSON.parse(calls[0].request.body),{ref:'main',inputs:{max_requests:'150',refresh_programmes:false}});
- const last=await continueBackfill({...options,ledger:ledger(898)});
- assert.equal(last.requests,52);assert.equal(JSON.parse(calls[1].request.body).inputs.max_requests,'52');
- assert.equal((await continueBackfill({...options,ledger:ledger(950)})).continue,false);
+ const last=await continueBackfill({...options,ledger:ledger(450)});
+ assert.equal(last.requests,25);assert.equal(JSON.parse(calls[1].request.body).inputs.max_requests,'25');
+ assert.equal((await continueBackfill({...options,ledger:ledger(475)})).continue,false);
  assert.equal(calls.length,2);
 });
 
@@ -38,7 +38,7 @@ test('continuation handles UTC rollover and reports a rejected handoff',async()=
  await assert.rejects(continueBackfill({ledger:ledger(300),reservationId:'batch',now,repository:'Savvyboi/vahtikissa',token:'test-token',fetchImpl:async()=>({status:403})}),/dispatch HTTP 403/);
 });
 
-test('chained batches spend exactly 950 requests including a partially failed batch, then reset on the next UTC day',async()=>{
+test('chained batches spend exactly 475 requests including a partially failed batch, then reset on the next UTC day',async()=>{
  const dir=await mkdtemp(join(tmpdir(),'vahti-ai-chain-'));
  try{
   const file=new URL('budget.json',pathToFileURL(dir+'/'));let used=0,time=now,batch=0;
@@ -52,11 +52,11 @@ test('chained batches spend exactly 950 requests including a partially failed ba
    await guard.settle(actual);used+=actual;batch++;
    const state=JSON.parse(await readFile(file,'utf8'));
    const plan=nextBatchPlan({ledger:state,reservationId:id,now:time});
-   assert.equal(state.used,used);assert.ok(state.used<=950);
-   if(!plan.continue){assert.equal(used,950);break;}
+   assert.equal(state.used,used);assert.ok(state.used<=475);
+   if(!plan.continue){assert.equal(used,475);break;}
    assert.ok(batch<10);
   }while(true);
-  assert.equal(batch,7);
+  assert.equal(batch,4);
   time+=86400000;used=0;
   const tomorrow=await reserveDailyRequests({file,id:'tomorrow',apiKey:'test',now:()=>time,fetchImpl:async()=>({ok:true,json:async()=>({data:{free_model_daily_requests:{used,limit:1000,remaining:1000}}})})});
   assert.equal(tomorrow.requests,150);assert.equal(tomorrow.day,'2026-10-21');

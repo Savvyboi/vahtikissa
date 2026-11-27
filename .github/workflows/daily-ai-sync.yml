@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       max_requests:
-        description: Maximum requests in this batch (1–150; all batches share 950 per UTC day)
+        description: Maximum requests in this batch (1–150, with a shared limit of 475 per UTC day)
         default: '150'
         required: true
       refresh_programmes:
