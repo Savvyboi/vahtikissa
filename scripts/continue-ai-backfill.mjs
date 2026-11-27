@@ -9,7 +9,7 @@ export function nextBatchPlan({ledger,reservationId,pending=true,now=Date.now()}
  if(!Number.isInteger(ledger.used)||ledger.used<0)throw Error('Invalid AI request ledger');
  const day=new Date(now).toISOString().slice(0,10);
  const remaining=ledger.day===day?Math.max(0,DAILY_REQUEST_LIMIT-ledger.used):DAILY_REQUEST_LIMIT;
- if(!remaining)return {continue:false,reason:'The daily 950-request budget has been reached.'};
+ if(!remaining)return {continue:false,reason:'The daily '+DAILY_REQUEST_LIMIT+'-request budget has been reached.'};
  return {continue:true,requests:Math.min(BATCH_REQUEST_LIMIT,remaining),reason:'Backfill pending with '+remaining+' requests left in the daily budget.'};
 }
 
